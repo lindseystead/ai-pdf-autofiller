@@ -29,6 +29,7 @@ jobs:
       - name: Type check
         run: |
           mypy src/
+      # CVE-2026-1703: pip wheel path traversal (tooling, not app code). Fix: upgrade pip to 26+.
       - name: Security audit
         run: |
           pip-audit --ignore-vuln CVE-2026-1703
