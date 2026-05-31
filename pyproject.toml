@@ -1,6 +1,6 @@
 [project]
 name = "pdf-autofiller"
-version = "0.3.0"
+version = "0.3.1"
 description = "PDF form filling service with deterministic field mapping"
 readme = "README.md"
 requires-python = ">=3.11,<4.0"
