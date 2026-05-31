@@ -13,10 +13,14 @@ All notable changes to this project will be documented in this file.
 - Added denial-of-service guards: page-count cap (`MAX_PDF_PAGES`, default 200) → `pdf_too_many_pages` (413), and a parsing/extraction time budget (`PDF_READ_TIMEOUT_SECONDS`, default 20) → `pdf_processing_timeout` (503). Extraction now runs off the event loop.
 - PII minimization: provider-backed calls no longer send raw user-data values or a field's current value; only key names and value type names are shared.
 - Hardened temporary-file cleanup so uploaded/generated PDFs are removed on every non-success path, including timeouts and cancellations.
+- Bumped `pypdf` (>=6.12.2) and `python-multipart` (>=0.0.30) minimums to patched, CVE-fixed releases; these parse untrusted input. (Residual: `starlette` advisory PYSEC-2026-161 awaits FastAPI support for the patched 1.x line.)
+- Bounded total extracted PDF text (`MAX_PDF_TEXT_CHARS`, default 2,000,000) to limit memory and provider-token exposure on hostile documents.
+- Added a structured, PII-free per-fill audit log line (`audit action=fill ...`) recording request ID, feature flags, and field counts only.
 
 ### Changed
 
-- Documented the new configuration, error codes, and privacy behavior in `README.md`, `docs/API.md`, and `docs/OPERATIONS.md`.
+- Documented the new configuration, error codes, privacy behavior, and audit logging in `README.md`, `docs/API.md`, `docs/OPERATIONS.md`, and `SECURITY.md`.
+- Expanded module docstrings to state the security/privacy rationale for each stage.
 
 ## [0.2.0]
 

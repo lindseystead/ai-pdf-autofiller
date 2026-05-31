@@ -3,6 +3,10 @@ Data mapping engine for PDF form filling.
 
 Mapping is deterministic-first (normalized keys, aliases, coercion).
 Provider-backed fallback is optional and only used for unresolved high-value fields.
+
+Privacy: the optional provider fallback shares user-data *key names* and value
+*types* only — never the raw user values — so PII does not leave the service
+through this path.
 """
 
 import json

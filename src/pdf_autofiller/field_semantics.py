@@ -3,6 +3,10 @@ Provider-backed semantic inference for form fields.
 
 This module isolates model calls and response parsing so the rest of the
 pipeline can stay deterministic when the provider is unavailable.
+
+Privacy: prompts sent to the external provider include field metadata and
+nearby page text, but never a field's current value (which may be PII). This
+path is opt-in and only active when a provider API key is configured.
 """
 
 import json

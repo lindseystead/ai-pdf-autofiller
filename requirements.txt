@@ -2,10 +2,14 @@
 #
 # Install with: pip install -r requirements.txt
 # Or use Poetry: poetry install
+#
+# Minimum versions are pinned to patched releases. pypdf parses untrusted PDFs
+# and python-multipart parses untrusted uploads, so their CVE fixes are
+# security-critical for this service; keep them current.
 
-pypdf>=6.6.2
+pypdf>=6.12.2
 pydantic>=2.0.0
 openai>=1.0.0
 fastapi>=0.115.0
 uvicorn>=0.30.0
-python-multipart>=0.0.9
+python-multipart>=0.0.30

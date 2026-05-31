@@ -9,6 +9,7 @@
 - `MAX_UPLOAD_BYTES`: maximum accepted PDF size in bytes (default 5 MiB)
 - `MAX_PDF_PAGES`: maximum accepted page count, rejected before extraction (default `200`)
 - `PDF_READ_TIMEOUT_SECONDS`: wall-clock budget for PDF parsing/extraction (default `20`)
+- `MAX_PDF_TEXT_CHARS`: cap on total extracted text retained/forwarded (default `2000000`)
 - `RATE_LIMIT_PER_MINUTE`: per-client request budget for `POST /fill`; `0` disables (default `60`)
 - `LOG_LEVEL`: process log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`)
 
@@ -21,6 +22,11 @@
 - Temporary files are cleaned up after request completion or failure, including error and timeout paths.
 - Privacy: provider-backed features send field metadata and nearby page text to an external service, but **never the raw user-data values or a field's current value** — only key names and value type names are shared. Disable these features by leaving `MODEL_PROVIDER_API_KEY` unset and the semantic/fallback flags off.
 - The in-process rate limiter suits a single worker; for multi-worker or multi-instance deployments, enforce limits at the ingress/proxy layer.
+
+## Audit Logging
+
+- Each successful fill emits one structured, PII-free `audit action=fill` log line containing the request ID, whether auth was enabled, the optional features used, and field counts (total/written/review-skipped/empty-skipped/missing). No field names or user values are logged.
+- These lines are the application-level audit trail. Shipping them to a durable, access-controlled store and setting a retention policy are deployment responsibilities.
 
 ## Container Usage
 

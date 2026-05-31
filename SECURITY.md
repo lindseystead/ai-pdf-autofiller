@@ -18,13 +18,38 @@ If you discover a security issue, please do not open a public issue.
 
 - Secrets are loaded from environment variables (for example `MODEL_PROVIDER_API_KEY`).
 - `.env` files are ignored by git.
-- Dependency scanning is run in CI via `pip-audit`.
+- Dependency scanning is run in CI via `pip-audit`; `pypdf` and `python-multipart`
+  (which parse untrusted input) are pinned to patched minimum versions.
 - Static analysis checks run in CI (`ruff`, `mypy`).
+
+## Request-Path Controls (`POST /fill`)
+
+- **Authentication is enabled by default and fails closed.** Disable only for
+  trusted/local use via `API_AUTH_ENABLED=false`.
+- **Rate limiting** per client (`RATE_LIMIT_PER_MINUTE`). The built-in limiter is
+  in-process; multi-worker/multi-instance deployments must enforce limits at the
+  ingress/proxy layer.
+- **Upload validation:** content-type, `%PDF-` signature, byte-size cap
+  (`MAX_UPLOAD_BYTES`), and page-count cap (`MAX_PDF_PAGES`).
+- **DoS bounds:** PDF parsing runs off the event loop under a wall-clock timeout
+  (`PDF_READ_TIMEOUT_SECONDS`); retained/forwarded text is capped
+  (`MAX_PDF_TEXT_CHARS`). Set a container memory limit as an additional backstop.
+- **Temporary files** are removed on every code path, including errors, timeouts,
+  and client cancellations.
+- **Audit trail:** a structured, PII-free log line is emitted per fill. Shipping
+  and retaining these logs is a deployment responsibility.
 
 ## Data Handling Notes
 
-- This project may process sensitive form data depending on user input.
-- If optional provider-backed features are enabled, prompt content can be sent to external services.
+- This service may process sensitive form data (PII) depending on user input.
+- The application does not persist uploads or generated PDFs; they live only in a
+  per-request temporary directory that is deleted when the request ends.
+- Provider-backed features are **opt-in** and minimize data egress: only field
+  metadata, nearby page text, user-data key names, and value *type* names are
+  sent — never raw user-data values or a field's current value. Disable entirely
+  by leaving `MODEL_PROVIDER_API_KEY` unset and the semantic/fallback flags off.
+- Operators enabling provider features should confirm an appropriate data
+  processing agreement (DPA) with that provider.
 - Do not use real PII in development environments unless you have explicit approval.
 
 ## Scope Clarification

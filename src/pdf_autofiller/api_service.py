@@ -1,8 +1,17 @@
 """
 HTTP boundary for the PDF autofill service.
 
-This module handles request validation, auth, and response contracts.
-Core PDF logic remains in reader/mapping/writer modules.
+This module owns request validation, authentication, and response contracts.
+Core PDF logic remains in the reader/mapping/writer modules.
+
+Security posture (this service accepts untrusted uploads from the public):
+- Authentication on POST /fill is enabled by default and fails closed.
+- Per-client rate limiting protects against request floods.
+- Uploads are size-, signature-, and page-count-checked, and PDF parsing runs
+  off the event loop under a wall-clock timeout to bound DoS from hostile PDFs.
+- Temporary files are removed on every code path.
+- A structured, PII-free audit line is emitted per fill.
+See docs/AUDIT.md and docs/OPERATIONS.md for rationale and configuration.
 """
 
 import asyncio
@@ -133,6 +142,40 @@ def _fill_report_headers(report: FillReport) -> dict[str, str]:
         "X-PDF-Fields-Skipped-Review": _safe_header_value(report.skipped_review_fields),
         "X-PDF-Fields-Skipped-Empty": _safe_header_value(report.skipped_empty_fields),
     }
+
+
+def _audit_log_fill(
+    request: Request,
+    *,
+    fields_total: int,
+    report: FillReport,
+    missing_required: int,
+    use_semantic_inference: bool,
+    allow_fallback_mapping: bool,
+) -> None:
+    """Emit a structured, PII-free audit record for a completed fill.
+
+    This is the application-level audit trail. It deliberately records only
+    counts, request identity, and which optional features ran — never field
+    names or user values — so the line is safe to ship to a central log store.
+    Persistent retention/storage is a deployment responsibility (see
+    docs/OPERATIONS.md).
+    """
+    request_id = getattr(request.state, "request_id", "unknown")
+    logger.info(
+        "audit action=fill request_id=%s auth=%s fields_total=%d fields_written=%d "
+        "fields_review_skipped=%d fields_empty_skipped=%d missing_required=%d "
+        "semantic_inference=%s fallback_mapping=%s",
+        request_id,
+        "enabled" if API_AUTH_ENABLED else "disabled",
+        fields_total,
+        len(report.written_fields),
+        len(report.skipped_review_fields),
+        len(report.skipped_empty_fields),
+        missing_required,
+        use_semantic_inference,
+        allow_fallback_mapping,
+    )
 
 
 def _page_context_by_number(text_regions: list[TextRegion]) -> dict[int, str]:
@@ -392,6 +435,14 @@ async def fill(
         )
 
         fill_report = fill_pdf(input_path, output_path, mapping_result)
+        _audit_log_fill(
+            request,
+            fields_total=len(enriched_fields),
+            report=fill_report,
+            missing_required=len(mapping_result.missing_required),
+            use_semantic_inference=use_semantic_inference,
+            allow_fallback_mapping=allow_fallback_mapping,
+        )
         response = FileResponse(
             path=output_path,
             media_type="application/pdf",

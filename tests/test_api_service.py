@@ -167,6 +167,27 @@ def test_fill_endpoint_exposes_fill_report_headers():
     assert "X-PDF-Fields-Skipped-Empty" in response.headers
 
 
+def test_fill_endpoint_emits_pii_free_audit_log(caplog):
+    import logging
+
+    secret_value = "Top-Secret-Applicant-Name"
+    with caplog.at_level(logging.INFO, logger="pdf_autofiller.api_service"):
+        response = client.post(
+            "/fill",
+            files={"pdf_file": ("input.pdf", _minimal_pdf_bytes(), "application/pdf")},
+            data={
+                "user_data": f'{{"firstname":"{secret_value}"}}',
+                "strict": "true",
+            },
+        )
+
+    assert response.status_code == 200
+    audit_lines = [r.getMessage() for r in caplog.records if "action=fill" in r.getMessage()]
+    assert audit_lines, "expected an audit log line"
+    # The audit trail must never contain raw user values.
+    assert secret_value not in caplog.text
+
+
 def test_fill_endpoint_rate_limited(monkeypatch):
     monkeypatch.setattr(api_service, "RATE_LIMIT_PER_MINUTE", 1)
 

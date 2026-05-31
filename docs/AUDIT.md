@@ -29,10 +29,16 @@
 >   container level.
 > - **9.5 Temp-file cleanup (MED):** consolidated into a single guard that runs
 >   on every non-success path, including timeouts and cancellations.
+> - **9.6 Audit trail (MED):** a structured, PII-free audit line is now emitted
+>   per fill. Durable storage/retention remains a deployment responsibility.
+> - **Dependencies:** `pypdf` and `python-multipart` (both parse untrusted input)
+>   pinned to patched, CVE-fixed minimums; total extracted text is now bounded.
 >
-> Still open: template persistence, **9.6 persistent audit-log store**, async/bulk,
-> multi-tenancy/RBAC, signatures, OCR. Tracked in the roadmap below and in
-> `CHANGELOG.md`.
+> Still open (feature/scale, not request-path safety): template persistence,
+> async/bulk, multi-tenancy/RBAC, signatures, OCR, and a durable audit-log
+> *store*. Residual: `starlette` advisory PYSEC-2026-161 (awaits FastAPI support
+> for starlette 1.x) and the single-page decompression edge noted under 9.3.
+> Tracked in the roadmap below and in `CHANGELOG.md`.
 
 ---
 

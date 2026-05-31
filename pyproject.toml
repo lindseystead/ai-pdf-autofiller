@@ -28,12 +28,14 @@ packages = [
 
 [tool.poetry.dependencies]
 python = "^3.11"
-pypdf = "^6.6.2"
+# pypdf and python-multipart parse untrusted input; floors track patched
+# (CVE-fixed) releases and must stay current.
+pypdf = "^6.12.2"
 pydantic = "^2.0.0"
 openai = "^1.0.0"
 fastapi = "^0.115.0"
 uvicorn = "^0.30.0"
-python-multipart = "^0.0.9"
+python-multipart = ">=0.0.30"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.0"

@@ -62,6 +62,21 @@ def test_read_pdf_allows_within_page_limit(tmp_path):
     assert structure.metadata.num_pages == 1
 
 
+def test_extract_text_regions_enforces_total_char_budget(monkeypatch):
+    """Total extracted text is bounded to limit memory/provider exposure."""
+    import types
+
+    monkeypatch.setattr(pdf_reader, "MAX_TOTAL_TEXT_CHARS", 10)
+    reader = types.SimpleNamespace(
+        pages=[FakePage(text="A" * 8), FakePage(text="B" * 8), FakePage(text="C" * 8)]
+    )
+
+    regions = pdf_reader._extract_text_regions(reader)
+
+    total = sum(len(region.text) for region in regions)
+    assert total <= 10
+
+
 def test_get_field_type_variants():
     assert pdf_reader._get_field_type({"/FT": "/Tx"}) == "text"
     assert pdf_reader._get_field_type({"/FT": "/Btn"}) == "button"

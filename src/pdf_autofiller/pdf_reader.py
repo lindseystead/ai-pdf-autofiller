@@ -3,9 +3,14 @@ PDF extraction utilities.
 
 This module is intentionally extraction-only: it reads metadata, fields, and text,
 and does not perform any semantic inference.
+
+Because it parses untrusted documents, it enforces two denial-of-service guards:
+an optional page-count limit (rejected before any extraction) and a cap on the
+total volume of text retained and forwarded downstream.
 """
 
 import logging
+import os
 from pathlib import Path
 from typing import Literal, Optional, cast
 
@@ -15,6 +20,13 @@ from pypdf.generic import IndirectObject
 from .models import DocumentMetadata, DocumentStructure, FormField, TextRegion
 
 logger = logging.getLogger(__name__)
+
+# Upper bound on total extracted page text retained and forwarded downstream
+# (including to any provider for semantic context). Bounds memory and provider
+# token usage for hostile or pathologically large documents. Note: this caps
+# what is *kept*; peak per-page allocation is additionally bounded by the
+# caller's processing time budget and container memory limits.
+MAX_TOTAL_TEXT_CHARS = int(os.getenv("MAX_PDF_TEXT_CHARS", str(2_000_000)))
 
 
 class PdfPageLimitError(Exception):
@@ -196,19 +208,33 @@ def _extract_text_regions(reader: PdfReader) -> list[TextRegion]:
     can fail on corrupted or encrypted pages, so we skip those gracefully.
     """
     text_regions = []
-    
+    total_chars = 0
+
     for page_num, page in enumerate(reader.pages, start=1):
         try:
             text = page.extract_text()
             if text and text.strip():
+                stripped = text.strip()
+                # Bound total retained/forwarded text to limit memory and
+                # provider token usage on hostile or oversized documents.
+                remaining = MAX_TOTAL_TEXT_CHARS - total_chars
+                if remaining <= 0:
+                    logger.warning(
+                        "Extracted text reached %d-char limit; truncating remaining pages",
+                        MAX_TOTAL_TEXT_CHARS,
+                    )
+                    break
+                if len(stripped) > remaining:
+                    stripped = stripped[:remaining]
+                total_chars += len(stripped)
                 text_regions.append(TextRegion(
-                    text=text.strip(),
+                    text=stripped,
                     page_number=page_num
                 ))
         except Exception:
             logger.debug("Failed to extract text from page %s", page_num, exc_info=True)
             continue
-    
+
     return text_regions
 
 
