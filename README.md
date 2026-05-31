@@ -57,10 +57,13 @@ curl -s -X POST http://localhost:8000/fill \
 ## Configuration
 
 - `MODEL_PROVIDER_API_KEY`: enables semantic inference and fallback mapping
-- `API_AUTH_ENABLED`: enables API key validation on `POST /fill`
+- `API_AUTH_ENABLED`: API key validation on `POST /fill` (default `true`; set `false` for trusted/local use)
 - `API_AUTH_TOKEN`: expected token value when auth is enabled
 - `API_KEY_HEADER`: header name used for the incoming token
 - `MAX_UPLOAD_BYTES`: maximum accepted PDF size in bytes
+- `MAX_PDF_PAGES`: maximum accepted page count (default `200`)
+- `PDF_READ_TIMEOUT_SECONDS`: budget for PDF parsing/extraction (default `20`)
+- `RATE_LIMIT_PER_MINUTE`: per-client `POST /fill` budget; `0` disables (default `60`)
 - `LOG_LEVEL`: process log level for the API service
 
 ## Architecture

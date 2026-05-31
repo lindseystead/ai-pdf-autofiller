@@ -17,6 +17,21 @@ from .models import DocumentMetadata, DocumentStructure, FormField, TextRegion
 logger = logging.getLogger(__name__)
 
 
+class PdfPageLimitError(Exception):
+    """Raised when a PDF has more pages than the configured limit allows.
+
+    Used as a cheap denial-of-service guard so hostile or accidental oversized
+    documents are rejected before any expensive text extraction runs.
+    """
+
+    def __init__(self, num_pages: int, max_pages: int):
+        self.num_pages = num_pages
+        self.max_pages = max_pages
+        super().__init__(
+            f"PDF has {num_pages} pages, exceeding the limit of {max_pages}"
+        )
+
+
 def _metadata_value(metadata: dict[str, object], key: str) -> Optional[str]:
     """Read and normalize metadata values as strings."""
     value = metadata.get(key)
@@ -197,28 +212,36 @@ def _extract_text_regions(reader: PdfReader) -> list[TextRegion]:
     return text_regions
 
 
-def read_pdf(pdf_path: Path) -> DocumentStructure:
+def read_pdf(pdf_path: Path, *, max_pages: Optional[int] = None) -> DocumentStructure:
     """
     Read a PDF and extract its complete structure.
-    
+
     This is the main entry point for PDF introspection. Returns a structured
     representation of the document including form fields, text content, and
     metadata. No semantic inference happens here - pure extraction only.
-    
+
     Args:
         pdf_path: Path to the PDF file
-        
+        max_pages: Optional maximum page count. When the document exceeds it,
+            extraction is skipped and ``PdfPageLimitError`` is raised before any
+            expensive text extraction runs.
+
     Returns:
         DocumentStructure containing metadata, form fields, and text regions
-        
+
     Raises:
         FileNotFoundError: If the PDF file doesn't exist
+        PdfPageLimitError: If the document exceeds ``max_pages``
     """
     if not pdf_path.exists():
         raise FileNotFoundError(f"PDF file not found: {pdf_path}")
-    
+
     reader = PdfReader(str(pdf_path))
-    
+
+    num_pages = len(reader.pages)
+    if max_pages is not None and num_pages > max_pages:
+        raise PdfPageLimitError(num_pages=num_pages, max_pages=max_pages)
+
     metadata_dict: dict[str, object] = dict(reader.metadata or {})
     metadata = DocumentMetadata(
         num_pages=len(reader.pages),

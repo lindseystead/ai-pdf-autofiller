@@ -201,11 +201,11 @@ def semantic_fallback_mapping(
         })
     
     user_data_keys = list(user_data.keys())
-    user_data_preview = {
-        key: str(user_data[key])[:50]
-        for key in user_data_keys[:10]
-    }
-    
+    # Privacy: send only key names and value *types* to the provider. Raw user
+    # values (which are typically PII) are withheld so they never leave the
+    # service via the fallback path.
+    user_data_types = {key: type(value).__name__ for key, value in user_data.items()}
+
     prompt = f"""Map the following PDF form fields to user data keys.
 
 Form Fields:
@@ -214,8 +214,8 @@ Form Fields:
 Available User Data Keys:
 {json.dumps(user_data_keys, indent=2)}
 
-Sample User Data Values (subset for context):
-{json.dumps(user_data_preview, indent=2)}
+User Data Value Types (type names only; raw values withheld for privacy):
+{json.dumps(user_data_types, indent=2)}
 
 For each field, determine which user data key best matches the semantic meaning.
 Only choose matched_key values from the Available User Data Keys list.

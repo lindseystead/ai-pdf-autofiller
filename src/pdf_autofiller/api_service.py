@@ -5,6 +5,7 @@ This module handles request validation, auth, and response contracts.
 Core PDF logic remains in reader/mapping/writer modules.
 """
 
+import asyncio
 import json
 import logging
 import os
@@ -12,6 +13,7 @@ import secrets
 import tempfile
 import time
 import uuid
+from collections import defaultdict, deque
 from pathlib import Path
 from typing import Any
 
@@ -26,14 +28,22 @@ from . import __version__
 from .field_semantics import infer_field_semantics
 from .mapping import map_user_data_to_fields, normalize_key
 from .models import EnrichedFormField, FieldSemantics, FillReport, FormField, TextRegion
-from .pdf_reader import read_pdf
+from .pdf_reader import PdfPageLimitError, read_pdf
 from .pdf_writer import UnresolvedRequiredFieldsError, fill_pdf
 
 LOG_LEVEL_NAME = os.getenv("LOG_LEVEL", "INFO").upper()
-API_AUTH_ENABLED = os.getenv("API_AUTH_ENABLED", "false").lower() == "true"
+# Fail closed: authentication is enabled unless explicitly disabled. Operators
+# running a trusted/local deployment can set API_AUTH_ENABLED=false.
+API_AUTH_ENABLED = os.getenv("API_AUTH_ENABLED", "true").lower() == "true"
 API_AUTH_TOKEN = os.getenv("API_AUTH_TOKEN", "")
 API_KEY_HEADER = os.getenv("API_KEY_HEADER", "X-API-Key")
 MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(5 * 1024 * 1024)))
+# Reject obviously oversized documents before extraction (cheap DoS guard).
+MAX_PDF_PAGES = int(os.getenv("MAX_PDF_PAGES", "200"))
+# Wall-clock budget for PDF parsing/extraction, the main CPU/memory DoS vector.
+PDF_READ_TIMEOUT_SECONDS = float(os.getenv("PDF_READ_TIMEOUT_SECONDS", "20"))
+# Per-client request budget for POST /fill. Set to 0 to disable.
+RATE_LIMIT_PER_MINUTE = int(os.getenv("RATE_LIMIT_PER_MINUTE", "60"))
 
 
 def _resolve_log_level() -> int:
@@ -209,6 +219,40 @@ async def request_context_middleware(request: Request, call_next):
     return response
 
 
+# Per-client request timestamps for the sliding-window rate limiter. This is an
+# in-process guard suitable for a single worker; multi-worker deployments should
+# add a shared limiter (e.g. at the ingress/proxy layer).
+_rate_limit_state: dict[str, deque[float]] = defaultdict(deque)
+
+
+def _reset_rate_limit_state() -> None:
+    """Clear rate-limiter state (used by tests)."""
+    _rate_limit_state.clear()
+
+
+def _enforce_rate_limit(request: Request) -> None:
+    """Apply a per-client sliding-window rate limit, if enabled."""
+    if RATE_LIMIT_PER_MINUTE <= 0:
+        return
+
+    client_host = request.client.host if request.client else "unknown"
+    now = time.monotonic()
+    window = _rate_limit_state[client_host]
+    # Drop timestamps older than the 60s window.
+    while window and now - window[0] >= 60.0:
+        window.popleft()
+
+    if len(window) >= RATE_LIMIT_PER_MINUTE:
+        raise _api_error(
+            status_code=429,
+            code="rate_limited",
+            message="Too many requests",
+            details={"limit_per_minute": RATE_LIMIT_PER_MINUTE},
+        )
+
+    window.append(now)
+
+
 def _require_api_key(request: Request) -> None:
     """Validate API key auth when enabled."""
     if not API_AUTH_ENABLED:
@@ -266,8 +310,13 @@ async def fill(
         use_semantic_inference: Enable semantic inference before mapping
     """
     temp_dir = None
+    # The FileResponse streams the output and cleans up the temp dir via a
+    # BackgroundTask. On every other path we must clean up here, so track whether
+    # ownership of the temp dir was handed off to a successful response.
+    response_started = False
 
     try:
+        _enforce_rate_limit(request)
         _require_api_key(request)
 
         if pdf_file.content_type not in ("application/pdf", "application/octet-stream"):
@@ -308,7 +357,28 @@ async def fill(
             )
         input_path.write_bytes(content)
 
-        structure = read_pdf(input_path)
+        # Parse/extract off the event loop with a wall-clock budget. Extraction is
+        # the main CPU/memory cost and the primary DoS vector for hostile PDFs.
+        try:
+            structure = await asyncio.wait_for(
+                asyncio.to_thread(read_pdf, input_path, max_pages=MAX_PDF_PAGES),
+                timeout=PDF_READ_TIMEOUT_SECONDS,
+            )
+        except asyncio.TimeoutError as exc:
+            raise _api_error(
+                status_code=503,
+                code="pdf_processing_timeout",
+                message="PDF processing exceeded the time limit",
+                details={"timeout_seconds": PDF_READ_TIMEOUT_SECONDS},
+            ) from exc
+        except PdfPageLimitError as exc:
+            raise _api_error(
+                status_code=413,
+                code="pdf_too_many_pages",
+                message="PDF exceeds the maximum allowed page count",
+                details={"max_pages": exc.max_pages, "num_pages": exc.num_pages},
+            ) from exc
+
         enriched_fields = _enrich_fields(
             structure.form_fields,
             use_semantic_inference=use_semantic_inference,
@@ -322,16 +392,16 @@ async def fill(
         )
 
         fill_report = fill_pdf(input_path, output_path, mapping_result)
-        return FileResponse(
+        response = FileResponse(
             path=output_path,
             media_type="application/pdf",
             filename=f"{Path(pdf_file.filename or 'filled').stem}_filled.pdf",
             headers=_fill_report_headers(fill_report),
             background=BackgroundTask(temp_dir.cleanup),
         )
+        response_started = True
+        return response
     except json.JSONDecodeError as exc:
-        if temp_dir is not None:
-            temp_dir.cleanup()
         raise _api_error(
             status_code=422,
             code="invalid_user_data_json",
@@ -339,8 +409,6 @@ async def fill(
             details={"reason": str(exc)},
         ) from exc
     except UnresolvedRequiredFieldsError as exc:
-        if temp_dir is not None:
-            temp_dir.cleanup()
         raise _api_error(
             status_code=422,
             code="required_fields_unresolved",
@@ -351,12 +419,8 @@ async def fill(
             },
         ) from exc
     except HTTPException:
-        if temp_dir is not None:
-            temp_dir.cleanup()
         raise
     except Exception as exc:
-        if temp_dir is not None:
-            temp_dir.cleanup()
         logger.exception("PDF fill request failed")
         raise _api_error(
             status_code=500,
@@ -364,6 +428,9 @@ async def fill(
             message="PDF fill failed",
         ) from exc
     finally:
+        # Clean up unless a successful response took ownership of the temp dir.
+        if temp_dir is not None and not response_started:
+            temp_dir.cleanup()
         await pdf_file.close()
 
 

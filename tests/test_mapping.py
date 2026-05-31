@@ -408,3 +408,43 @@ def test_semantic_fallback_prompt_includes_keys_beyond_preview_limit():
         mapping_module.SemanticClient = original_client
 
     assert '"extra_10"' in captured_prompt["user_prompt"]
+
+
+def test_semantic_fallback_prompt_withholds_raw_user_values():
+    fields = [
+        EnrichedFormField(
+            field=FormField(name="txtName", field_type="text", required=False, page_number=1),
+            semantics=FieldSemantics(
+                semantic_meaning="first_name",
+                expected_data_type="string",
+                confidence_score=0.95,
+            ),
+        )
+    ]
+    captured_prompt: dict[str, str] = {}
+
+    class RecordingClient:
+        def __init__(self, api_key=None):
+            del api_key
+
+        @staticmethod
+        def is_available():
+            return True
+
+        @staticmethod
+        def create_json_completion(**kwargs):
+            captured_prompt["user_prompt"] = kwargs["user_prompt"]
+            return '{"txtName":{"matched_key":null,"confidence":0.0,"reason":"No match"}}'
+
+    original_client = mapping_module.SemanticClient
+    mapping_module.SemanticClient = RecordingClient
+    try:
+        semantic_fallback_mapping(fields, {"firstname": "TopSecretValue"})
+    finally:
+        mapping_module.SemanticClient = original_client
+
+    prompt = captured_prompt["user_prompt"]
+    # Key names and value types are shared; raw PII values are not.
+    assert "firstname" in prompt
+    assert "str" in prompt
+    assert "TopSecretValue" not in prompt

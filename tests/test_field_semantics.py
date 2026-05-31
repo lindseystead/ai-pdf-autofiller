@@ -31,6 +31,20 @@ def test_build_prompt_includes_field_and_context():
     assert "expected_data_type" in prompt
 
 
+def test_build_prompt_does_not_leak_field_value():
+    client = field_semantics.SemanticClient(api_key=None)
+    field = FormField(
+        name="txtSSN",
+        field_type="text",
+        value="123-45-6789",
+        required=True,
+        page_number=1,
+    )
+    prompt = client._build_prompt(field, None)
+    assert "123-45-6789" not in prompt
+    assert "Has Value: yes" in prompt
+
+
 def test_parse_response_accepts_json_and_code_fence():
     client = field_semantics.SemanticClient(api_key=None)
     raw = """

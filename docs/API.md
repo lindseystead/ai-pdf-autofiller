@@ -18,7 +18,7 @@ Example response:
 {
   "status": "ok",
   "service": "pdf-autofiller",
-  "version": "0.2.0"
+  "version": "0.3.0"
 }
 ```
 
@@ -95,6 +95,9 @@ Common error codes:
 - `unsupported_media_type`
 - `invalid_pdf_signature`
 - `payload_too_large`
+- `pdf_too_many_pages`
+- `pdf_processing_timeout`
+- `rate_limited`
 - `unauthorized`
 - `server_auth_config_error`
 - `required_fields_unresolved`
@@ -102,7 +105,9 @@ Common error codes:
 
 ## Authentication
 
-Authentication applies only to `POST /fill` when `API_AUTH_ENABLED=true`.
+Authentication applies only to `POST /fill`. It is **enabled by default**
+(`API_AUTH_ENABLED=true`) and can be disabled for trusted/local use by setting
+`API_AUTH_ENABLED=false`.
 
 - Header name defaults to `X-API-Key`
 - The header name can be changed with `API_KEY_HEADER`

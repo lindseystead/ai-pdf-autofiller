@@ -31,6 +31,37 @@ class FakePage(dict):
         return self._text
 
 
+def test_read_pdf_enforces_page_limit(tmp_path):
+    """read_pdf rejects documents exceeding max_pages before extraction."""
+    from pypdf import PdfWriter
+
+    pdf_path = tmp_path / "multi.pdf"
+    writer = PdfWriter()
+    writer.add_blank_page(width=200, height=200)
+    writer.add_blank_page(width=200, height=200)
+    with open(pdf_path, "wb") as handle:
+        writer.write(handle)
+
+    with pytest.raises(pdf_reader.PdfPageLimitError) as exc_info:
+        pdf_reader.read_pdf(pdf_path, max_pages=1)
+
+    assert exc_info.value.num_pages == 2
+    assert exc_info.value.max_pages == 1
+
+
+def test_read_pdf_allows_within_page_limit(tmp_path):
+    from pypdf import PdfWriter
+
+    pdf_path = tmp_path / "single.pdf"
+    writer = PdfWriter()
+    writer.add_blank_page(width=200, height=200)
+    with open(pdf_path, "wb") as handle:
+        writer.write(handle)
+
+    structure = pdf_reader.read_pdf(pdf_path, max_pages=5)
+    assert structure.metadata.num_pages == 1
+
+
 def test_get_field_type_variants():
     assert pdf_reader._get_field_type({"/FT": "/Tx"}) == "text"
     assert pdf_reader._get_field_type({"/FT": "/Btn"}) == "button"

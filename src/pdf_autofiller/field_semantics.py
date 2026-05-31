@@ -170,7 +170,9 @@ class SemanticClient:
             f"- Name: {field.name}",
             f"- Type: {field.field_type}",
             f"- Required: {field.required}",
-            f"- Current Value: {field.value if field.value else '(empty)'}",
+            # Privacy: never send the field's current value (it may be PII);
+            # only whether one is present is relevant to inferring meaning.
+            f"- Has Value: {'yes' if field.value else 'no'}",
             f"- Page: {field.page_number}",
         ]
         

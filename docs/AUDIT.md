@@ -6,8 +6,10 @@
 
 ---
 
-> **Remediation status (v0.2.0).** Two findings from this audit have since been
+> **Remediation status.** Several findings from this audit have since been
 > addressed and are no longer open:
+>
+> _v0.2.0_
 > - **Boolean → checkbox/radio write defect** (Sections 2, 3, 12 item #2): `/Btn`
 >   values are now translated to valid PDF state names in `pdf_writer.py`, so
 >   boolean-style inputs toggle the control. Covered by new tests.
@@ -15,8 +17,22 @@
 >   `FillReport`, and `POST /fill` surfaces dropped fields via the
 >   `X-PDF-Fields-Skipped-Review` / `X-PDF-Fields-Skipped-Empty` headers.
 >
-> The remaining items (template persistence, audit-log store, async/bulk,
-> security hardening, etc.) are tracked in the roadmap below and in `CHANGELOG.md`.
+> _v0.3.0 (security pass)_
+> - **9.1 PII egress (HIGH):** raw user values and field current values are no
+>   longer sent to the provider — only key names and value type names.
+> - **9.2 Default-open `/fill` (MED):** auth now defaults on and fails closed;
+>   per-client rate limiting added (`rate_limited`).
+> - **9.3 Decompression-bomb / DoS (MED):** page-count cap (`pdf_too_many_pages`)
+>   and an extraction time budget (`pdf_processing_timeout`); extraction runs off
+>   the event loop. Residual risk: a single-page high-ratio stream within the
+>   5 MiB cap is bounded but not fully eliminated — keep memory limits at the
+>   container level.
+> - **9.5 Temp-file cleanup (MED):** consolidated into a single guard that runs
+>   on every non-success path, including timeouts and cancellations.
+>
+> Still open: template persistence, **9.6 persistent audit-log store**, async/bulk,
+> multi-tenancy/RBAC, signatures, OCR. Tracked in the roadmap below and in
+> `CHANGELOG.md`.
 
 ---
 

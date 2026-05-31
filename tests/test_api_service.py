@@ -2,6 +2,7 @@
 
 import io
 
+import pytest
 from fastapi.testclient import TestClient
 from pypdf import PdfWriter
 
@@ -12,9 +13,23 @@ from pdf_autofiller.models import EnrichedFormField, FieldSemantics, FormField, 
 client = TestClient(api_service.app)
 
 
-def _minimal_pdf_bytes() -> bytes:
+@pytest.fixture(autouse=True)
+def _isolate_request_guards(monkeypatch):
+    """Run tests without auth and with a clean rate-limiter by default.
+
+    Authentication now defaults to enabled in production; the auth-specific
+    tests opt back in explicitly.
+    """
+    monkeypatch.setattr(api_service, "API_AUTH_ENABLED", False)
+    api_service._reset_rate_limit_state()
+    yield
+    api_service._reset_rate_limit_state()
+
+
+def _minimal_pdf_bytes(pages: int = 1) -> bytes:
     writer = PdfWriter()
-    writer.add_blank_page(width=612, height=792)
+    for _ in range(pages):
+        writer.add_blank_page(width=612, height=792)
     buffer = io.BytesIO()
     writer.write(buffer)
     return buffer.getvalue()
@@ -150,6 +165,52 @@ def test_fill_endpoint_exposes_fill_report_headers():
     assert "X-PDF-Fields-Written" in response.headers
     assert "X-PDF-Fields-Skipped-Review" in response.headers
     assert "X-PDF-Fields-Skipped-Empty" in response.headers
+
+
+def test_fill_endpoint_rate_limited(monkeypatch):
+    monkeypatch.setattr(api_service, "RATE_LIMIT_PER_MINUTE", 1)
+
+    payload = {
+        "files": {"pdf_file": ("input.pdf", _minimal_pdf_bytes(), "application/pdf")},
+        "data": {"user_data": '{"firstname":"John","lastname":"Doe"}', "strict": "true"},
+    }
+    first = client.post("/fill", **payload)
+    second = client.post("/fill", **payload)
+
+    assert first.status_code == 200
+    assert second.status_code == 429
+    assert second.json()["detail"]["error"]["code"] == "rate_limited"
+
+
+def test_fill_endpoint_rejects_too_many_pages(monkeypatch):
+    monkeypatch.setattr(api_service, "MAX_PDF_PAGES", 1)
+
+    response = client.post(
+        "/fill",
+        files={"pdf_file": ("input.pdf", _minimal_pdf_bytes(pages=2), "application/pdf")},
+        data={"user_data": '{"firstname":"John"}', "strict": "true"},
+    )
+    assert response.status_code == 413
+    assert response.json()["detail"]["error"]["code"] == "pdf_too_many_pages"
+
+
+def test_fill_endpoint_times_out_on_slow_read(monkeypatch):
+    import time
+
+    def slow_read(_path, *, max_pages=None):
+        time.sleep(0.3)
+        raise AssertionError("should have timed out before returning")
+
+    monkeypatch.setattr(api_service, "read_pdf", slow_read)
+    monkeypatch.setattr(api_service, "PDF_READ_TIMEOUT_SECONDS", 0.01)
+
+    response = client.post(
+        "/fill",
+        files={"pdf_file": ("input.pdf", _minimal_pdf_bytes(), "application/pdf")},
+        data={"user_data": '{"firstname":"John"}', "strict": "true"},
+    )
+    assert response.status_code == 503
+    assert response.json()["detail"]["error"]["code"] == "pdf_processing_timeout"
 
 
 def test_fill_endpoint_requires_api_key_when_enabled(monkeypatch):
