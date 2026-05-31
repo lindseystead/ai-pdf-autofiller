@@ -36,9 +36,10 @@
 >
 > Still open (feature/scale, not request-path safety): template persistence,
 > async/bulk, multi-tenancy/RBAC, signatures, OCR, and a durable audit-log
-> *store*. Residual: `starlette` advisory PYSEC-2026-161 (awaits FastAPI support
-> for starlette 1.x) and the single-page decompression edge noted under 9.3.
-> Tracked in the roadmap below and in `CHANGELOG.md`.
+> *store* — each tracked as a GitHub issue. The only request-path residual is the
+> single-page decompression edge noted under 9.3 (bounded by the upload cap +
+> container memory limits). The `starlette` PYSEC-2026-161 advisory is resolved:
+> FastAPI was bumped to >= 0.136 and starlette pinned >= 1.0.1.
 
 ---
 
