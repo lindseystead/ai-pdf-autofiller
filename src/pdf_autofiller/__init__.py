@@ -5,4 +5,4 @@ This package provides tools for reading, analyzing, and filling PDF forms
 with optional semantic inference.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"

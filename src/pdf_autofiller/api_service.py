@@ -25,7 +25,7 @@ from pydantic import BaseModel
 from . import __version__
 from .field_semantics import infer_field_semantics
 from .mapping import map_user_data_to_fields, normalize_key
-from .models import EnrichedFormField, FieldSemantics, FormField, TextRegion
+from .models import EnrichedFormField, FieldSemantics, FillReport, FormField, TextRegion
 from .pdf_reader import read_pdf
 from .pdf_writer import UnresolvedRequiredFieldsError, fill_pdf
 
@@ -104,6 +104,25 @@ def _fallback_semantics(field: FormField) -> EnrichedFormField:
             confidence_score=0.5,
         ),
     )
+
+
+def _safe_header_value(field_names: list[str]) -> str:
+    """Render field names as an ASCII-safe, comma-separated HTTP header value."""
+    joined = ",".join(field_names)
+    return joined.encode("ascii", "ignore").decode("ascii")
+
+
+def _fill_report_headers(report: FillReport) -> dict[str, str]:
+    """Expose fill outcome via response headers.
+
+    Lets clients detect non-required fields that were dropped (for example,
+    flagged for review) instead of receiving a silently incomplete PDF.
+    """
+    return {
+        "X-PDF-Fields-Written": str(len(report.written_fields)),
+        "X-PDF-Fields-Skipped-Review": _safe_header_value(report.skipped_review_fields),
+        "X-PDF-Fields-Skipped-Empty": _safe_header_value(report.skipped_empty_fields),
+    }
 
 
 def _page_context_by_number(text_regions: list[TextRegion]) -> dict[int, str]:
@@ -302,11 +321,12 @@ async def fill(
             allow_fallback_mapping=allow_fallback_mapping,
         )
 
-        fill_pdf(input_path, output_path, mapping_result)
+        fill_report = fill_pdf(input_path, output_path, mapping_result)
         return FileResponse(
             path=output_path,
             media_type="application/pdf",
             filename=f"{Path(pdf_file.filename or 'filled').stem}_filled.pdf",
+            headers=_fill_report_headers(fill_report),
             background=BackgroundTask(temp_dir.cleanup),
         )
     except json.JSONDecodeError as exc:

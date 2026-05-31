@@ -18,7 +18,7 @@ Example response:
 {
   "status": "ok",
   "service": "pdf-autofiller",
-  "version": "0.1.0"
+  "version": "0.2.0"
 }
 ```
 
@@ -58,6 +58,16 @@ curl -s -X POST http://localhost:8000/fill \
 ```
 
 On success the response body is the generated PDF (`application/pdf`).
+
+Successful responses also include fill-outcome headers so clients can detect
+fields that were dropped instead of silently losing them:
+
+- `X-PDF-Fields-Written`: count of fields that received a value
+- `X-PDF-Fields-Skipped-Review`: comma-separated field names skipped because the mapping was flagged for review
+- `X-PDF-Fields-Skipped-Empty`: comma-separated field names skipped because the mapped value was empty
+
+Checkbox and radio (`/Btn`) fields are written using their PDF state names, so
+boolean-style inputs (`true`/`yes`/`1`/`on`) correctly toggle the control.
 
 ## Error Contract
 

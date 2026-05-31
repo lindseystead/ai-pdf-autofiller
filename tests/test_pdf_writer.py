@@ -30,6 +30,113 @@ def create_minimal_pdf_with_fields(output_path: Path, field_names: list[str]) ->
         writer.write(f)
 
 
+def create_pdf_with_checkbox(output_path: Path, field_name: str = "chkAgree") -> None:
+    """Create a minimal PDF containing a single checkbox with /Yes and /Off states."""
+    from pypdf import PdfWriter
+    from pypdf.generic import (
+        ArrayObject,
+        DictionaryObject,
+        NameObject,
+        NumberObject,
+        TextStringObject,
+    )
+
+    writer = PdfWriter()
+    page = writer.add_blank_page(width=300, height=300)
+
+    normal = DictionaryObject(
+        {NameObject("/Yes"): DictionaryObject(), NameObject("/Off"): DictionaryObject()}
+    )
+    appearance = DictionaryObject({NameObject("/N"): normal})
+
+    checkbox = DictionaryObject(
+        {
+            NameObject("/Type"): NameObject("/Annot"),
+            NameObject("/Subtype"): NameObject("/Widget"),
+            NameObject("/FT"): NameObject("/Btn"),
+            NameObject("/T"): TextStringObject(field_name),
+            NameObject("/Rect"): ArrayObject(
+                [NumberObject(10), NumberObject(10), NumberObject(30), NumberObject(30)]
+            ),
+            NameObject("/AP"): appearance,
+            NameObject("/AS"): NameObject("/Off"),
+            NameObject("/V"): NameObject("/Off"),
+        }
+    )
+    checkbox_ref = writer._add_object(checkbox)
+    page[NameObject("/Annots")] = ArrayObject([checkbox_ref])
+    acro_form = DictionaryObject({NameObject("/Fields"): ArrayObject([checkbox_ref])})
+    writer._root_object[NameObject("/AcroForm")] = acro_form
+
+    with open(output_path, "wb") as handle:
+        writer.write(handle)
+
+
+def _checkbox_decision(value: str, field_name: str = "chkAgree") -> MappingResult:
+    return MappingResult(
+        decisions=[
+            FieldMappingDecision(
+                field_name=field_name,
+                semantic_meaning="agree_to_terms",
+                selected_value=value,
+                confidence=0.95,
+                reason="Direct match",
+                requires_review=False,
+            )
+        ],
+        missing_required=[],
+        unmapped_user_keys=[],
+    )
+
+
+@pytest.mark.parametrize("value", ["true", "Yes", "1", "on", "/Yes"])
+def test_fill_pdf_checks_checkbox_for_truthy_values(tmp_path, value):
+    """Truthy values must set the checkbox to its on-state, not leave it /Off."""
+    from pypdf import PdfReader
+
+    input_pdf = tmp_path / "input.pdf"
+    output_pdf = tmp_path / "output.pdf"
+    create_pdf_with_checkbox(input_pdf)
+
+    fill_pdf(input_pdf, output_pdf, _checkbox_decision(value))
+
+    fields = PdfReader(str(output_pdf)).get_fields()
+    assert str(fields["chkAgree"].get("/V")) == "/Yes"
+
+
+@pytest.mark.parametrize("value", ["false", "No", "0", "off"])
+def test_fill_pdf_unchecks_checkbox_for_falsy_values(tmp_path, value):
+    """Falsy values must resolve to the /Off state."""
+    from pypdf import PdfReader
+
+    input_pdf = tmp_path / "input.pdf"
+    output_pdf = tmp_path / "output.pdf"
+    create_pdf_with_checkbox(input_pdf)
+
+    fill_pdf(input_pdf, output_pdf, _checkbox_decision(value))
+
+    fields = PdfReader(str(output_pdf)).get_fields()
+    assert str(fields["chkAgree"].get("/V")) == "/Off"
+
+
+def test_fill_pdf_returns_report_listing_review_skips(tmp_path, sample_mapping_result_with_review):
+    """Non-required review-flagged fields are reported, not silently dropped."""
+    input_pdf = tmp_path / "input.pdf"
+    output_pdf = tmp_path / "output.pdf"
+
+    from pypdf import PdfWriter
+
+    writer = PdfWriter()
+    writer.add_blank_page(width=612, height=792)
+    with open(input_pdf, "wb") as f:
+        writer.write(f)
+
+    report = fill_pdf(input_pdf, output_pdf, sample_mapping_result_with_review)
+
+    assert "txtDOB" in report.skipped_review_fields
+    assert "txtDOB" not in report.written_fields
+
+
 @pytest.fixture
 def sample_mapping_result():
     """Create sample mapping result for testing."""

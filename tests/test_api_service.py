@@ -137,6 +137,21 @@ def test_fill_endpoint_returns_pdf():
     assert response.content.startswith(b"%PDF")
 
 
+def test_fill_endpoint_exposes_fill_report_headers():
+    response = client.post(
+        "/fill",
+        files={"pdf_file": ("input.pdf", _minimal_pdf_bytes(), "application/pdf")},
+        data={
+            "user_data": '{"firstname":"John","lastname":"Doe"}',
+            "strict": "true",
+        },
+    )
+    assert response.status_code == 200
+    assert "X-PDF-Fields-Written" in response.headers
+    assert "X-PDF-Fields-Skipped-Review" in response.headers
+    assert "X-PDF-Fields-Skipped-Empty" in response.headers
+
+
 def test_fill_endpoint_requires_api_key_when_enabled(monkeypatch):
     monkeypatch.setattr(api_service, "API_AUTH_ENABLED", True)
     monkeypatch.setattr(api_service, "API_AUTH_TOKEN", "secret-token")

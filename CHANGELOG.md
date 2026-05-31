@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.2.0]
+
+### Added
+
+- `FillReport` returned by `fill_pdf`, reporting written, review-skipped, and empty-skipped fields.
+- `POST /fill` now exposes fill outcome via `X-PDF-Fields-Written`, `X-PDF-Fields-Skipped-Review`, and `X-PDF-Fields-Skipped-Empty` response headers, so non-required fields dropped for review are no longer silently lost.
+- Checkbox/radio (`/Btn`) state resolution in the writer plus regression tests for truthy/falsy and report behavior.
+- `docs/AUDIT.md`: consolidated document-automation architecture audit with a roadmap.
+
+### Fixed
+
+- Checkbox and radio fields are now written using valid PDF state names (e.g. `/Yes`/`/Off`). Boolean-style inputs (`true`/`yes`/`1`/`on`) previously left controls unchecked.
+
+### Changed
+
+- Documented the new response headers and button-fill behavior in `docs/API.md`.
+
 ### Added
 
 - FastAPI service wrapper with `GET /health`, `GET /version`, and `POST /fill` endpoints.

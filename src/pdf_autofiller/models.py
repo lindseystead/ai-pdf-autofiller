@@ -84,7 +84,7 @@ class FieldMappingDecision(BaseModel):
 
 class MappingResult(BaseModel):
     """Result of mapping user data to PDF form fields."""
-    
+
     decisions: list[FieldMappingDecision] = Field(
         default_factory=list,
         description="Mapping decisions for each field"
@@ -96,4 +96,26 @@ class MappingResult(BaseModel):
     unmapped_user_keys: list[str] = Field(
         default_factory=list,
         description="User data keys that were not mapped to any field"
+    )
+
+
+class FillReport(BaseModel):
+    """Outcome of writing mapping decisions into a PDF.
+
+    Surfaces which fields were written and which were intentionally skipped, so
+    callers can detect non-required fields that were dropped (for example because
+    they were flagged ``requires_review``) instead of silently losing them.
+    """
+
+    written_fields: list[str] = Field(
+        default_factory=list,
+        description="Field names that received a value in the output PDF"
+    )
+    skipped_review_fields: list[str] = Field(
+        default_factory=list,
+        description="Field names skipped because the mapping was flagged for review"
+    )
+    skipped_empty_fields: list[str] = Field(
+        default_factory=list,
+        description="Field names skipped because the mapped value was empty"
     )
