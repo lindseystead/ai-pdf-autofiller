@@ -29,10 +29,30 @@ jobs:
       - name: Type check
         run: |
           mypy src/
-      # CVE-2026-1703: pip wheel path traversal (tooling, not app code). Fix: upgrade pip to 26+.
-      - name: Security audit
+      # Audit the runtime surface (what ships in the Docker image via requirements.txt),
+      # not dev/build tooling. It must be clean except for documented, no-exploit-path
+      # transitive advisories, each scoped to a single ID:
+      # - PYSEC-2026-161: starlette Host-header URL reconstruction -> auth bypass ONLY when
+      #   auth depends on the reconstructed URL path. This service authenticates via the
+      #   X-API-Key header (secrets.compare_digest), independent of the request path, so it
+      #   does not apply. Transitive via FastAPI (pins starlette < 1.0). Tracked in #1; lift
+      #   when FastAPI supports starlette >= 1.0. See SECURITY.md.
+      - name: Security audit (runtime dependencies)
         run: |
-          pip-audit --ignore-vuln CVE-2026-1703
+          pip-audit -r requirements.txt --ignore-vuln PYSEC-2026-161
       - name: Run tests
         run: |
           PYTHONPATH=src pytest tests/ -v --cov=src --cov-report=term --cov-fail-under=85
+
+  lockfile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Poetry
+        run: pipx install poetry
+      - name: Verify poetry.lock is in sync with pyproject.toml
+        run: poetry check --lock

@@ -39,6 +39,23 @@ If you discover a security issue, please do not open a public issue.
 - **Audit trail:** a structured, PII-free log line is emitted per fill. Shipping
   and retaining these logs is a deployment responsibility.
 
+## Accepted / Tracked Dependency Advisories
+
+`pip-audit` runs in CI and fails the build on unignored findings. Each ignored
+advisory is scoped to a single ID with a documented rationale:
+
+- **CVE-2026-1703** (`pip`): wheel path traversal in the build tooling, not in
+  application code or the runtime image. Resolved by `pip >= 26`.
+- **PYSEC-2026-161** (`starlette`): the framework reconstructs the request URL
+  from the `Host` header without validation, which can enable authentication
+  bypass **when authentication depends on the reconstructed URL path**. This
+  service authenticates via the `X-API-Key` header using `secrets.compare_digest`
+  and is independent of the request URL/path, so the vector does not apply.
+  The fix requires starlette `>= 1.0.1`, which the current FastAPI release does
+  not yet support (it pins `starlette < 1.0`). Accepted as a tracked transitive
+  risk; see issue #1. The ignore will be removed once FastAPI supports the
+  patched line.
+
 ## Data Handling Notes
 
 - This service may process sensitive form data (PII) depending on user input.
