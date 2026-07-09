@@ -11,6 +11,7 @@ from typing import Optional
 
 from pypdf import PdfReader, PdfWriter
 
+from .field_utils import is_field_required
 from .models import FillReport, MappingResult
 
 logger = logging.getLogger(__name__)
@@ -242,7 +243,7 @@ def fill_pdf(
             # Track required fields that were skipped
             if pdf_fields and field_name in pdf_fields:
                 field_obj = pdf_fields[field_name]
-                if field_obj and _is_field_required(field_obj):
+                if field_obj and is_field_required(field_obj):
                     skipped_required_fields.append(field_name)
             continue
 
@@ -293,7 +294,7 @@ def fill_pdf(
     
     # Check PDF form fields for any required fields we missed
     for field_name, field_obj in (pdf_fields or {}).items():
-        if _is_field_required(field_obj):
+        if is_field_required(field_obj):
             if field_name not in written_fields and field_name not in missing_required:
                 # Check if it was skipped due to review flag
                 skipped_decisions = [
@@ -325,19 +326,3 @@ def fill_pdf(
     )
 
 
-def _is_field_required(field_obj) -> bool:
-    """
-    Check if a PDF form field is marked as required.
-    
-    PDF spec uses bit flags in the /Ff field. Bit 1 (0x02) indicates
-    a required field that must be filled before submission.
-    """
-    if not field_obj:
-        return False
-    
-    try:
-        ff = field_obj.get("/Ff", 0)
-        return bool(ff & 0x02)
-    except Exception:
-        logger.debug("Unable to read required flag from field object", exc_info=True)
-        return False

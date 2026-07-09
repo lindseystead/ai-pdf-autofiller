@@ -1,22 +1,44 @@
 [project]
 name = "pdf-autofiller"
 version = "0.3.1"
-description = "PDF form filling service with deterministic field mapping"
+description = "Fill AcroForm PDFs from JSON with deterministic field mapping and optional AI inference"
 readme = "README.md"
 requires-python = ">=3.11,<4.0"
 authors = [{ name = "Lindsey D. Stead" }]
 license = "MIT"
-keywords = ["pdf", "forms", "automation", "ai", "document-processing"]
+keywords = [
+    "pdf",
+    "forms",
+    "automation",
+    "acroform",
+    "document-processing",
+    "form-filling",
+    "api",
+    "fastapi",
+    "government-forms",
+    "hr-onboarding",
+]
 dynamic = ["dependencies"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: Office/Business",
     "Topic :: Software Development :: Libraries :: Python Modules",
+    "Framework :: FastAPI",
+    "Typing :: Typed",
 ]
+
+[project.urls]
+Homepage = "https://github.com/lindseystead/ai-pdf-autofiller"
+Repository = "https://github.com/lindseystead/ai-pdf-autofiller"
+Documentation = "https://github.com/lindseystead/ai-pdf-autofiller/tree/main/docs"
+Issues = "https://github.com/lindseystead/ai-pdf-autofiller/issues"
+Changelog = "https://github.com/lindseystead/ai-pdf-autofiller/blob/main/CHANGELOG.md"
 
 [project.scripts]
 pdf-autofiller-api = "pdf_autofiller.api_service:run"

@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- Expanded deterministic alias vocabulary from 5 to 18 semantic concepts (address, employer, SSN, etc.).
+- Shared `field_utils.is_field_required()` helper to deduplicate PDF reader/writer logic.
+- README redesign: badges, positioning, Mermaid architecture diagram, Docker quick start, comparison table.
+- Structured `.env.example` with sectioned comments and production guidance.
+- PyPI-style project URLs and richer `pyproject.toml` metadata/keywords.
+
+### Changed
+
+- Synced `docs/API.md` version example to `0.3.1`.
+- Aligned `CONTRIBUTING.md` security audit command with CI (no ignored advisories).
+
 ## [0.3.1]
 
 ### Security
