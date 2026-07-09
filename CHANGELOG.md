@@ -4,19 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.4.1]
+
 ### Added
 
-- **GitHub Codespaces** devcontainer — one-click playground, no local install
-- **Automated discovery path** — `docs/DISCOVERY.md` (no Render/GIF/HN required)
-- **GitHub Pages** landing (`docs/site/`) via Actions
-- **Release assets** workflow — attaches wheel/sdist to GitHub Releases
-- **GHCR** workflow — publishes `ghcr.io/lindseystead/ai-pdf-autofiller`
-- `scripts/install-from-release.sh` — pip install without PyPI
-- `scripts/codespaces-start.sh` — auto-starts API in Codespaces
-
-### Changed
-
-- README leads with Codespaces badge instead of Render/GIF launch requirements
+- Automated discovery: Codespaces, GHCR, GitHub Release wheels, GitHub Pages (see [0.4.0] for feature list)
 
 ## [0.4.0]
 
