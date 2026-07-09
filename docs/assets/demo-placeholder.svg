@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="405" viewBox="0 0 720 405" role="img" aria-label="PDF Autofiller demo preview">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#121a2f"/>
+      <stop offset="100%" style="stop-color:#0b1020"/>
+    </linearGradient>
+  </defs>
+  <rect width="720" height="405" fill="url(#bg)"/>
+  <rect x="40" y="40" width="640" height="325" rx="14" fill="#1a2440" stroke="#2a3558" stroke-width="2"/>
+  <text x="360" y="150" fill="#e8edf8" font-family="system-ui,sans-serif" font-size="28" font-weight="700" text-anchor="middle">PDF Autofiller</text>
+  <text x="360" y="190" fill="#9aa8c7" font-family="system-ui,sans-serif" font-size="16" text-anchor="middle">Upload PDF ’ Paste JSON ’ Download filled form</text>
+  <rect x="260" y="220" width="200" height="44" rx="10" fill="#5b8cff"/>
+  <text x="360" y="248" fill="#ffffff" font-family="system-ui,sans-serif" font-size="15" font-weight="600" text-anchor="middle">Try /playground</text>
+  <text x="360" y="310" fill="#3dd6c6" font-family="ui-monospace,monospace" font-size="13" text-anchor="middle">Replace with demo.gif  docs/assets/README.md</text>
+</svg>

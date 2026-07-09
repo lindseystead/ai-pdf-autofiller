@@ -1,0 +1,13 @@
+name: PDF Autofiller
+website_url: https://github.com/lindseystead/ai-pdf-autofiller
+source_code_url: https://github.com/lindseystead/ai-pdf-autofiller
+description: Fill AcroForm PDFs from JSON via HTTP API with deterministic field mapping and optional semantic inference. (alternative to hand-written pypdf scripts, per-envelope SaaS form APIs)
+licenses:
+  - MIT
+platforms:
+  - Python
+  - Docker
+tags:
+  - Document Management
+depends_3rdparty: false
+demo_url: https://YOUR-SERVICE.onrender.com/playground

@@ -13,9 +13,33 @@ Deterministic-first pipeline with optional AI fallback. One API call turns messy
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 
-[Quick Start](#quick-start) · [Playground](#playground) · [Python SDK](#python-sdk) · [Recipes](recipes/) · [Deploy](docs/DEPLOY.md) · [Docs](docs/)
+[Quick Start](#quick-start) · [Playground](#playground) · [Python SDK](#python-sdk) · [Recipes](recipes/) · [Launch](docs/LAUNCH_CHECKLIST.md) · [Docs](docs/)
 
 </div>
+
+---
+
+## Demo
+
+> **Stop mapping `txtFirstName` by hand.** Upload a PDF, paste JSON, download the filled form.
+
+<p align="center">
+  <a href="https://YOUR-SERVICE.onrender.com/playground">
+    <img src="docs/assets/demo.gif" alt="PDF Autofiller playground demo" width="720" onerror="this.onerror=null;this.src='docs/assets/demo-placeholder.svg';" />
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://YOUR-SERVICE.onrender.com/playground"><strong>Try live → /playground</strong></a>
+  &nbsp;·&nbsp;
+  <a href="docs/assets/README.md">Record demo GIF</a>
+  &nbsp;·&nbsp;
+  <a href="docs/SHOW_HN.md">Show HN post</a>
+  &nbsp;·&nbsp;
+  <a href="docs/LAUNCH_CHECKLIST.md">Launch checklist</a>
+</p>
+
+*Before launch: deploy Render, replace `YOUR-SERVICE.onrender.com` in this file, record `docs/assets/demo.gif` ([guide](docs/assets/README.md)).*
 
 ---
 
@@ -241,6 +265,9 @@ Most fields match via normalization and aliases — no API key required. Enable 
 | [docs/COMPARISON.md](docs/COMPARISON.md) | vs DocuSign, Adobe, DIY pypdf |
 | [docs/DEPLOY.md](docs/DEPLOY.md) | Render playground deployment |
 | [docs/PUBLISH.md](docs/PUBLISH.md) | PyPI publish setup |
+| [docs/LAUNCH_CHECKLIST.md](docs/LAUNCH_CHECKLIST.md) | Launch-day checklist (HN, Reddit, GIF) |
+| [docs/SHOW_HN.md](docs/SHOW_HN.md) | Copy-paste Show HN post |
+| [docs/submissions/](docs/submissions/) | awesome-selfhosted PR draft |
 | [docs/LAUNCH.md](docs/LAUNCH.md) | HN / Reddit / Product Hunt copy |
 | [docs/integrations/](docs/integrations/) | n8n, Zapier, LangChain guides |
 | [docs/TESTING.md](docs/TESTING.md) | Local validation workflow |

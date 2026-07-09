@@ -102,9 +102,11 @@ fill("form.pdf", {"firstname": "Jane"}, "filled.pdf")
 
 ## Launch checklist
 
-- [ ] Deploy playground to Render (see `render.yaml`)
-- [ ] Record 30-second demo GIF for README
-- [ ] Post Show HN (Tuesday–Thursday, US morning)
-- [ ] Cross-post to r/selfhosted, r/Python, r/golang (if SDK expands)
-- [ ] Submit Product Hunt
-- [ ] Publish `pdf-autofiller` to PyPI (GitHub Actions on release tag)
+Full step-by-step: **[docs/LAUNCH_CHECKLIST.md](LAUNCH_CHECKLIST.md)**
+
+- [ ] Deploy playground to Render (see `render.yaml`) → set `PLAYGROUND_URL` in README
+- [ ] Record 30-second demo GIF → `docs/assets/demo.gif` ([how-to](assets/README.md))
+- [ ] Publish to PyPI (`PYPI_API_TOKEN` + re-run workflow)
+- [ ] Post Show HN ([ready-to-paste](SHOW_HN.md)) — Tue–Thu AM US Eastern
+- [ ] Cross-post r/selfhosted ([copy](LAUNCH.md#reddit-rselfhosted))
+- [ ] Submit awesome-selfhosted when eligible ([draft](submissions/awesome-selfhosted-PR.md))
