@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PDF Autofiller — Fill any PDF from JSON</title>
+  <meta name="description" content="Open-source API that fills AcroForm PDFs from JSON. No manual field mapping. Try free in GitHub Codespaces." />
+  <meta property="og:title" content="PDF Autofiller" />
+  <meta property="og:description" content="Upload PDF + JSON → filled PDF. Try in your browser via GitHub Codespaces." />
+  <style>
+    :root { --bg:#0b1020; --panel:#121a2f; --text:#e8edf8; --muted:#9aa8c7; --accent:#5b8cff; --accent2:#3dd6c6; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: system-ui,sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+    .wrap { max-width: 880px; margin: 0 auto; padding: 48px 20px 80px; }
+    h1 { font-size: clamp(2rem,5vw,2.8rem); margin: 0 0 12px; }
+    .lead { color: var(--muted); font-size: 1.15rem; max-width: 640px; }
+    .cta { display: flex; flex-wrap: wrap; gap: 12px; margin: 28px 0 40px; }
+  .btn { display:inline-block; padding:14px 22px; border-radius:10px; font-weight:600; text-decoration:none; }
+    .primary { background: linear-gradient(135deg,var(--accent),#7aa2ff); color:#fff; }
+    .secondary { border:1px solid #2a3558; color:var(--text); background:var(--panel); }
+    pre { background:#0d1428; border:1px solid #2a3558; border-radius:12px; padding:16px; overflow-x:auto; font-size:0.9rem; }
+    code { font-family: ui-monospace,monospace; }
+    .grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:32px; }
+    @media(max-width:700px){ .grid{ grid-template-columns:1fr; } }
+    .card { background:var(--panel); border:1px solid #2a3558; border-radius:14px; padding:20px; }
+    .card h2 { margin:0 0 8px; font-size:1rem; color:var(--accent2); }
+    footer { margin-top:48px; color:var(--muted); font-size:0.9rem; }
+    a { color: var(--accent); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>PDF Autofiller</h1>
+    <p class="lead">Fill any AcroForm PDF from JSON — no manual field mapping. Deterministic-first, optional AI, MIT licensed.</p>
+
+    <div class="cta">
+      <a class="btn primary" href="https://codespaces.new/lindseystead/ai-pdf-autofiller">Try free in Codespaces</a>
+      <a class="btn secondary" href="https://github.com/lindseystead/ai-pdf-autofiller">View on GitHub</a>
+    </div>
+
+    <p><strong>No install, no credit card.</strong> Codespaces opens the playground at <code>/playground</code> automatically.</p>
+
+    <div class="grid">
+      <div class="card">
+        <h2>Docker (one command)</h2>
+        <pre><code>docker run -p 8000:8000 \
+  -e API_AUTH_ENABLED=false \
+  ghcr.io/lindseystead/ai-pdf-autofiller:latest</code></pre>
+      </div>
+      <div class="card">
+        <h2>pip (from GitHub Release)</h2>
+        <pre><code>curl -fsSL https://raw.githubusercontent.com/lindseystead/ai-pdf-autofiller/main/scripts/install-from-release.sh | bash</code></pre>
+      </div>
+      <div class="card">
+        <h2>Python SDK</h2>
+        <pre><code>from pdf_autofiller import fill
+fill("form.pdf", {"firstname": "Jane"}, "filled.pdf")</code></pre>
+      </div>
+      <div class="card">
+        <h2>W-9 recipe</h2>
+        <pre><code>curl -X POST localhost:8000/fill \
+  -F pdf_file=@w9.pdf \
+  -F 'user_data={"name_line_1":"Jane"}' \
+  -o filled.pdf</code></pre>
+      </div>
+    </div>
+
+    <footer>
+      <a href="https://github.com/lindseystead/ai-pdf-autofiller/blob/main/recipes/">Recipes</a> ·
+      <a href="https://github.com/lindseystead/ai-pdf-autofiller/blob/main/docs/DISCOVERY.md">How discovery works</a>
+    </footer>
+  </div>
+</body>
+</html>

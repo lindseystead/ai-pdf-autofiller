@@ -1,0 +1,20 @@
+{
+  "name": "PDF Autofiller",
+  "image": "mcr.microsoft.com/devcontainers/python:3.12",
+  "features": {},
+  "forwardPorts": [8000],
+  "portsAttributes": {
+    "8000": {
+      "label": "Playground",
+      "onAutoForward": "openBrowser",
+      "protocol": "http"
+    }
+  },
+  "postCreateCommand": "pip install -r requirements-dev.txt",
+  "postStartCommand": "bash scripts/codespaces-start.sh",
+  "customizations": {
+    "vscode": {
+      "extensions": ["ms-python.python", "charliermarsh.ruff"]
+    }
+  }
+}
