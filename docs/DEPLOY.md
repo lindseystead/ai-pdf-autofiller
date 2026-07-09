@@ -42,6 +42,12 @@ Or connect this repo manually using the settings below.
 
 Update README playground link once live.
 
+## Post-release checklist
+
+1. **PyPI** — add `PYPI_API_TOKEN` to GitHub secrets, re-run [Publish to PyPI](../.github/workflows/publish-pypi.yml). See [PUBLISH.md](PUBLISH.md).
+2. **Render** — deploy blueprint above and paste live playground URL into README.
+3. **Launch** — use copy in [LAUNCH.md](LAUNCH.md) once the public playground is up.
+
 ## render.yaml
 
 This repo includes `render.yaml` for Blueprint deploys. Connect the repo in Render Dashboard → **New Blueprint**.

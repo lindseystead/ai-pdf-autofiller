@@ -7,6 +7,7 @@
 Deterministic-first pipeline with optional AI fallback. One API call turns messy government, HR, and insurance forms into completed PDFs.
 
 [![CI](https://github.com/lindseystead/ai-pdf-autofiller/actions/workflows/test.yml/badge.svg)](https://github.com/lindseystead/ai-pdf-autofiller/actions/workflows/test.yml)
+[![Release](https://img.shields.io/github/v/release/lindseystead/ai-pdf-autofiller?label=release)](https://github.com/lindseystead/ai-pdf-autofiller/releases)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue.svg)](https://www.python.org/downloads/)
 [![Coverage](https://img.shields.io/badge/coverage-%E2%89%A585%25-brightgreen.svg)](https://github.com/lindseystead/ai-pdf-autofiller)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -239,6 +240,7 @@ Most fields match via normalization and aliases — no API key required. Enable 
 | [docs/PURPOSE.md](docs/PURPOSE.md) | Problem statement and use cases |
 | [docs/COMPARISON.md](docs/COMPARISON.md) | vs DocuSign, Adobe, DIY pypdf |
 | [docs/DEPLOY.md](docs/DEPLOY.md) | Render playground deployment |
+| [docs/PUBLISH.md](docs/PUBLISH.md) | PyPI publish setup |
 | [docs/LAUNCH.md](docs/LAUNCH.md) | HN / Reddit / Product Hunt copy |
 | [docs/integrations/](docs/integrations/) | n8n, Zapier, LangChain guides |
 | [docs/TESTING.md](docs/TESTING.md) | Local validation workflow |
