@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- Launch kit: `docs/LAUNCH_CHECKLIST.md`, `docs/SHOW_HN.md`, awesome-selfhosted submission draft
+- README demo section with SVG placeholder and GIF recording guide (`docs/assets/README.md`)
+
 ## [0.4.0]
 
 ### Added
