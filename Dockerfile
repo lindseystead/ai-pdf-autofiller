@@ -12,7 +12,6 @@ RUN pip install --no-cache-dir --upgrade pip \
     && adduser --disabled-password --gecos "" appuser
 
 COPY --chown=appuser:appuser src ./src
-COPY --chown=appuser:appuser pyproject.toml README.md ./
 
 USER appuser
 

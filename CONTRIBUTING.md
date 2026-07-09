@@ -35,3 +35,4 @@ The helper targets in `Makefile` are the supported shortcuts for common local wo
 - Call out any API contract changes, security implications, or deployment impact.
 - Include the validation commands you ran locally.
 - Update `CHANGELOG.md` when the change materially affects behavior, docs, or operations.
+- Follow the [Code of Conduct](CODE_OF_CONDUCT.md).

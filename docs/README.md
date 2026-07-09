@@ -1,17 +1,30 @@
 # Documentation Index
 
-This directory contains supporting documentation for the PDF autofiller service.
+Supporting documentation for the PDF Autofiller service.
 
-## Files
+## Core docs
 
-- `docs/API.md`: endpoint contracts, request examples, and error payloads.
-- `docs/ARCHITECTURE.md`: system boundaries, data flow, and extension points.
-- `docs/OPERATIONS.md`: runtime configuration and deployment assumptions.
-- `docs/TESTING.md`: local and CI testing guidance.
-- `docs/PURPOSE.md`: problem statement, scope, and intended usage.
+| Doc | Description |
+|-----|-------------|
+| [API.md](API.md) | Endpoint contracts, errors, and response headers |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Module boundaries, data flow, extension points |
+| [OPERATIONS.md](OPERATIONS.md) | Runtime configuration and deployment |
+| [TESTING.md](TESTING.md) | Local validation and CI |
+| [PURPOSE.md](PURPOSE.md) | Problem statement, scope, intended usage |
 
-## Related Top-Level Docs
+## Related
 
-- `README.md`: primary project overview and usage.
-- `CONTRIBUTING.md`: contributor setup and pull request expectations.
-- `SECURITY.md`: vulnerability reporting and data-handling notes.
+| Doc | Description |
+|-----|-------------|
+| [integrations/](integrations/) | n8n, Zapier, and LangChain guides |
+| [assets/demo-terminal.txt](assets/demo-terminal.txt) | Example terminal workflow output |
+| [../README.md](../README.md) | Project overview and quick start |
+| [../CONTRIBUTING.md](../CONTRIBUTING.md) | Contributor setup and PR expectations |
+| [../CODE_OF_CONDUCT.md](../CODE_OF_CONDUCT.md) | Community standards |
+| [../SECURITY.md](../SECURITY.md) | Vulnerability reporting |
+
+## Landing page
+
+Static site source for GitHub Pages lives in [site/](site/). After Pages is enabled in repository settings, it publishes to:
+
+`https://lindseystead.github.io/ai-pdf-autofiller/`

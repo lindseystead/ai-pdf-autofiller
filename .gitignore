@@ -63,6 +63,7 @@ test_results.html
 
 # mypy
 .mypy_cache/
+.ruff_cache/
 .dmypy.json
 dmypy.json
 
