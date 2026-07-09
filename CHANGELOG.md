@@ -21,8 +21,8 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-- Root URL redirects to `/playground`
-- README updated with playground, SDK, recipes, and deploy sections
+- PyPI publish workflow now uses `PYPI_API_TOKEN` with clearer failure messaging
+- PR template aligned with CI pip-audit command
 
 ## [0.3.1]
 
