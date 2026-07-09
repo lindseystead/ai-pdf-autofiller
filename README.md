@@ -13,52 +13,75 @@ Deterministic-first pipeline with optional AI fallback. One API call turns messy
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 
-[Quick Start](#quick-start) · [Playground](#playground) · [Python SDK](#python-sdk) · [Recipes](recipes/) · [Launch](docs/LAUNCH_CHECKLIST.md) · [Docs](docs/)
+[Try in Codespaces](#try-in-1-click) · [Quick Start](#quick-start) · [Python SDK](#python-sdk) · [Recipes](recipes/) · [Docs](docs/)
+
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/lindseystead/ai-pdf-autofiller)
 
 </div>
 
 ---
 
-## Demo
+## Try in 1 click
 
-> **Stop mapping `txtFirstName` by hand.** Upload a PDF, paste JSON, download the filled form.
+**No install. No deploy. No credit card.** Open a free cloud dev environment — the playground starts automatically.
 
-<p align="center">
-  <a href="https://YOUR-SERVICE.onrender.com/playground">
-    <img src="docs/assets/demo.gif" alt="PDF Autofiller playground demo" width="720" onerror="this.onerror=null;this.src='docs/assets/demo-placeholder.svg';" />
-  </a>
-</p>
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/lindseystead/ai-pdf-autofiller)
 
-<p align="center">
-  <a href="https://YOUR-SERVICE.onrender.com/playground"><strong>Try live → /playground</strong></a>
-  &nbsp;·&nbsp;
-  <a href="docs/assets/README.md">Record demo GIF</a>
-  &nbsp;·&nbsp;
-  <a href="docs/SHOW_HN.md">Show HN post</a>
-  &nbsp;·&nbsp;
-  <a href="docs/LAUNCH_CHECKLIST.md">Launch checklist</a>
-</p>
+1. Click the badge above (GitHub account required; free tier is enough)
+2. Wait ~60s for setup
+3. Browser opens **`/playground`** — upload a PDF, paste JSON, download the filled form
 
-*Before launch: deploy Render, replace `YOUR-SERVICE.onrender.com` in this file, record `docs/assets/demo.gif` ([guide](docs/assets/README.md)).*
+<details>
+<summary>Or run locally / with Docker</summary>
+
+```bash
+# Local
+git clone https://github.com/lindseystead/ai-pdf-autofiller.git && cd ai-pdf-autofiller
+make run-api   # → http://localhost:8000/playground
+
+# Docker (pre-built image, no compile)
+docker run -p 8000:8000 -e API_AUTH_ENABLED=false \
+  ghcr.io/lindseystead/ai-pdf-autofiller:latest
+
+# pip from GitHub Release (no PyPI needed)
+curl -fsSL https://raw.githubusercontent.com/lindseystead/ai-pdf-autofiller/main/scripts/install-from-release.sh | bash
+```
+
+</details>
+
+## Demo (terminal)
+
+```text
+$ curl -s -X POST http://localhost:8000/fill \
+  -F "pdf_file=@samples/sample_form.pdf;type=application/pdf" \
+  -F 'user_data={"firstname":"Jane","lastname":"Doe","dob":"1990-01-01"}' \
+  -F "strict=true" -o filled.pdf
+$ ls -lh filled.pdf
+-rw-r--r--  1 user  staff   2.2K filled.pdf
+```
+
+Full workflow output: [docs/assets/demo-terminal.txt](docs/assets/demo-terminal.txt)
 
 ---
 
 ## Try the Playground
 
-**No install required after deploy.** Open the browser UI, upload a PDF, paste JSON, download the filled form.
+After `make run-api` or Codespaces, open **`/playground`** in your browser.
 
 ```bash
 make run-api
-open http://localhost:8000/playground
+# http://localhost:8000/playground
 ```
 
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy)
-
-See [docs/DEPLOY.md](docs/DEPLOY.md) for one-click Render setup via `render.yaml`.
+Optional self-host deploy: [docs/DEPLOY.md](docs/DEPLOY.md) (Render) · Automated discovery: [docs/DISCOVERY.md](docs/DISCOVERY.md)
 
 ## Python SDK
 
 ```bash
+# From GitHub Release (no PyPI account required)
+curl -fsSL https://raw.githubusercontent.com/lindseystead/ai-pdf-autofiller/main/scripts/install-from-release.sh | bash
+
+# Or from PyPI when published
 pip install pdf-autofiller
 ```
 
@@ -88,12 +111,6 @@ Copy-paste recipes for common forms:
 | [recipes/sample-form.sh](recipes/sample-form.sh) | Bundled demo in one curl |
 
 Community alias packs: [forms/README.md](forms/README.md)
-
-## Demo
-
-30-second terminal walkthrough: [docs/assets/DEMO.md](docs/assets/DEMO.md)
-
-Generate a live transcript: `PYTHONPATH=src python -m scripts.generate_demo_output`
 
 ---
 
@@ -265,7 +282,7 @@ Most fields match via normalization and aliases — no API key required. Enable 
 | [docs/COMPARISON.md](docs/COMPARISON.md) | vs DocuSign, Adobe, DIY pypdf |
 | [docs/DEPLOY.md](docs/DEPLOY.md) | Render playground deployment |
 | [docs/PUBLISH.md](docs/PUBLISH.md) | PyPI publish setup |
-| [docs/LAUNCH_CHECKLIST.md](docs/LAUNCH_CHECKLIST.md) | Launch-day checklist (HN, Reddit, GIF) |
+| [docs/DISCOVERY.md](docs/DISCOVERY.md) | Grow without manual marketing |
 | [docs/SHOW_HN.md](docs/SHOW_HN.md) | Copy-paste Show HN post |
 | [docs/submissions/](docs/submissions/) | awesome-selfhosted PR draft |
 | [docs/LAUNCH.md](docs/LAUNCH.md) | HN / Reddit / Product Hunt copy |

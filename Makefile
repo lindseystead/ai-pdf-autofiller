@@ -1,6 +1,6 @@
 # Makefile for PDF Autofiller
 
-.PHONY: help install install-runtime test test-cov smoke-check lint format clean run-sample create-sample run-api playground demo-output
+.PHONY: help install install-runtime test test-cov smoke-check lint format clean run-sample create-sample run-api playground demo-output install-release
 
 help:
 	@echo "Available commands:"
@@ -16,7 +16,7 @@ help:
 	@echo "  make create-sample   - Regenerate the sample PDF form"
 	@echo "  make run-api         - Run FastAPI service"
 	@echo "  make playground      - Open playground URL hint"
-	@echo "  make demo-output     - Generate demo terminal transcript"
+	@echo "  make install-release - Install SDK from latest GitHub Release wheel"
 
 install:
 	poetry install || pip install -r requirements-dev.txt
@@ -60,3 +60,6 @@ playground:
 
 demo-output:
 	PYTHONPATH=src python -m scripts.generate_demo_output
+
+install-release:
+	bash scripts/install-from-release.sh

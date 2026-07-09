@@ -6,8 +6,17 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
-- Launch kit: `docs/LAUNCH_CHECKLIST.md`, `docs/SHOW_HN.md`, awesome-selfhosted submission draft
-- README demo section with SVG placeholder and GIF recording guide (`docs/assets/README.md`)
+- **GitHub Codespaces** devcontainer — one-click playground, no local install
+- **Automated discovery path** — `docs/DISCOVERY.md` (no Render/GIF/HN required)
+- **GitHub Pages** landing (`docs/site/`) via Actions
+- **Release assets** workflow — attaches wheel/sdist to GitHub Releases
+- **GHCR** workflow — publishes `ghcr.io/lindseystead/ai-pdf-autofiller`
+- `scripts/install-from-release.sh` — pip install without PyPI
+- `scripts/codespaces-start.sh` — auto-starts API in Codespaces
+
+### Changed
+
+- README leads with Codespaces badge instead of Render/GIF launch requirements
 
 ## [0.4.0]
 

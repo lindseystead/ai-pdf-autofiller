@@ -1,6 +1,8 @@
 # Launch checklist
 
-Use this the week you go live. Check items in order.
+> **Prefer zero manual work?** See **[DISCOVERY.md](DISCOVERY.md)** — Codespaces, GitHub Pages, and release automation replace Render, GIFs, and HN posts.
+
+Use this only if you want an active launch week.
 
 ## Before launch (D-2 to D-1)
 
