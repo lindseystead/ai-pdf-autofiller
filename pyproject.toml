@@ -1,21 +1,31 @@
 [project]
 name = "pdf-autofiller"
 version = "0.4.3"
-description = "Fill AcroForm PDFs from JSON with deterministic field mapping and optional AI inference"
+description = "Fill any AcroForm PDF from JSON — open-source FastAPI API with playground, Docker image, and Python SDK"
 readme = "README.md"
 requires-python = ">=3.11,<4.0"
 authors = [{ name = "Lindsey D. Stead" }]
 license = "MIT"
 keywords = [
     "pdf",
-    "forms",
-    "automation",
+    "pdf-forms",
     "acroform",
-    "document-processing",
     "form-filling",
-    "api",
+    "form-automation",
     "fastapi",
-    "government-forms",
+    "python",
+    "api",
+    "docker",
+    "automation",
+    "document-processing",
+    "workflow-automation",
+    "self-hosted",
+    "open-source",
+    "govtech",
+    "pydantic",
+    "n8n",
+    "zapier",
+    "w9",
     "hr-onboarding",
 ]
 dynamic = ["dependencies"]

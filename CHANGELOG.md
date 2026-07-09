@@ -4,13 +4,17 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-### Fixed
+### Added
 
-- PyPI publish workflow no longer uses invalid `secrets` expressions in `if` conditions
+- README hero images (`docs/assets/social-preview.png`, `playground-preview.png`) for discoverability
+- `scripts/apply-repo-metadata.sh` to set GitHub description and topics (run locally with admin `gh`)
+- Expanded `pyproject.toml` keywords for search
 
 ### Changed
 
-- Documented one-time GitHub Pages and PyPI secret setup in `docs/OPERATIONS.md`
+- README restructured for discovery: keywords, use cases, playground screenshot, stars badge
+- GitHub Pages landing (`docs/site/`) updated with Open Graph / Twitter meta tags
+- Docs index and asset README updated
 
 ## [0.4.3]
 
