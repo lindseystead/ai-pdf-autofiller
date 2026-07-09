@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- PyPI publish workflow no longer uses invalid `secrets` expressions in `if` conditions
+
+### Changed
+
+- Documented one-time GitHub Pages and PyPI secret setup in `docs/OPERATIONS.md`
+
 ## [0.4.3]
 
 ### Fixed
