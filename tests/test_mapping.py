@@ -479,3 +479,16 @@ def test_find_deterministic_match_expanded_aliases(
     assert confidence >= 0.85
     assert "Alias match" in reason
 
+
+def test_community_w9_alias_pack_loaded():
+    """W-9 alias pack extends matching for tax form field names."""
+    matched_key, matched_value, confidence, reason = find_deterministic_match(
+        "taxpayer_name",
+        {"name_line_1": "Jane Doe"},
+        "string",
+    )
+    assert matched_key == "name_line_1"
+    assert matched_value == "Jane Doe"
+    assert confidence >= 0.85
+    assert "Alias match" in reason
+

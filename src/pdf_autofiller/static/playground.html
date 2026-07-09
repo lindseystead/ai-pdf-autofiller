@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PDF Autofiller — Playground</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #121a2f;
+      --panel-2: #1a2440;
+      --text: #e8edf8;
+      --muted: #9aa8c7;
+      --accent: #5b8cff;
+      --accent-2: #3dd6c6;
+      --danger: #ff6b7a;
+      --ok: #4ade80;
+      --border: #2a3558;
+      --shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+      --radius: 14px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: radial-gradient(1200px 600px at 10% -10%, #1b2b55 0%, transparent 60%),
+                  radial-gradient(900px 500px at 90% 0%, #123b45 0%, transparent 55%),
+                  var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 32px 20px 64px; }
+    header { text-align: center; margin-bottom: 28px; }
+    .badge {
+      display: inline-block;
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: rgba(91, 140, 255, 0.15);
+      color: var(--accent);
+      font-size: 12px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+    h1 { margin: 0 0 8px; font-size: clamp(1.8rem, 4vw, 2.6rem); }
+    .subtitle { color: var(--muted); max-width: 640px; margin: 0 auto; line-height: 1.5; }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+    }
+    @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+    .card {
+      background: linear-gradient(180deg, var(--panel) 0%, var(--panel-2) 100%);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 18px;
+    }
+    .card h2 { margin: 0 0 12px; font-size: 1rem; color: var(--accent-2); }
+    label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 6px; }
+    input[type="text"], textarea {
+      width: 100%;
+      background: #0d1428;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font: inherit;
+    }
+    textarea { min-height: 220px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9rem; }
+    .drop {
+      border: 2px dashed var(--border);
+      border-radius: 12px;
+      padding: 28px 16px;
+      text-align: center;
+      color: var(--muted);
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .drop.dragover { border-color: var(--accent); background: rgba(91, 140, 255, 0.08); }
+    .drop strong { color: var(--text); }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 14px; }
+    button {
+      border: none;
+      border-radius: 10px;
+      padding: 12px 18px;
+      font-weight: 600;
+      cursor: pointer;
+      background: linear-gradient(135deg, var(--accent), #7aa2ff);
+      color: white;
+    }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .ghost {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    .status {
+      margin-top: 16px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #0d1428;
+      font-size: 0.9rem;
+      line-height: 1.45;
+      min-height: 48px;
+    }
+    .status.ok { border-color: rgba(74, 222, 128, 0.35); color: #b9f6cf; }
+    .status.err { border-color: rgba(255, 107, 122, 0.35); color: #ffc2c9; }
+    .checks { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 10px; font-size: 0.85rem; color: var(--muted); }
+    .checks label { display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer; }
+    footer { margin-top: 28px; text-align: center; color: var(--muted); font-size: 0.85rem; }
+    footer a { color: var(--accent); text-decoration: none; }
+    .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; background: rgba(61, 214, 198, 0.12); color: var(--accent-2); font-size: 0.75rem; margin-left: 6px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="badge">Live Playground</div>
+      <h1>Fill any PDF from JSON</h1>
+      <p class="subtitle">
+        Upload a fillable AcroForm PDF, paste your profile JSON, and download the completed form in seconds.
+        No field mapping required.
+      </p>
+    </header>
+
+    <div class="grid">
+      <section class="card">
+        <h2>1. Upload PDF <span class="pill">required</span></h2>
+        <div id="drop" class="drop" tabindex="0" role="button" aria-label="Upload PDF">
+          <strong>Drop a PDF here</strong><br />or click to browse
+          <input id="file" type="file" accept="application/pdf,.pdf" hidden />
+        </div>
+        <p id="fileName" style="margin:10px 0 0; color: var(--muted); font-size:0.9rem;">No file selected</p>
+
+        <label for="apiKey" style="margin-top:16px;">API key (if auth enabled)</label>
+        <input id="apiKey" type="text" placeholder="Optional — leave blank for local dev" />
+      </section>
+
+      <section class="card">
+        <h2>2. User data JSON</h2>
+        <textarea id="userData" spellcheck="false">{
+  "firstname": "Jane",
+  "lastname": "Doe",
+  "dob": "1990-01-01",
+  "email": "jane@example.com",
+  "phone": "555-0100",
+  "addr1": "123 Main St",
+  "town": "Springfield",
+  "province": "IL",
+  "zipcode": "62701"
+}</textarea>
+        <div class="checks">
+          <label><input type="checkbox" id="strict" checked /> Strict mapping</label>
+          <label><input type="checkbox" id="fallback" /> AI fallback</label>
+          <label><input type="checkbox" id="semantic" /> Semantic inference</label>
+        </div>
+      </section>
+    </div>
+
+    <div class="row" style="margin-top:18px;">
+      <button id="fillBtn">Fill PDF</button>
+      <button id="sampleBtn" class="ghost" type="button">Load sample JSON</button>
+      <a id="download" style="display:none;" download="filled.pdf">
+        <button class="ghost" type="button">Download filled PDF</button>
+      </a>
+    </div>
+
+    <div id="status" class="status">Ready. Upload a PDF and click <strong>Fill PDF</strong>.</div>
+
+    <footer>
+      <a href="/docs" target="_blank" rel="noopener">API docs</a> ·
+      <a href="https://github.com/lindseystead/ai-pdf-autofiller" target="_blank" rel="noopener">GitHub</a> ·
+      <a href="https://github.com/lindseystead/ai-pdf-autofiller/tree/main/recipes" target="_blank" rel="noopener">Recipes</a>
+    </footer>
+  </div>
+
+  <script>
+    const drop = document.getElementById('drop');
+    const fileInput = document.getElementById('file');
+    const fileName = document.getElementById('fileName');
+    const userData = document.getElementById('userData');
+    const fillBtn = document.getElementById('fillBtn');
+    const sampleBtn = document.getElementById('sampleBtn');
+    const statusEl = document.getElementById('status');
+    const download = document.getElementById('download');
+    const apiKey = document.getElementById('apiKey');
+
+    let selectedFile = null;
+    let filledBlob = null;
+
+    function setStatus(message, kind = '') {
+      statusEl.className = 'status' + (kind ? ' ' + kind : '');
+      statusEl.innerHTML = message;
+    }
+
+    drop.addEventListener('click', () => fileInput.click());
+    drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('dragover'); });
+    drop.addEventListener('dragleave', () => drop.classList.remove('dragover'));
+    drop.addEventListener('drop', (e) => {
+      e.preventDefault();
+      drop.classList.remove('dragover');
+      if (e.dataTransfer.files.length) pickFile(e.dataTransfer.files[0]);
+    });
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files.length) pickFile(fileInput.files[0]);
+    });
+
+    function pickFile(file) {
+      if (!file.name.toLowerCase().endsWith('.pdf')) {
+        setStatus('Please upload a PDF file.', 'err');
+        return;
+      }
+      selectedFile = file;
+      fileName.textContent = file.name + ' (' + Math.round(file.size / 1024) + ' KB)';
+      setStatus('PDF ready. Click <strong>Fill PDF</strong> when your JSON looks good.');
+    }
+
+    sampleBtn.addEventListener('click', () => {
+      userData.value = JSON.stringify({
+        firstname: 'Jane',
+        lastname: 'Doe',
+        dob: '1990-01-01',
+        email: 'jane@example.com',
+        phone: '555-0100',
+        addr1: '123 Main St',
+        town: 'Springfield',
+        province: 'IL',
+        zipcode: '62701'
+      }, null, 2);
+    });
+
+    fillBtn.addEventListener('click', async () => {
+      if (!selectedFile) {
+        setStatus('Upload a PDF first.', 'err');
+        return;
+      }
+
+      let parsed;
+      try {
+        parsed = JSON.parse(userData.value);
+        if (typeof parsed !== 'object' || Array.isArray(parsed) || parsed === null) {
+          throw new Error('JSON must be an object');
+        }
+      } catch (err) {
+        setStatus('Invalid JSON: ' + err.message, 'err');
+        return;
+      }
+
+      fillBtn.disabled = true;
+      setStatus('Filling PDF…');
+
+      const form = new FormData();
+      form.append('pdf_file', selectedFile, selectedFile.name);
+      form.append('user_data', JSON.stringify(parsed));
+      form.append('strict', document.getElementById('strict').checked ? 'true' : 'false');
+      form.append('allow_fallback_mapping', document.getElementById('fallback').checked ? 'true' : 'false');
+      form.append('use_semantic_inference', document.getElementById('semantic').checked ? 'true' : 'false');
+
+      const headers = {};
+      if (apiKey.value.trim()) headers['X-API-Key'] = apiKey.value.trim();
+
+      try {
+        const response = await fetch('/fill', { method: 'POST', body: form, headers });
+        if (!response.ok) {
+          let detail = 'Request failed (' + response.status + ')';
+          try {
+            const payload = await response.json();
+            detail = payload?.detail?.error?.message || payload?.detail?.message || JSON.stringify(payload);
+          } catch (_) {}
+          setStatus(detail, 'err');
+          return;
+        }
+
+        filledBlob = await response.blob();
+        const url = URL.createObjectURL(filledBlob);
+        download.href = url;
+        download.style.display = 'inline-block';
+
+        const written = response.headers.get('X-PDF-Fields-Written') || '?';
+        const skipped = response.headers.get('X-PDF-Fields-Skipped-Review') || '';
+        setStatus(
+          'Success! Wrote <strong>' + written + '</strong> fields.' +
+          (skipped ? ' Skipped review fields: ' + skipped + '.' : '') +
+          ' Click <strong>Download filled PDF</strong>.',
+          'ok'
+        );
+      } catch (err) {
+        setStatus('Network error: ' + err.message, 'err');
+      } finally {
+        fillBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

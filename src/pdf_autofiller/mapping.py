@@ -11,8 +11,10 @@ through this path.
 
 import json
 import logging
+import os
 import re
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Optional
 
 
@@ -47,6 +49,38 @@ FIELD_ALIASES: dict[str, list[str]] = {
     "job_title": ["title", "position", "occupation"],
     "signature_date": ["date_signed", "signed_date", "sign_date"],
 }
+
+
+def _load_community_aliases() -> dict[str, list[str]]:
+    """Merge optional community alias packs shipped with the package."""
+    aliases_dir = Path(__file__).parent / "form_aliases"
+    if not aliases_dir.is_dir():
+        return {}
+
+    custom_env = os.getenv("FORM_ALIASES_DIR")
+    if custom_env:
+        aliases_dir = Path(custom_env)
+
+    merged: dict[str, list[str]] = {}
+    for path in sorted(aliases_dir.glob("*.json")):
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            logger.warning("Skipping invalid alias pack %s: %s", path.name, exc)
+            continue
+        if not isinstance(payload, dict):
+            logger.warning("Skipping alias pack %s: expected JSON object", path.name)
+            continue
+        for semantic, variants in payload.items():
+            if not isinstance(semantic, str) or not isinstance(variants, list):
+                continue
+            cleaned = [variant for variant in variants if isinstance(variant, str)]
+            if cleaned:
+                merged.setdefault(semantic, []).extend(cleaned)
+    return merged
+
+
+FIELD_ALIASES.update(_load_community_aliases())
 
 
 def normalize_key(key: str) -> str:

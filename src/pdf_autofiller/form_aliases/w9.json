@@ -1,0 +1,10 @@
+{
+  "taxpayer_name": ["name_line_1", "name_as_shown", "legal_name", "individual_name"],
+  "business_name": ["business_name_line_2", "dba", "trade_name"],
+  "federal_tax_classification": ["tax_classification", "entity_type", "llc_classification"],
+  "exempt_payee_code": ["exempt_code", "payee_exemption"],
+  "fatca_exemption_code": ["fatca_code", "fatca_exemption"],
+  "account_numbers": ["account_number", "accounts"],
+  "employer_identification_number": ["ein", "fein", "federal_ein", "business_tin"],
+  "requester_name_address": ["requester", "requester_info"]
+}

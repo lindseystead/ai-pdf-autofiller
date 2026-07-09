@@ -1,6 +1,6 @@
 # Makefile for PDF Autofiller
 
-.PHONY: help install install-runtime test test-cov smoke-check lint format clean run-sample create-sample run-api
+.PHONY: help install install-runtime test test-cov smoke-check lint format clean run-sample create-sample run-api playground demo-output
 
 help:
 	@echo "Available commands:"
@@ -15,6 +15,8 @@ help:
 	@echo "  make run-sample      - Run demo with sample form"
 	@echo "  make create-sample   - Regenerate the sample PDF form"
 	@echo "  make run-api         - Run FastAPI service"
+	@echo "  make playground      - Open playground URL hint"
+	@echo "  make demo-output     - Generate demo terminal transcript"
 
 install:
 	poetry install || pip install -r requirements-dev.txt
@@ -52,3 +54,9 @@ create-sample:
 
 run-api:
 	PYTHONPATH=src python -m uvicorn pdf_autofiller.api_service:app --host 0.0.0.0 --port 8000
+
+playground:
+	@echo "Playground: http://localhost:8000/playground (run 'make run-api' first)"
+
+demo-output:
+	PYTHONPATH=src python -m scripts.generate_demo_output

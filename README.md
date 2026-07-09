@@ -12,9 +12,63 @@ Deterministic-first pipeline with optional AI fallback. One API call turns messy
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 
-[Quick Start](#quick-start) · [API](#api-example) · [Docker](#docker) · [Docs](docs/) · [Contributing](CONTRIBUTING.md)
+[Quick Start](#quick-start) · [Playground](#playground) · [Python SDK](#python-sdk) · [Recipes](recipes/) · [Deploy](docs/DEPLOY.md) · [Docs](docs/)
 
 </div>
+
+---
+
+## Try the Playground
+
+**No install required after deploy.** Open the browser UI, upload a PDF, paste JSON, download the filled form.
+
+```bash
+make run-api
+open http://localhost:8000/playground
+```
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy)
+
+See [docs/DEPLOY.md](docs/DEPLOY.md) for one-click Render setup via `render.yaml`.
+
+## Python SDK
+
+```bash
+pip install pdf-autofiller
+```
+
+```python
+from pdf_autofiller import fill
+
+fill("form.pdf", {"firstname": "Jane", "lastname": "Doe"}, "filled.pdf")
+```
+
+Remote API with auth:
+
+```python
+from pdf_autofiller.client import PDFAutofillerClient
+
+client = PDFAutofillerClient("https://your-api.example.com", api_key="your-token")
+client.fill_to_file("w9.pdf", {"name_line_1": "Jane Doe", "ssn": "..."}, "w9-filled.pdf")
+```
+
+## Recipes
+
+Copy-paste recipes for common forms:
+
+| Recipe | Description |
+|--------|-------------|
+| [recipes/w9.md](recipes/w9.md) | IRS Form W-9 from JSON |
+| [recipes/hr-onboarding.md](recipes/hr-onboarding.md) | Employee intake packets |
+| [recipes/sample-form.sh](recipes/sample-form.sh) | Bundled demo in one curl |
+
+Community alias packs: [forms/README.md](forms/README.md)
+
+## Demo
+
+30-second terminal walkthrough: [docs/assets/DEMO.md](docs/assets/DEMO.md)
+
+Generate a live transcript: `PYTHONPATH=src python -m scripts.generate_demo_output`
 
 ---
 
@@ -24,7 +78,7 @@ Every fillable PDF uses different field names. Your user profile says `first_nam
 
 Manual mapping does not scale. Heuristic-only tools are hard to audit. **PDF Autofiller** solves this with a pipeline you can trust:
 
-1. **Normalize** keys and apply a growing alias vocabulary (18+ semantic concepts)
+1. **Normalize** keys and apply a growing alias vocabulary (25+ semantic concepts + community packs)
 2. **Coerce** values to the right type (dates, numbers, booleans)
 3. **Optionally infer** field meaning with AI — only when you enable it
 4. **Reject** incomplete outputs when required fields are missing
@@ -87,7 +141,20 @@ docker run -p 8000:8000 \
   pdf-autofiller
 ```
 
-Service runs at `http://localhost:8000`. Interactive docs at `/docs`.
+Service runs at `http://localhost:8000`.
+
+- **Playground UI:** `/playground`
+- **API docs:** `/docs`
+- **Health:** `/health`
+
+### Playground
+
+```bash
+make run-api
+# Open http://localhost:8000/playground
+```
+
+Drag a PDF, paste JSON, click **Fill PDF**, download the result.
 
 ### Try it in 30 seconds
 
@@ -117,7 +184,7 @@ curl -s -X POST http://localhost:8000/fill \
   -o filled.pdf
 ```
 
-**Endpoints:** `GET /health` · `GET /version` · `POST /fill`
+**Endpoints:** `GET /` · `GET /playground` · `GET /health` · `GET /version` · `POST /fill`
 
 Response headers include fill diagnostics: `X-PDF-Fields-Written`, `X-PDF-Fields-Skipped-Review`, and more. See [docs/API.md](docs/API.md).
 
@@ -158,9 +225,9 @@ Most fields match via normalization and aliases — no API key required. Enable 
 
 ## Scope
 
-**In scope:** Fillable AcroForm PDFs, JSON user profiles, HTTP API, Docker deployment.
+**In scope:** Fillable AcroForm PDFs, JSON user profiles, HTTP API, browser playground, Docker deployment, Python SDK.
 
-**Out of scope (today):** Scanned PDFs / OCR, template persistence, signatures, frontend UI, bulk job queues.
+**Out of scope (today):** Scanned PDFs / OCR, template persistence, signatures, bulk job queues.
 
 ## Documentation
 
@@ -170,7 +237,12 @@ Most fields match via normalization and aliases — no API key required. Enable 
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Module boundaries and data flow |
 | [docs/OPERATIONS.md](docs/OPERATIONS.md) | Runtime config and deployment |
 | [docs/PURPOSE.md](docs/PURPOSE.md) | Problem statement and use cases |
+| [docs/COMPARISON.md](docs/COMPARISON.md) | vs DocuSign, Adobe, DIY pypdf |
+| [docs/DEPLOY.md](docs/DEPLOY.md) | Render playground deployment |
+| [docs/LAUNCH.md](docs/LAUNCH.md) | HN / Reddit / Product Hunt copy |
+| [docs/integrations/](docs/integrations/) | n8n, Zapier, LangChain guides |
 | [docs/TESTING.md](docs/TESTING.md) | Local validation workflow |
+| [recipes/](recipes/) | W-9, HR onboarding curl recipes |
 | [SECURITY.md](SECURITY.md) | Vulnerability reporting |
 | [CHANGELOG.md](CHANGELOG.md) | Release history |
 

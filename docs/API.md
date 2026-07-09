@@ -2,6 +2,10 @@
 
 ## Endpoints
 
+### `GET /playground`
+
+Serves the browser playground UI for trying fills without curl.
+
 ### `GET /health`
 
 Returns service health metadata.
@@ -18,7 +22,7 @@ Example response:
 {
   "status": "ok",
   "service": "pdf-autofiller",
-  "version": "0.3.1"
+  "version": "0.4.0"
 }
 ```
 
