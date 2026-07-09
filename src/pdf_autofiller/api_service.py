@@ -28,10 +28,9 @@ from typing import Any
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
-from starlette.background import BackgroundTask
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel
+from starlette.background import BackgroundTask
 
 from . import __version__
 from .field_semantics import infer_field_semantics
@@ -39,6 +38,7 @@ from .mapping import map_user_data_to_fields, normalize_key
 from .models import EnrichedFormField, FieldSemantics, FillReport, FormField, TextRegion
 from .pdf_reader import PdfPageLimitError, read_pdf
 from .pdf_writer import UnresolvedRequiredFieldsError, fill_pdf
+from .playground import PLAYGROUND_HTML
 
 LOG_LEVEL_NAME = os.getenv("LOG_LEVEL", "INFO").upper()
 # Fail closed: authentication is enabled unless explicitly disabled. Operators
@@ -316,6 +316,18 @@ def _require_api_key(request: Request) -> None:
             code="unauthorized",
             message="Unauthorized",
         )
+
+
+@app.get("/")
+def root() -> RedirectResponse:
+    """Redirect browsers to the interactive playground."""
+    return RedirectResponse(url="/playground")
+
+
+@app.get("/playground", response_class=HTMLResponse)
+def playground_page() -> HTMLResponse:
+    """Serve the browser playground for trying fills without curl."""
+    return HTMLResponse(content=PLAYGROUND_HTML)
 
 
 @app.get("/health", response_model=HealthResponse)

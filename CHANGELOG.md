@@ -4,18 +4,25 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.4.0]
+
 ### Added
 
-- Expanded deterministic alias vocabulary from 5 to 18 semantic concepts (address, employer, SSN, etc.).
-- Shared `field_utils.is_field_required()` helper to deduplicate PDF reader/writer logic.
-- README redesign: badges, positioning, Mermaid architecture diagram, Docker quick start, comparison table.
-- Structured `.env.example` with sectioned comments and production guidance.
-- PyPI-style project URLs and richer `pyproject.toml` metadata/keywords.
+- **Browser playground** at `/playground` — upload PDF, paste JSON, download filled form
+- **Python SDK** (`pdf_autofiller.client`) with `fill()` convenience helper and `PDFAutofillerClient`
+- **Community alias packs** for W-9 and HR onboarding (`form_aliases/*.json`)
+- **Recipes** for W-9, HR onboarding, and sample form (`recipes/`)
+- **Integration guides** for n8n, Zapier, and LangChain (`docs/integrations/`)
+- **Launch playbook** with HN/Reddit/Product Hunt copy (`docs/LAUNCH.md`)
+- **Comparison doc** vs DocuSign, Adobe, and DIY pypdf (`docs/COMPARISON.md`)
+- **Render deploy** blueprint (`render.yaml`) and deployment guide (`docs/DEPLOY.md`)
+- **PyPI publish** GitHub Actions workflow (on release)
+- Demo transcript generator (`scripts/generate_demo_output.py`)
 
 ### Changed
 
-- Synced `docs/API.md` version example to `0.3.1`.
-- Aligned `CONTRIBUTING.md` security audit command with CI (no ignored advisories).
+- Root URL redirects to `/playground`
+- README updated with playground, SDK, recipes, and deploy sections
 
 ## [0.3.1]
 

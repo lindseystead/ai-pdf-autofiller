@@ -5,4 +5,8 @@ This package provides tools for reading, analyzing, and filling PDF forms
 with optional semantic inference.
 """
 
-__version__ = "0.3.1"
+__version__ = "0.4.0"
+
+from .client import PDFAutofillerClient, PDFAutofillError, fill
+
+__all__ = ["PDFAutofillerClient", "PDFAutofillError", "fill", "__version__"]

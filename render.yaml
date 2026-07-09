@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: pdf-autofiller
+    runtime: docker
+    plan: free
+    region: oregon
+    branch: main
+    healthCheckPath: /health
+    envVars:
+      - key: API_AUTH_ENABLED
+        value: "false"
+      - key: RATE_LIMIT_PER_MINUTE
+        value: "30"
+      - key: LOG_LEVEL
+        value: INFO
+      - key: PYTHONPATH
+        value: /app/src
+    autoDeploy: true
