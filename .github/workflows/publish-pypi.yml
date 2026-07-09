@@ -34,5 +34,5 @@ jobs:
       - name: Publish skipped (missing token)
         if: ${{ secrets.PYPI_API_TOKEN == '' }}
         run: |
-          echo "::warning::PYPI_API_TOKEN is not configured. Add the secret or follow docs/PUBLISH.md to publish manually."
+          echo "::warning::PYPI_API_TOKEN is not configured. Add the repository secret to publish to PyPI."
           exit 1
