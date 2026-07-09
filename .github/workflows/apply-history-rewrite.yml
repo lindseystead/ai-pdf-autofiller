@@ -1,0 +1,28 @@
+name: Apply history rewrite
+
+# One-time: replaces main with commit messages scrubbed of automated co-author
+# trailers. Requires "Allow GitHub Actions to bypass branch protection" on main
+# (Settings → Branches → main → Rules → enable bypass for GitHub Actions).
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: chore/rewrite-history-no-cursor-agent
+          fetch-depth: 0
+
+      - name: Replace main and retag releases
+        run: |
+          git push origin HEAD:main --force
+          git push origin 43e7c5c:refs/tags/v0.4.0 --force
+          git push origin b9fc215:refs/tags/v0.4.1 --force
+
+      - name: Delete rewrite branch
+        run: git push origin --delete chore/rewrite-history-no-cursor-agent || true
