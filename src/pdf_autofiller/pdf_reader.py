@@ -17,6 +17,7 @@ from typing import Literal, Optional, cast
 from pypdf import PdfReader
 from pypdf.generic import IndirectObject
 
+from .field_utils import is_field_required
 from .models import DocumentMetadata, DocumentStructure, FormField, TextRegion
 
 logger = logging.getLogger(__name__)
@@ -95,17 +96,6 @@ def _get_field_value(field_obj) -> Optional[str]:
     return str(v) if v else None
 
 
-def _is_field_required(field_obj) -> bool:
-    """
-    Check if a form field is marked as required.
-    
-    PDF spec uses bit flags in the /Ff field. Bit 1 (0x02) indicates
-    a required field.
-    """
-    ff = field_obj.get("/Ff", 0)
-    return bool(ff & 0x02)
-
-
 def _find_field_page(reader: PdfReader, field_obj) -> int:
     """
     Determine which page a form field appears on.
@@ -155,7 +145,7 @@ def _extract_form_fields(reader: PdfReader) -> list[FormField]:
                         name=str(field_name),
                         field_type=_get_field_type(field_obj),
                         value=_get_field_value(field_obj),
-                        required=_is_field_required(field_obj),
+                        required=is_field_required(field_obj),
                         page_number=page_num
                     ))
                 except Exception:
@@ -187,7 +177,7 @@ def _extract_form_fields(reader: PdfReader) -> list[FormField]:
                                             name=str(field_name),
                                             field_type=_get_field_type(field_obj),
                                             value=_get_field_value(field_obj),
-                                            required=_is_field_required(field_obj),
+                                            required=is_field_required(field_obj),
                                             page_number=page_num
                                         ))
                             except Exception:

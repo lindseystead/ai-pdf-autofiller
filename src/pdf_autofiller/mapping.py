@@ -27,12 +27,25 @@ logger = logging.getLogger(__name__)
 
 
 # Semantic aliases used by deterministic matching.
+# Keys are canonical semantic meanings; values are common user-data key variants.
 FIELD_ALIASES: dict[str, list[str]] = {
-    "first_name": ["firstname", "given_name", "forename"],
-    "last_name": ["lastname", "surname", "family_name"],
-    "date_of_birth": ["dob", "birth_date", "birthdate"],
-    "email_address": ["email", "emailaddress"],
-    "phone_number": ["phone", "mobile", "cell"],
+    "first_name": ["firstname", "given_name", "forename", "fname"],
+    "last_name": ["lastname", "surname", "family_name", "lname"],
+    "middle_name": ["middlename", "middle_initial", "mi"],
+    "full_name": ["fullname", "name", "legal_name"],
+    "date_of_birth": ["dob", "birth_date", "birthdate", "birthday"],
+    "email_address": ["email", "emailaddress", "e_mail"],
+    "phone_number": ["phone", "mobile", "cell", "telephone", "tel"],
+    "street_address": ["address", "street", "addr1", "address_line_1", "address1"],
+    "address_line_2": ["addr2", "address2", "apt", "suite", "unit"],
+    "city": ["town", "municipality"],
+    "state": ["province", "region", "state_province"],
+    "postal_code": ["zip", "zipcode", "zip_code", "postcode"],
+    "country": ["nation"],
+    "social_security_number": ["ssn", "social_security", "tax_id", "national_id"],
+    "employer": ["company", "employer_name", "organization"],
+    "job_title": ["title", "position", "occupation"],
+    "signature_date": ["date_signed", "signed_date", "sign_date"],
 }
 
 

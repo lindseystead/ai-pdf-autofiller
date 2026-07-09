@@ -18,7 +18,7 @@ Example response:
 {
   "status": "ok",
   "service": "pdf-autofiller",
-  "version": "0.3.0"
+  "version": "0.3.1"
 }
 ```
 

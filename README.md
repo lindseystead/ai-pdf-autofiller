@@ -1,107 +1,189 @@
+<div align="center">
+
 # PDF Autofiller
 
-Backend service for filling AcroForm PDFs from structured user data.
+**Fill any AcroForm PDF from JSON — no manual field mapping required.**
 
-The project favors deterministic behavior first: it normalizes keys, applies stable aliases, coerces values, and only uses optional semantic inference or controlled fallback mapping when explicitly enabled. The result is a small, testable pipeline that is easier to audit than heuristic-only form filling.
+Deterministic-first pipeline with optional AI fallback. One API call turns messy government, HR, and insurance forms into completed PDFs.
 
-## What It Does
+[![CI](https://github.com/lindseystead/ai-pdf-autofiller/actions/workflows/test.yml/badge.svg)](https://github.com/lindseystead/ai-pdf-autofiller/actions/workflows/test.yml)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue.svg)](https://www.python.org/downloads/)
+[![Coverage](https://img.shields.io/badge/coverage-%E2%89%A585%25-brightgreen.svg)](https://github.com/lindseystead/ai-pdf-autofiller)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 
-- Reads PDF metadata, form fields, and visible page text
-- Infers semantic meaning for fields when optional semantic inference is enabled
-- Maps user data to fields using deterministic rules first
-- Rejects outputs with unresolved required fields
-- Returns a new filled PDF through a small FastAPI service
+[Quick Start](#quick-start) · [API](#api-example) · [Docker](#docker) · [Docs](docs/) · [Contributing](CONTRIBUTING.md)
+
+</div>
+
+---
+
+## The Problem
+
+Every fillable PDF uses different field names. Your user profile says `first_name`, but the IRS form wants `txtFName`, the HR packet wants `givenName`, and the insurance PDF wants `field_12`.
+
+Manual mapping does not scale. Heuristic-only tools are hard to audit. **PDF Autofiller** solves this with a pipeline you can trust:
+
+1. **Normalize** keys and apply a growing alias vocabulary (18+ semantic concepts)
+2. **Coerce** values to the right type (dates, numbers, booleans)
+3. **Optionally infer** field meaning with AI — only when you enable it
+4. **Reject** incomplete outputs when required fields are missing
+
+## Who This Is For
+
+| Audience | Use case |
+|----------|----------|
+| **SaaS builders** | Embed form-filling in onboarding, benefits enrollment, or gov-tech products |
+| **Automation engineers** | Wire into Zapier, n8n, or internal workflows via a single HTTP endpoint |
+| **Developers** | Ship a microservice that turns `{"firstname":"Jane"}` into a filled PDF in seconds |
+| **Teams with compliance needs** | Deterministic mapping is auditable; AI is opt-in and PII-minimized |
+
+## How It Works
+
+```mermaid
+flowchart LR
+    A[PDF Upload] --> B[pdf_reader]
+    B --> C{Semantic<br/>Inference?}
+    C -->|optional| D[field_semantics]
+    C -->|skip| E[mapping]
+    D --> E
+    F[User JSON] --> E
+    E --> G[pdf_writer]
+    G --> H[Filled PDF + Report]
+```
+
+| Module | Responsibility |
+|--------|----------------|
+| `pdf_reader.py` | Extract metadata, AcroForm fields, page text |
+| `field_semantics.py` | Optional AI inference of field meaning |
+| `mapping.py` | Deterministic matching, aliases, type coercion |
+| `pdf_writer.py` | Write values, enforce required fields |
+| `api_service.py` | HTTP API, auth, rate limits, validation |
 
 ## Quick Start
 
-Install development dependencies:
+### Poetry (recommended)
 
 ```bash
+git clone https://github.com/lindseystead/ai-pdf-autofiller.git
+cd ai-pdf-autofiller
 poetry install
-```
-
-or
-
-```bash
-pip install -r requirements-dev.txt
-```
-
-Run the API locally:
-
-```bash
 make run-api
 ```
 
-Run the local smoke check:
+### pip
 
 ```bash
-PYTHONPATH=src python -m scripts.smoke_check
+pip install -r requirements-dev.txt
+make run-api
 ```
 
-Run the demo workflow against the bundled sample:
+### Docker
 
 ```bash
+docker build -t pdf-autofiller .
+docker run -p 8000:8000 \
+  -e API_AUTH_ENABLED=false \
+  pdf-autofiller
+```
+
+Service runs at `http://localhost:8000`. Interactive docs at `/docs`.
+
+### Try it in 30 seconds
+
+```bash
+# Fill the bundled sample form
 PYTHONPATH=src python -m scripts.demo_workflow samples/sample_form.pdf
-```
 
-## API Example
-
-```bash
+# Or hit the API directly
 curl -s -X POST http://localhost:8000/fill \
+  -H "X-API-Key: your-token" \
   -F "pdf_file=@samples/sample_form.pdf;type=application/pdf" \
   -F 'user_data={"firstname":"Jane","lastname":"Doe","dob":"1990-01-01"}' \
   -F "strict=true" \
   -o filled.pdf
 ```
 
+Copy `.env.example` to `.env` and set `API_AUTH_TOKEN` before running in production.
+
+## API Example
+
+```bash
+curl -s -X POST http://localhost:8000/fill \
+  -H "X-API-Key: $API_AUTH_TOKEN" \
+  -F "pdf_file=@samples/sample_form.pdf;type=application/pdf" \
+  -F 'user_data={"firstname":"Jane","lastname":"Doe","dob":"1990-01-01","email":"jane@example.com"}' \
+  -F "strict=true" \
+  -o filled.pdf
+```
+
+**Endpoints:** `GET /health` · `GET /version` · `POST /fill`
+
+Response headers include fill diagnostics: `X-PDF-Fields-Written`, `X-PDF-Fields-Skipped-Review`, and more. See [docs/API.md](docs/API.md).
+
 ## Configuration
 
-- `MODEL_PROVIDER_API_KEY`: enables semantic inference and fallback mapping
-- `API_AUTH_ENABLED`: API key validation on `POST /fill` (default `true`; set `false` for trusted/local use)
-- `API_AUTH_TOKEN`: expected token value when auth is enabled
-- `API_KEY_HEADER`: header name used for the incoming token
-- `MAX_UPLOAD_BYTES`: maximum accepted PDF size in bytes
-- `MAX_PDF_PAGES`: maximum accepted page count (default `200`)
-- `PDF_READ_TIMEOUT_SECONDS`: budget for PDF parsing/extraction (default `20`)
-- `RATE_LIMIT_PER_MINUTE`: per-client `POST /fill` budget; `0` disables (default `60`)
-- `LOG_LEVEL`: process log level for the API service
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `API_AUTH_ENABLED` | `true` | Require `X-API-Key` on `POST /fill` |
+| `API_AUTH_TOKEN` | — | Expected API key value |
+| `API_KEY_HEADER` | `X-API-Key` | Header name for the token |
+| `MODEL_PROVIDER_API_KEY` | — | Enables optional AI inference and fallback |
+| `MAX_UPLOAD_BYTES` | `5242880` | Max PDF upload size (5 MB) |
+| `MAX_PDF_PAGES` | `200` | Page-count DoS guard |
+| `PDF_READ_TIMEOUT_SECONDS` | `20` | Parse/extraction time budget |
+| `MAX_PDF_TEXT_CHARS` | `2000000` | Cap on extracted text volume |
+| `RATE_LIMIT_PER_MINUTE` | `60` | Per-client fill budget (`0` = off) |
+| `LOG_LEVEL` | `INFO` | Process log level |
 
-## Architecture
+Full reference: [.env.example](.env.example) · [docs/OPERATIONS.md](docs/OPERATIONS.md)
 
-Core code lives in `src/pdf_autofiller/` and is intentionally split by responsibility:
+## Why Deterministic-First?
 
-- `pdf_reader.py`: extraction only
-- `field_semantics.py`: provider client wrapper and response normalization
-- `mapping.py`: deterministic matching and controlled fallback mapping
-- `pdf_writer.py`: output writing and required-field enforcement
-- `api_service.py`: HTTP boundary, auth, request validation, and temp-file lifecycle
+| Approach | Auditability | Setup | Cost |
+|----------|--------------|-------|------|
+| Manual field maps per PDF | High | Painful at scale | Engineer time |
+| AI-only form filling | Low | Easy | Per-request LLM cost |
+| **PDF Autofiller** | **High** | **Drop in a PDF + JSON** | **Free without AI** |
 
-The detailed system breakdown is in `docs/ARCHITECTURE.md`.
+Most fields match via normalization and aliases — no API key required. Enable `use_semantic_inference` only when you need it.
 
-## Quality
+## Quality & Security
 
-- `ruff`, `mypy`, `pip-audit`, and `pytest` are enforced in CI
-- Coverage floor is `85%`
-- API error responses use stable machine-readable error codes
-- Smoke-check and demo scripts are kept separate from the test suite
+- **CI:** ruff, mypy, pip-audit, pytest across Python 3.11 and 3.12
+- **Coverage floor:** 85%
+- **Auth on by default** — fails closed
+- **DoS guards:** page limits, parse timeouts, upload size caps
+- **PII-safe AI path:** fallback shares key *names* and value *types*, never raw values
 
 ## Scope
 
-- The current pipeline targets fillable AcroForm PDFs
-- OCR and scanned-document workflows are intentionally out of scope
-- Frontend, persistence, and deployment infrastructure are not part of this repository
-- If optional provider-backed features are enabled, field metadata and nearby page text may be sent to an external service
+**In scope:** Fillable AcroForm PDFs, JSON user profiles, HTTP API, Docker deployment.
+
+**Out of scope (today):** Scanned PDFs / OCR, template persistence, signatures, frontend UI, bulk job queues.
 
 ## Documentation
 
-- `docs/API.md`: endpoint contracts and example requests
-- `docs/ARCHITECTURE.md`: module boundaries and data flow
-- `docs/OPERATIONS.md`: runtime configuration and deployment assumptions
-- `docs/TESTING.md`: local validation workflow
-- `docs/PURPOSE.md`: problem statement and intended usage
-- `CONTRIBUTING.md`: contributor expectations
-- `SECURITY.md`: vulnerability reporting and data-handling notes
+| Doc | Contents |
+|-----|----------|
+| [docs/API.md](docs/API.md) | Endpoint contracts and examples |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Module boundaries and data flow |
+| [docs/OPERATIONS.md](docs/OPERATIONS.md) | Runtime config and deployment |
+| [docs/PURPOSE.md](docs/PURPOSE.md) | Problem statement and use cases |
+| [docs/TESTING.md](docs/TESTING.md) | Local validation workflow |
+| [SECURITY.md](SECURITY.md) | Vulnerability reporting |
+| [CHANGELOG.md](CHANGELOG.md) | Release history |
 
 ## License
 
-MIT. See `LICENSE`.
+MIT — see [LICENSE](LICENSE).
+
+---
+
+<div align="center">
+
+**Built for developers who are tired of mapping `txtFirstName` by hand.**
+
+If this saves you time, consider starring the repo — it helps others find it.
+
+</div>

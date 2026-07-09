@@ -448,3 +448,34 @@ def test_semantic_fallback_prompt_withholds_raw_user_values():
     assert "firstname" in prompt
     assert "str" in prompt
     assert "TopSecretValue" not in prompt
+
+
+@pytest.mark.parametrize(
+    ("semantic_meaning", "user_key", "user_value"),
+    [
+        ("street_address", "addr1", "123 Main St"),
+        ("city", "town", "Springfield"),
+        ("state", "province", "IL"),
+        ("postal_code", "zipcode", "62701"),
+        ("social_security_number", "ssn", "123-45-6789"),
+        ("employer", "company", "Acme Corp"),
+        ("job_title", "position", "Engineer"),
+    ],
+)
+def test_find_deterministic_match_expanded_aliases(
+    semantic_meaning: str,
+    user_key: str,
+    user_value: str,
+):
+    """Expanded alias vocabulary covers common intake and HR form fields."""
+    matched_key, matched_value, confidence, reason = find_deterministic_match(
+        semantic_meaning,
+        {user_key: user_value},
+        "string",
+    )
+
+    assert matched_key == user_key
+    assert matched_value == user_value
+    assert confidence >= 0.85
+    assert "Alias match" in reason
+
