@@ -54,6 +54,20 @@ For trusted local experimentation only, you can disable auth with
 
 The container runs as a non-root user and exposes a Docker `HEALTHCHECK` against `/health`.
 
+## GitHub Pages (one-time setup)
+
+The landing page source is in `docs/site/`. A repo admin must enable Pages once:
+
+1. **Settings → Pages → Build and deployment**
+2. Set **Source** to **GitHub Actions**
+3. Merge or push to `main` (the deploy workflow runs when `docs/site/` changes)
+
+Published URL: `https://lindseystead.github.io/ai-pdf-autofiller/`
+
+## PyPI publish
+
+Add `PYPI_API_TOKEN` as a repository secret. The publish workflow runs on each GitHub Release; without the secret it completes with a warning and wheels remain on GitHub Releases.
+
 ## Deployment Assumptions
 
 - TLS termination, ingress policy, and network isolation are handled by the deployment environment.
