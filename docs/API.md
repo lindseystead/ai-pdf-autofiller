@@ -22,9 +22,15 @@ Example response:
 {
   "status": "ok",
   "service": "pdf-autofiller",
-  "version": "0.4.0"
+  "version": "0.4.2",
+  "checks": {
+    "auth": "disabled",
+    "alias_packs": "ok"
+  }
 }
 ```
+
+`status` is `degraded` when auth is enabled but `API_AUTH_TOKEN` is unset (`checks.auth` = `misconfigured`). Alias pack problems surface under `checks.alias_packs`.
 
 ### `GET /version`
 

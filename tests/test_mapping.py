@@ -141,7 +141,7 @@ def test_find_deterministic_match_direct():
     """Test deterministic matching with direct match."""
     user_data = {"first_name": "John", "lastname": "Doe"}
     
-    matched_key, matched_value, confidence, reason = find_deterministic_match(
+    matched_key, matched_value, confidence, reason, requires_review = find_deterministic_match(
         "first_name",
         user_data,
         "string"
@@ -157,7 +157,7 @@ def test_find_deterministic_match_alias():
     """Test deterministic matching with alias match."""
     user_data = {"surname": "Smith", "email": "test@example.com"}
     
-    matched_key, matched_value, confidence, reason = find_deterministic_match(
+    matched_key, matched_value, confidence, reason, requires_review = find_deterministic_match(
         "last_name",
         user_data,
         "string"
@@ -173,7 +173,7 @@ def test_find_deterministic_match_no_match():
     """Test deterministic matching when no match found."""
     user_data = {"unrelated": "value"}
     
-    matched_key, matched_value, confidence, reason = find_deterministic_match(
+    matched_key, matched_value, confidence, reason, requires_review = find_deterministic_match(
         "first_name",
         user_data,
         "string"
@@ -468,7 +468,7 @@ def test_find_deterministic_match_expanded_aliases(
     user_value: str,
 ):
     """Expanded alias vocabulary covers common intake and HR form fields."""
-    matched_key, matched_value, confidence, reason = find_deterministic_match(
+    matched_key, matched_value, confidence, reason, requires_review = find_deterministic_match(
         semantic_meaning,
         {user_key: user_value},
         "string",
@@ -482,7 +482,7 @@ def test_find_deterministic_match_expanded_aliases(
 
 def test_community_w9_alias_pack_loaded():
     """W-9 alias pack extends matching for tax form field names."""
-    matched_key, matched_value, confidence, reason = find_deterministic_match(
+    matched_key, matched_value, confidence, reason, requires_review = find_deterministic_match(
         "taxpayer_name",
         {"name_line_1": "Jane Doe"},
         "string",

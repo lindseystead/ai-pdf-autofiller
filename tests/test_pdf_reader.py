@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import pytest
+from pypdf.generic import IndirectObject
 
 from pdf_autofiller import pdf_reader
 
@@ -93,7 +94,7 @@ def test_get_field_value_handles_direct_values():
 
 
 def test_get_field_value_handles_reference_resolution(monkeypatch):
-    class FakeIndirect(pdf_reader.IndirectObject):
+    class FakeIndirect(IndirectObject):
         def __init__(self, value):
             self._value = value
 
@@ -102,7 +103,7 @@ def test_get_field_value_handles_reference_resolution(monkeypatch):
 
     assert pdf_reader._get_field_value({"/V": FakeIndirect("resolved")}) == "resolved"
 
-    class BrokenIndirect(pdf_reader.IndirectObject):
+    class BrokenIndirect(IndirectObject):
         def get_object(self):
             raise RuntimeError("broken")
 

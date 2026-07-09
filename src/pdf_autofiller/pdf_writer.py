@@ -11,6 +11,7 @@ from typing import Optional
 
 from pypdf import PdfReader, PdfWriter
 
+from .acroform_fields import collect_field_objects, get_field_type as acroform_field_type
 from .field_utils import is_field_required
 from .models import FillReport, MappingResult
 
@@ -45,51 +46,7 @@ class UnresolvedRequiredFieldsError(Exception):
 
 def _collect_pdf_fields(reader: PdfReader) -> dict[str, object]:
     """Collect field metadata from AcroForm and annotation fallbacks."""
-    try:
-        pdf_fields = reader.get_fields()
-        if pdf_fields:
-            return {str(field_name): field_obj for field_name, field_obj in pdf_fields.items()}
-    except Exception:
-        logger.warning(
-            "Failed to read PDF form fields from AcroForm; falling back to widget annotations",
-            exc_info=True,
-        )
-
-    fallback_fields: dict[str, object] = {}
-    for page_num, page in enumerate(reader.pages, start=1):
-        try:
-            annotations = page.get("/Annots")
-            if not annotations:
-                continue
-
-            for annot_ref in annotations:
-                try:
-                    annot = annot_ref.get_object() if hasattr(annot_ref, "get_object") else annot_ref
-                    if annot.get("/Subtype") != "/Widget":
-                        continue
-
-                    parent = annot.get("/Parent")
-                    field_name = annot.get("/T")
-                    if not field_name and parent:
-                        parent_obj = parent.get_object() if hasattr(parent, "get_object") else parent
-                        field_name = parent_obj.get("/T")
-                    if not field_name:
-                        continue
-
-                    field_obj = annot
-                    if parent:
-                        field_obj = parent.get_object() if hasattr(parent, "get_object") else parent
-                    fallback_fields.setdefault(str(field_name), field_obj)
-                except Exception:
-                    logger.debug(
-                        "Failed to inspect widget annotation on page %s",
-                        page_num,
-                        exc_info=True,
-                    )
-        except Exception:
-            logger.debug("Failed to inspect annotations on page %s", page_num, exc_info=True)
-
-    return fallback_fields
+    return collect_field_objects(reader)
 
 
 def _field_type(field_obj) -> Optional[str]:
@@ -97,8 +54,14 @@ def _field_type(field_obj) -> Optional[str]:
     if not hasattr(field_obj, "get"):
         return None
     try:
-        ft = field_obj.get("/FT")
-        return str(ft) if ft is not None else None
+        internal = acroform_field_type(field_obj)
+        mapping = {
+            "text": "/Tx",
+            "button": "/Btn",
+            "choice": "/Ch",
+            "signature": "/Sig",
+        }
+        return mapping.get(internal)
     except Exception:
         logger.debug("Unable to read field type from field object", exc_info=True)
         return None

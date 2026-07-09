@@ -8,9 +8,17 @@ services:
     healthCheckPath: /health
     envVars:
       - key: API_AUTH_ENABLED
-        value: "false"
+        value: "true"
+      - key: API_AUTH_TOKEN
+        generateValue: true
       - key: RATE_LIMIT_PER_MINUTE
         value: "30"
+      - key: MAX_UPLOAD_BYTES
+        value: "5242880"
+      - key: MAX_PDF_PAGES
+        value: "200"
+      - key: PDF_READ_TIMEOUT_SECONDS
+        value: "20"
       - key: LOG_LEVEL
         value: INFO
       - key: PYTHONPATH

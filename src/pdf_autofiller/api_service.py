@@ -33,11 +33,11 @@ from pydantic import BaseModel
 from starlette.background import BackgroundTask
 
 from . import __version__
-from .field_semantics import infer_field_semantics
-from .mapping import map_user_data_to_fields, normalize_key
-from .models import EnrichedFormField, FieldSemantics, FillReport, FormField, TextRegion
-from .pdf_reader import PdfPageLimitError, read_pdf
-from .pdf_writer import UnresolvedRequiredFieldsError, fill_pdf
+from .mapping import alias_pack_status
+from .models import FillReport
+from .pdf_reader import PdfPageLimitError
+from .pdf_writer import UnresolvedRequiredFieldsError
+from .pipeline import enrich_fields, page_context_by_number, run_fill_pipeline
 from .playground import PLAYGROUND_HTML
 
 LOG_LEVEL_NAME = os.getenv("LOG_LEVEL", "INFO").upper()
@@ -53,6 +53,9 @@ MAX_PDF_PAGES = int(os.getenv("MAX_PDF_PAGES", "200"))
 PDF_READ_TIMEOUT_SECONDS = float(os.getenv("PDF_READ_TIMEOUT_SECONDS", "20"))
 # Per-client request budget for POST /fill. Set to 0 to disable.
 RATE_LIMIT_PER_MINUTE = int(os.getenv("RATE_LIMIT_PER_MINUTE", "60"))
+# Trust X-Forwarded-For for per-client rate limiting behind a reverse proxy.
+TRUST_PROXY_HEADERS = os.getenv("TRUST_PROXY_HEADERS", "false").lower() == "true"
+UPLOAD_CHUNK_BYTES = 64 * 1024
 
 
 def _resolve_log_level() -> int:
@@ -72,6 +75,7 @@ class HealthResponse(BaseModel):
     status: str
     service: str
     version: str
+    checks: dict[str, str] = {}
 
 
 class VersionResponse(BaseModel):
@@ -108,20 +112,24 @@ def _api_error(
     )
 
 
-def _fallback_semantics(field: FormField) -> EnrichedFormField:
-    """Build deterministic semantics from field name when inference is disabled/unavailable."""
-    normalized = normalize_key(field.name)
-    normalized = normalized.removeprefix("txt_")
-    normalized = normalized.removeprefix("txt")
-    semantic = normalized if normalized else "unknown_field"
+def _fallback_semantics(field):
+    """Backward-compatible wrapper for tests importing the helper."""
+    from .pipeline import fallback_semantics
 
-    return EnrichedFormField(
-        field=field,
-        semantics=FieldSemantics(
-            semantic_meaning=semantic,
-            expected_data_type="string",
-            confidence_score=0.5,
-        ),
+    return fallback_semantics(field)
+
+
+def _page_context_by_number(text_regions):
+    """Backward-compatible wrapper for tests importing the helper."""
+    return page_context_by_number(text_regions)
+
+
+def _enrich_fields(fields, *, use_semantic_inference, page_context=None):
+    """Backward-compatible wrapper for tests importing the helper."""
+    return enrich_fields(
+        fields,
+        use_semantic_inference=use_semantic_inference,
+        page_context=page_context,
     )
 
 
@@ -176,43 +184,6 @@ def _audit_log_fill(
         use_semantic_inference,
         allow_fallback_mapping,
     )
-
-
-def _page_context_by_number(text_regions: list[TextRegion]) -> dict[int, str]:
-    """Group extracted page text so semantic inference can use local context."""
-    grouped_regions: dict[int, list[str]] = {}
-    for region in text_regions:
-        grouped_regions.setdefault(region.page_number, []).append(region.text)
-    return {
-        page_number: "\n".join(chunks)
-        for page_number, chunks in grouped_regions.items()
-    }
-
-
-def _enrich_fields(
-    fields: list[FormField],
-    *,
-    use_semantic_inference: bool,
-    page_context: dict[int, str] | None = None,
-) -> list[EnrichedFormField]:
-    """Enrich extracted fields with semantic inference or deterministic fallback."""
-    enriched_fields: list[EnrichedFormField] = []
-
-    for field in fields:
-        context_text = page_context.get(field.page_number) if page_context else None
-        if use_semantic_inference:
-            try:
-                enriched_fields.append(infer_field_semantics(field, context_text=context_text))
-                continue
-            except (RuntimeError, ValueError) as exc:
-                logger.warning(
-                    "Semantic inference failed for field '%s'; using deterministic fallback: %s",
-                    field.name,
-                    exc,
-                )
-        enriched_fields.append(_fallback_semantics(field))
-
-    return enriched_fields
 
 
 app = FastAPI(
@@ -273,15 +244,57 @@ def _reset_rate_limit_state() -> None:
     _rate_limit_state.clear()
 
 
+def _client_identifier(request: Request) -> str:
+    """Resolve the client key used for rate limiting."""
+    if TRUST_PROXY_HEADERS:
+        forwarded = request.headers.get("X-Forwarded-For")
+        if forwarded:
+            return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def _purge_stale_rate_limit_clients(now: float) -> None:
+    """Drop idle client buckets to bound memory use under rotating clients."""
+    if len(_rate_limit_state) <= 1000:
+        return
+    stale_clients = [
+        client_id
+        for client_id, window in _rate_limit_state.items()
+        if not window or now - window[-1] >= 60.0
+    ]
+    for client_id in stale_clients:
+        _rate_limit_state.pop(client_id, None)
+
+
+async def _read_bounded_upload(upload: UploadFile, max_bytes: int) -> bytes:
+    """Read an upload in chunks and reject payloads before they fully buffer."""
+    chunks: list[bytes] = []
+    total = 0
+    while True:
+        chunk = await upload.read(UPLOAD_CHUNK_BYTES)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > max_bytes:
+            raise _api_error(
+                status_code=413,
+                code="payload_too_large",
+                message="PDF exceeds MAX_UPLOAD_BYTES limit",
+                details={"max_upload_bytes": max_bytes},
+            )
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
 def _enforce_rate_limit(request: Request) -> None:
     """Apply a per-client sliding-window rate limit, if enabled."""
     if RATE_LIMIT_PER_MINUTE <= 0:
         return
 
-    client_host = request.client.host if request.client else "unknown"
+    client_host = _client_identifier(request)
     now = time.monotonic()
+    _purge_stale_rate_limit_clients(now)
     window = _rate_limit_state[client_host]
-    # Drop timestamps older than the 60s window.
     while window and now - window[0] >= 60.0:
         window.popleft()
 
@@ -332,10 +345,20 @@ def playground_page() -> HTMLResponse:
 
 @app.get("/health", response_model=HealthResponse)
 def health() -> HealthResponse:
+    checks = {
+        "auth": (
+            "enabled"
+            if API_AUTH_ENABLED and API_AUTH_TOKEN
+            else "disabled" if not API_AUTH_ENABLED else "misconfigured"
+        ),
+        **alias_pack_status(),
+    }
+    status = "ok" if checks["auth"] != "misconfigured" else "degraded"
     return HealthResponse(
-        status="ok",
+        status=status,
         service="pdf-autofiller",
         version=__version__,
+        checks=checks,
     )
 
 
@@ -394,16 +417,7 @@ async def fill(
         input_path = temp_path / "input.pdf"
         output_path = temp_path / "output_filled.pdf"
 
-        # Read the upload once, then immediately enforce size/signature checks.
-        # This keeps validation behavior deterministic before any PDF parsing.
-        content = await pdf_file.read()
-        if len(content) > MAX_UPLOAD_BYTES:
-            raise _api_error(
-                status_code=413,
-                code="payload_too_large",
-                message="PDF exceeds MAX_UPLOAD_BYTES limit",
-                details={"max_upload_bytes": MAX_UPLOAD_BYTES},
-            )
+        content = await _read_bounded_upload(pdf_file, MAX_UPLOAD_BYTES)
         if not content.startswith(b"%PDF-"):
             raise _api_error(
                 status_code=415,
@@ -412,11 +426,18 @@ async def fill(
             )
         input_path.write_bytes(content)
 
-        # Parse/extract off the event loop with a wall-clock budget. Extraction is
-        # the main CPU/memory cost and the primary DoS vector for hostile PDFs.
         try:
-            structure = await asyncio.wait_for(
-                asyncio.to_thread(read_pdf, input_path, max_pages=MAX_PDF_PAGES),
+            fill_report, mapping_result, fields_total = await asyncio.wait_for(
+                asyncio.to_thread(
+                    run_fill_pipeline,
+                    input_path,
+                    output_path,
+                    parsed_user_data,
+                    strict=strict,
+                    allow_fallback_mapping=allow_fallback_mapping,
+                    use_semantic_inference=use_semantic_inference,
+                    max_pages=MAX_PDF_PAGES,
+                ),
                 timeout=PDF_READ_TIMEOUT_SECONDS,
             )
         except asyncio.TimeoutError as exc:
@@ -434,22 +455,9 @@ async def fill(
                 details={"max_pages": exc.max_pages, "num_pages": exc.num_pages},
             ) from exc
 
-        enriched_fields = _enrich_fields(
-            structure.form_fields,
-            use_semantic_inference=use_semantic_inference,
-            page_context=_page_context_by_number(structure.text_regions),
-        )
-        mapping_result = map_user_data_to_fields(
-            enriched_fields,
-            parsed_user_data,
-            strict=strict,
-            allow_fallback_mapping=allow_fallback_mapping,
-        )
-
-        fill_report = fill_pdf(input_path, output_path, mapping_result)
         _audit_log_fill(
             request,
-            fields_total=len(enriched_fields),
+            fields_total=fields_total,
             report=fill_report,
             missing_required=len(mapping_result.missing_required),
             use_semantic_inference=use_semantic_inference,

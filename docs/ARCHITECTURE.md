@@ -2,10 +2,12 @@
 
 ## Module Boundaries
 
+- `src/pdf_autofiller/acroform_fields.py`: shared AcroForm field extraction for reader and writer
 - `src/pdf_autofiller/pdf_reader.py`: reads PDF metadata, fields, and visible text without invoking external services
 - `src/pdf_autofiller/field_semantics.py`: wraps provider calls and normalizes model responses
 - `src/pdf_autofiller/mapping.py`: performs deterministic matching first and uses fallback mapping only for unresolved high-value fields
 - `src/pdf_autofiller/pdf_writer.py`: writes validated field values and enforces required-field completion
+- `src/pdf_autofiller/pipeline.py`: orchestrates extract → enrich → map → write for API, SDK, and tests
 - `src/pdf_autofiller/api_service.py`: owns the HTTP contract, auth, request validation, and temporary file lifecycle
 - `src/pdf_autofiller/models.py`: defines the shared data contracts between each stage
 
