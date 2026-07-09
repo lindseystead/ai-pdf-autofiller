@@ -1,6 +1,6 @@
 [project]
 name = "pdf-autofiller"
-version = "0.4.0"
+version = "0.4.1"
 description = "Fill AcroForm PDFs from JSON with deterministic field mapping and optional AI inference"
 readme = "README.md"
 requires-python = ">=3.11,<4.0"
