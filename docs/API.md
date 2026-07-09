@@ -22,7 +22,7 @@ Example response:
 {
   "status": "ok",
   "service": "pdf-autofiller",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "checks": {
     "auth": "disabled",
     "alias_packs": "ok"

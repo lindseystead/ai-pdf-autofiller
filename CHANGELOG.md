@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.4.3]
+
+### Fixed
+
+- Docker/GHCR image build no longer copies files excluded by `.dockerignore`
+
+### Added
+
+- `CODE_OF_CONDUCT.md` and GitHub issue templates for bug reports and feature requests
+- `workflow_dispatch` on the GHCR publish workflow for manual image rebuilds
+- GitHub Pages workflow `enablement` for first-time site setup
+
+### Changed
+
+- README restructured for open-source presentation (install, API, architecture, docs index)
+- `pyproject.toml` project URLs include the GitHub Pages landing page
+
 ## [0.4.2]
 
 ### Added
@@ -40,11 +57,8 @@ All notable changes to this project will be documented in this file.
 - **Community alias packs** for W-9 and HR onboarding (`form_aliases/*.json`)
 - **Recipes** for W-9, HR onboarding, and sample form (`recipes/`)
 - **Integration guides** for n8n, Zapier, and LangChain (`docs/integrations/`)
-- **Launch playbook** with HN/Reddit/Product Hunt copy (`docs/LAUNCH.md`)
-- **Comparison doc** vs DocuSign, Adobe, and DIY pypdf (`docs/COMPARISON.md`)
-- **Render deploy** blueprint (`render.yaml`) and deployment guide (`docs/DEPLOY.md`)
+- **Render deploy** blueprint (`render.yaml`)
 - **PyPI publish** GitHub Actions workflow (on release)
-- Demo transcript generator (`scripts/generate_demo_output.py`)
 
 ### Changed
 
