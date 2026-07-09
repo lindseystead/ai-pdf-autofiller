@@ -25,6 +25,14 @@ Supporting documentation for the PDF Autofiller service.
 
 ## Landing page
 
-Static site source for GitHub Pages lives in [site/](site/). After Pages is enabled in repository settings, it publishes to:
+Static site: [docs/site/](site/). Source images live in [assets/](assets/).
 
-`https://lindseystead.github.io/ai-pdf-autofiller/`
+To update GitHub **description** and **topics** (search visibility on GitHub):
+
+```bash
+bash scripts/apply-repo-metadata.sh
+```
+
+Requires `gh` CLI logged in as a repo admin.
+
+Optional: upload `docs/assets/social-preview.png` under **Settings → General → Social preview** for link previews on Twitter/Slack/Discord.
