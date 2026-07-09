@@ -73,7 +73,7 @@ make run-api
 # http://localhost:8000/playground
 ```
 
-Optional self-host deploy: [docs/DEPLOY.md](docs/DEPLOY.md) (Render) · Automated discovery: [docs/DISCOVERY.md](docs/DISCOVERY.md)
+Self-host and runtime config: [docs/OPERATIONS.md](docs/OPERATIONS.md)
 
 ## Python SDK
 
@@ -279,13 +279,6 @@ Most fields match via normalization and aliases — no API key required. Enable 
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Module boundaries and data flow |
 | [docs/OPERATIONS.md](docs/OPERATIONS.md) | Runtime config and deployment |
 | [docs/PURPOSE.md](docs/PURPOSE.md) | Problem statement and use cases |
-| [docs/COMPARISON.md](docs/COMPARISON.md) | vs DocuSign, Adobe, DIY pypdf |
-| [docs/DEPLOY.md](docs/DEPLOY.md) | Render playground deployment |
-| [docs/PUBLISH.md](docs/PUBLISH.md) | PyPI publish setup |
-| [docs/DISCOVERY.md](docs/DISCOVERY.md) | Grow without manual marketing |
-| [docs/SHOW_HN.md](docs/SHOW_HN.md) | Copy-paste Show HN post |
-| [docs/submissions/](docs/submissions/) | awesome-selfhosted PR draft |
-| [docs/LAUNCH.md](docs/LAUNCH.md) | HN / Reddit / Product Hunt copy |
 | [docs/integrations/](docs/integrations/) | n8n, Zapier, LangChain guides |
 | [docs/TESTING.md](docs/TESTING.md) | Local validation workflow |
 | [recipes/](recipes/) | W-9, HR onboarding curl recipes |
@@ -301,7 +294,5 @@ MIT — see [LICENSE](LICENSE).
 <div align="center">
 
 **Built for developers who are tired of mapping `txtFirstName` by hand.**
-
-If this saves you time, consider starring the repo — it helps others find it.
 
 </div>

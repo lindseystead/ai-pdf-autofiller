@@ -58,8 +58,5 @@ run-api:
 playground:
 	@echo "Playground: http://localhost:8000/playground (run 'make run-api' first)"
 
-demo-output:
-	PYTHONPATH=src python -m scripts.generate_demo_output
-
 install-release:
 	bash scripts/install-from-release.sh

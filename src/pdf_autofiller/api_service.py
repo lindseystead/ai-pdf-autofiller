@@ -11,7 +11,7 @@ Security posture (this service accepts untrusted uploads from the public):
   off the event loop under a wall-clock timeout to bound DoS from hostile PDFs.
 - Temporary files are removed on every code path.
 - A structured, PII-free audit line is emitted per fill.
-See docs/AUDIT.md and docs/OPERATIONS.md for rationale and configuration.
+See docs/OPERATIONS.md for rationale and configuration.
 """
 
 import asyncio

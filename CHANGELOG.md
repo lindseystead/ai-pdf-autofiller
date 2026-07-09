@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Removed
+
+- Internal launch, marketing, and maintainer-only docs (HN copy, discovery playbook, PyPI publish guide, architecture audit, awesome-selfhosted submission drafts)
+
 ## [0.4.1]
 
 ### Added
