@@ -4,9 +4,26 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-### Removed
+## [0.4.2]
 
-- Internal launch, marketing, and maintainer-only docs (HN copy, discovery playbook, PyPI publish guide, architecture audit, awesome-selfhosted submission drafts)
+### Added
+
+- Shared `acroform_fields` module and `pipeline.run_fill_pipeline()` for end-to-end fills
+- Integration tests that round-trip `samples/sample_form.pdf` through the API and pipeline
+- Health endpoint dependency checks (`auth`, alias pack count)
+- Chunked upload reads with early size rejection
+- Proxy-aware rate limiting via `TRUST_PROXY_HEADERS`
+
+### Changed
+
+- `render.yaml` now enables auth by default and generates `API_AUTH_TOKEN`
+- Deterministic mapping coerces values once (no double coercion)
+- `FORM_ALIASES_DIR` must point at a real directory or falls back to package defaults
+- Rate limiter evicts stale client buckets under high cardinality
+
+### Security
+
+- Deploy blueprint no longer ships with authentication disabled by default
 
 ## [0.4.1]
 

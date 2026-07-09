@@ -51,15 +51,34 @@ FIELD_ALIASES: dict[str, list[str]] = {
 }
 
 
+def _resolve_aliases_dir() -> Path:
+    """Resolve the alias pack directory, falling back when misconfigured."""
+    default = Path(__file__).parent / "form_aliases"
+    custom_env = os.getenv("FORM_ALIASES_DIR")
+    if not custom_env:
+        return default
+
+    candidate = Path(custom_env).expanduser()
+    if not candidate.is_absolute():
+        candidate = (Path.cwd() / candidate).resolve()
+    else:
+        candidate = candidate.resolve()
+
+    if not candidate.is_dir():
+        logger.warning(
+            "FORM_ALIASES_DIR is not a directory (%s); using package defaults",
+            candidate,
+        )
+        return default
+
+    return candidate
+
+
 def _load_community_aliases() -> dict[str, list[str]]:
     """Merge optional community alias packs shipped with the package."""
-    aliases_dir = Path(__file__).parent / "form_aliases"
+    aliases_dir = _resolve_aliases_dir()
     if not aliases_dir.is_dir():
         return {}
-
-    custom_env = os.getenv("FORM_ALIASES_DIR")
-    if custom_env:
-        aliases_dir = Path(custom_env)
 
     merged: dict[str, list[str]] = {}
     for path in sorted(aliases_dir.glob("*.json")):
@@ -81,6 +100,16 @@ def _load_community_aliases() -> dict[str, list[str]]:
 
 
 FIELD_ALIASES.update(_load_community_aliases())
+
+
+def alias_pack_status() -> dict[str, str]:
+    """Return alias-pack metadata for health checks."""
+    aliases_dir = _resolve_aliases_dir()
+    pack_count = len(list(aliases_dir.glob("*.json"))) if aliases_dir.is_dir() else 0
+    return {
+        "alias_directory": str(aliases_dir),
+        "alias_pack_count": str(pack_count),
+    }
 
 
 def normalize_key(key: str) -> str:
@@ -170,7 +199,7 @@ def find_deterministic_match(
     semantic_meaning: str,
     user_data: dict[str, Any],
     expected_type: str
-) -> tuple[Optional[str], Optional[str], float, str]:
+) -> tuple[Optional[str], Optional[str], float, str, bool]:
     """
     Find a deterministic match for a semantic meaning.
     
@@ -184,7 +213,7 @@ def find_deterministic_match(
         expected_type: Expected data type for type coercion
         
     Returns:
-        Tuple of (matched_key, matched_value, confidence, reason)
+        Tuple of (matched_key, matched_value, confidence, reason, requires_review)
     """
     normalized_semantic = normalize_key(semantic_meaning)
     
@@ -196,7 +225,7 @@ def find_deterministic_match(
             coerced_value, requires_review = coerce_value(user_value, expected_type)
             confidence = 0.95 if not requires_review else 0.70
             reason = f"Direct match: '{user_key}' matches semantic '{semantic_meaning}'"
-            return user_key, coerced_value, confidence, reason
+            return user_key, coerced_value, confidence, reason, requires_review
     
     # Alias match
     if semantic_meaning in FIELD_ALIASES:
@@ -210,9 +239,9 @@ def find_deterministic_match(
                 coerced_value, requires_review = coerce_value(user_value, expected_type)
                 confidence = 0.90 if not requires_review else 0.65
                 reason = f"Alias match: '{user_key}' matches semantic '{semantic_meaning}' via alias"
-                return user_key, coerced_value, confidence, reason
+                return user_key, coerced_value, confidence, reason, requires_review
     
-    return None, None, 0.0, "No deterministic match found"
+    return None, None, 0.0, "No deterministic match found", False
 
 
 def semantic_fallback_mapping(
@@ -367,7 +396,7 @@ def map_user_data_to_fields(
         semantic = enriched_field.semantics.semantic_meaning
         expected_type = enriched_field.semantics.expected_data_type
         
-        matched_key, matched_value, confidence, reason = find_deterministic_match(
+        matched_key, matched_value, confidence, reason, requires_review = find_deterministic_match(
             semantic,
             user_data,
             expected_type
@@ -375,12 +404,11 @@ def map_user_data_to_fields(
         
         if matched_key:
             used_user_keys.add(matched_key)
-            coerced_value, requires_review = coerce_value(matched_value, expected_type)
             
             decisions.append(FieldMappingDecision(
                 field_name=enriched_field.field.name,
                 semantic_meaning=semantic,
-                selected_value=coerced_value,
+                selected_value=matched_value,
                 confidence=confidence,
                 reason=reason,
                 requires_review=requires_review or confidence < 0.80

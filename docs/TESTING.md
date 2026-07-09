@@ -29,10 +29,12 @@ PYTHONPATH=src python -m scripts.smoke_check
 Pytest coverage currently includes:
 
 - Mapping logic (`tests/test_mapping.py`)
+- AcroForm field extraction (`tests/test_acroform_fields.py`)
 - PDF reader extraction flow (`tests/test_pdf_reader.py`)
 - PDF writer behavior and required-field handling (`tests/test_pdf_writer.py`)
 - Semantic client wrapper behavior and parsing (`tests/test_field_semantics.py`)
 - FastAPI endpoint behavior (`tests/test_api_service.py`)
+- End-to-end pipeline and API round-trips (`tests/test_integration.py`)
 
 The smoke-check script (`scripts/smoke_check.py`) covers imports, model construction, mapping behavior, and the local semantic client availability path.
 

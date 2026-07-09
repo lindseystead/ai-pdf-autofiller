@@ -78,7 +78,9 @@ def test_enrich_fields_passes_page_context_to_ai(monkeypatch):
             ),
         )
 
-    monkeypatch.setattr(api_service, "infer_field_semantics", fake_infer)
+    from pdf_autofiller import pipeline as fill_pipeline
+
+    monkeypatch.setattr(fill_pipeline, "infer_field_semantics", fake_infer)
 
     field = FormField(name="txtFirstName", field_type="text", required=True, page_number=1)
     enriched_fields = api_service._enrich_fields(
@@ -218,11 +220,11 @@ def test_fill_endpoint_rejects_too_many_pages(monkeypatch):
 def test_fill_endpoint_times_out_on_slow_read(monkeypatch):
     import time
 
-    def slow_read(_path, *, max_pages=None):
+    def slow_pipeline(*_args, **_kwargs):
         time.sleep(0.3)
         raise AssertionError("should have timed out before returning")
 
-    monkeypatch.setattr(api_service, "read_pdf", slow_read)
+    monkeypatch.setattr(api_service, "run_fill_pipeline", slow_pipeline)
     monkeypatch.setattr(api_service, "PDF_READ_TIMEOUT_SECONDS", 0.01)
 
     response = client.post(
@@ -293,13 +295,13 @@ def test_fill_endpoint_rejects_large_upload(monkeypatch):
 
 
 def test_fill_endpoint_returns_required_fields_unresolved_code(monkeypatch):
-    def fake_fill_pdf(_in_path, _out_path, _result):
+    def fake_pipeline(*_args, **_kwargs):
         raise api_service.UnresolvedRequiredFieldsError(
             missing_fields=["txtRequired"],
             skipped_fields=[],
         )
 
-    monkeypatch.setattr(api_service, "fill_pdf", fake_fill_pdf)
+    monkeypatch.setattr(api_service, "run_fill_pipeline", fake_pipeline)
 
     response = client.post(
         "/fill",
@@ -312,10 +314,10 @@ def test_fill_endpoint_returns_required_fields_unresolved_code(monkeypatch):
 
 
 def test_fill_endpoint_returns_pdf_fill_failed_code(monkeypatch):
-    def fake_read_pdf(_path):
+    def failing_pipeline(*_args, **_kwargs):
         raise RuntimeError("boom")
 
-    monkeypatch.setattr(api_service, "read_pdf", fake_read_pdf)
+    monkeypatch.setattr(api_service, "run_fill_pipeline", failing_pipeline)
 
     response = client.post(
         "/fill",

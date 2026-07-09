@@ -109,7 +109,7 @@ def check_mapping_functions():
 
     # Test find_deterministic_match
     user_data = {"firstname": "John", "lastname": "Doe"}
-    key, value, conf, reason = find_deterministic_match("first_name", user_data, "string")
+    key, value, conf, reason, requires_review = find_deterministic_match("first_name", user_data, "string")
     assert key == "firstname" and value == "John"
     print("  ✓ find_deterministic_match works correctly")
 

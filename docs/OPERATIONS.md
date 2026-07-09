@@ -11,6 +11,8 @@
 - `PDF_READ_TIMEOUT_SECONDS`: wall-clock budget for PDF parsing/extraction (default `20`)
 - `MAX_PDF_TEXT_CHARS`: cap on total extracted text retained/forwarded (default `2000000`)
 - `RATE_LIMIT_PER_MINUTE`: per-client request budget for `POST /fill`; `0` disables (default `60`)
+- `TRUST_PROXY_HEADERS`: when `true`, rate limiting uses `X-Forwarded-For` / `X-Real-IP` from a trusted reverse proxy (default `false`)
+- `FORM_ALIASES_DIR`: optional directory of JSON alias packs for deterministic field mapping; must exist and be readable when set
 - `LOG_LEVEL`: process log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`)
 
 ## Service Behavior
@@ -18,6 +20,8 @@
 - Authentication is **enabled by default** and fails closed: if `API_AUTH_ENABLED` is true but `API_AUTH_TOKEN` is unset, `POST /fill` returns `500 server_auth_config_error` rather than serving openly.
 - `GET /health` and `GET /version` are always unauthenticated.
 - `POST /fill` is rate limited per client and rejects PDFs over the page limit or that exceed the processing time budget.
+- Uploads are read in bounded chunks so oversized files are rejected before the full body is buffered in memory.
+- `GET /health` reports dependency checks (`auth`, alias packs) and returns `degraded` when auth is misconfigured.
 - `POST /fill` writes uploads to a temporary working directory and returns the generated PDF directly.
 - Temporary files are cleaned up after request completion or failure, including error and timeout paths.
 - Privacy: provider-backed features send field metadata and nearby page text to an external service, but **never the raw user-data values or a field's current value** — only key names and value type names are shared. Disable these features by leaving `MODEL_PROVIDER_API_KEY` unset and the semantic/fallback flags off.
