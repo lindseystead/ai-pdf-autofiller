@@ -167,6 +167,8 @@ def test_fill_endpoint_exposes_fill_report_headers():
     assert "X-PDF-Fields-Written" in response.headers
     assert "X-PDF-Fields-Skipped-Review" in response.headers
     assert "X-PDF-Fields-Skipped-Empty" in response.headers
+    assert "X-Provider-Cache-Hits" in response.headers
+    assert "X-Provider-Cache-Misses" in response.headers
 
 
 def test_fill_endpoint_emits_pii_free_audit_log(caplog):

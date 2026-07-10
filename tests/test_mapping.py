@@ -15,6 +15,7 @@ from pdf_autofiller.models import (
     FieldSemantics,
     FormField,
 )
+from pdf_autofiller.provider_cache import ProviderCacheMetrics, reset_provider_cache_for_tests
 
 
 @pytest.fixture
@@ -492,3 +493,64 @@ def test_community_w9_alias_pack_loaded():
     assert confidence >= 0.85
     assert "Alias match" in reason
 
+
+def test_semantic_fallback_mapping_uses_cache_by_form_hash():
+    fields = [
+        EnrichedFormField(
+            field=FormField(name="txtConsent", field_type="text", required=False, page_number=1),
+            semantics=FieldSemantics(
+                semantic_meaning="consent",
+                expected_data_type="boolean",
+                confidence_score=0.95,
+            ),
+        )
+    ]
+
+    class CountingClient:
+        call_count = 0
+
+        def __init__(self, api_key=None):
+            del api_key
+
+        @staticmethod
+        def is_available():
+            return True
+
+        @staticmethod
+        def create_json_completion(**_kwargs):
+            CountingClient.call_count += 1
+            return '{"txtConsent":{"matched_key":"agree","confidence":0.88,"reason":"Matched consent"}}'
+
+    reset_provider_cache_for_tests()
+    original_client = mapping_module.SemanticClient
+    mapping_module.SemanticClient = CountingClient
+    try:
+        metrics = ProviderCacheMetrics()
+        first = semantic_fallback_mapping(
+            fields,
+            {"agree": "yes"},
+            form_hash="form-a",
+            cache_metrics=metrics,
+        )
+        second = semantic_fallback_mapping(
+            fields,
+            {"agree": "yes"},
+            form_hash="form-a",
+            cache_metrics=metrics,
+        )
+        third = semantic_fallback_mapping(
+            fields,
+            {"agree": "yes"},
+            form_hash="form-b",
+            cache_metrics=metrics,
+        )
+    finally:
+        mapping_module.SemanticClient = original_client
+        reset_provider_cache_for_tests()
+
+    assert "txtConsent" in first
+    assert "txtConsent" in second
+    assert "txtConsent" in third
+    assert CountingClient.call_count == 2
+    assert metrics.fallback_hits == 1
+    assert metrics.fallback_misses == 2

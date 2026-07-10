@@ -23,7 +23,7 @@ def test_sample_form_round_trip_writes_required_fields(tmp_path: Path):
     }
     output_path = tmp_path / "filled.pdf"
 
-    report, mapping_result, field_count = run_fill_pipeline(
+    report, mapping_result, field_count, cache_metrics = run_fill_pipeline(
         SAMPLE_PDF,
         output_path,
         user_data,
@@ -38,6 +38,7 @@ def test_sample_form_round_trip_writes_required_fields(tmp_path: Path):
     assert "txtLastName" in report.written_fields
     assert "txtDOB" in report.written_fields
     assert not mapping_result.missing_required
+    assert cache_metrics.total_hits >= 0
 
     reader = PdfReader(str(output_path))
     fields = reader.get_fields() or {}
@@ -66,6 +67,7 @@ def test_fill_endpoint_round_trip_with_sample_pdf():
     assert response.status_code == 200
     assert response.headers["content-type"] == "application/pdf"
     assert int(response.headers["X-PDF-Fields-Written"]) >= 3
+    assert "X-Provider-Cache-Hits" in response.headers
 
 
 def test_health_reports_alias_packs_and_auth_state(monkeypatch):

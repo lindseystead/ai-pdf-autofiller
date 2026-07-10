@@ -24,6 +24,7 @@ from .models import (
     FieldMappingDecision,
     MappingResult,
 )
+from .provider_cache import ProviderCacheMetrics, fallback_cache_key, get_provider_cache
 
 logger = logging.getLogger(__name__)
 
@@ -247,7 +248,9 @@ def find_deterministic_match(
 def semantic_fallback_mapping(
     unmapped_fields: list[EnrichedFormField],
     user_data: dict[str, Any],
-    api_key: Optional[str] = None
+    api_key: Optional[str] = None,
+    form_hash: str | None = None,
+    cache_metrics: ProviderCacheMetrics | None = None,
 ) -> dict[str, tuple[str, Optional[str], float, str]]:
     """
     Use provider-backed fallback to map unmapped fields when deterministic matching fails.
@@ -265,14 +268,43 @@ def semantic_fallback_mapping(
     """
     if not unmapped_fields:
         return {}
-    
+
+    cache = get_provider_cache()
+    result: dict[str, tuple[str, Optional[str], float, str]] = {}
+    fields_for_provider: list[EnrichedFormField] = []
+
+    for field in unmapped_fields:
+        if not form_hash:
+            fields_for_provider.append(field)
+            continue
+
+        cache_key = fallback_cache_key(form_hash=form_hash, field=field.field, user_data=user_data)
+        cached_match = cache.get(cache_key)
+        if isinstance(cached_match, dict):
+            matched_key = cached_match.get("matched_key")
+            if isinstance(matched_key, str) and matched_key in user_data:
+                confidence = float(cached_match.get("confidence", 0.0))
+                reason = str(cached_match.get("reason", "Fallback mapping (cached)"))
+                coerced_value, _ = coerce_value(user_data[matched_key], field.semantics.expected_data_type)
+                result[field.field.name] = (matched_key, coerced_value, confidence, reason)
+                if cache_metrics:
+                    cache_metrics.fallback_hits += 1
+                continue
+
+        fields_for_provider.append(field)
+        if cache_metrics:
+            cache_metrics.fallback_misses += 1
+
+    if not fields_for_provider:
+        return result
+
     client = SemanticClient(api_key=api_key)
     if not client.is_available():
-        return {}
+        return result
     
     # Prepare field metadata for provider-backed fallback.
     fields_info = []
-    for field in unmapped_fields:
+    for field in fields_for_provider:
         fields_info.append({
             "field_name": field.field.name,
             "semantic_meaning": field.semantics.semantic_meaning,
@@ -327,8 +359,7 @@ Example response:
         fallback_result = json.loads(strip_json_code_fence(content))
         
         # Convert to our format
-        result = {}
-        for field in unmapped_fields:
+        for field in fields_for_provider:
             field_name = field.field.name
             if field_name in fallback_result:
                 match_info = fallback_result[field_name]
@@ -343,6 +374,19 @@ Example response:
                         field.semantics.expected_data_type
                     )
                     result[field_name] = (matched_key, coerced_value, confidence, reason)
+                    if form_hash:
+                        cache.set(
+                            fallback_cache_key(
+                                form_hash=form_hash,
+                                field=field.field,
+                                user_data=user_data,
+                            ),
+                            {
+                                "matched_key": matched_key,
+                                "confidence": confidence,
+                                "reason": reason,
+                            },
+                        )
         
         return result
         
@@ -357,7 +401,9 @@ def map_user_data_to_fields(
     *,
     strict: bool = False,
     allow_fallback_mapping: bool = True,
-    api_key: Optional[str] = None
+    api_key: Optional[str] = None,
+    form_hash: str | None = None,
+    cache_metrics: ProviderCacheMetrics | None = None,
 ) -> MappingResult:
     """
     Map user-provided structured data to PDF form fields.
@@ -425,7 +471,13 @@ def map_user_data_to_fields(
         ]
         
         if high_value_fields:
-            fallback_mappings = semantic_fallback_mapping(high_value_fields, user_data, api_key)
+            fallback_mappings = semantic_fallback_mapping(
+                high_value_fields,
+                user_data,
+                api_key,
+                form_hash=form_hash,
+                cache_metrics=cache_metrics,
+            )
             
             for enriched_field in high_value_fields[:]:
                 field_name = enriched_field.field.name

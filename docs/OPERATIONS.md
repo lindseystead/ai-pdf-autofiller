@@ -13,6 +13,8 @@
 - `RATE_LIMIT_PER_MINUTE`: per-client request budget for `POST /fill`; `0` disables (default `60`)
 - `TRUST_PROXY_HEADERS`: when `true`, rate limiting uses `X-Forwarded-For` / `X-Real-IP` from a trusted reverse proxy (default `false`)
 - `FORM_ALIASES_DIR`: optional directory of JSON alias packs for deterministic field mapping; must exist and be readable when set
+- `PROVIDER_CACHE_TTL_SECONDS`: TTL for provider-result cache entries (default `900`)
+- `PROVIDER_CACHE_MAX_ENTRIES`: max in-memory provider cache entries (default `5000`)
 - `LOG_LEVEL`: process log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`)
 
 ## Service Behavior

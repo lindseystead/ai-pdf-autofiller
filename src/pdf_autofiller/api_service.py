@@ -39,6 +39,7 @@ from .pdf_reader import PdfPageLimitError
 from .pdf_writer import UnresolvedRequiredFieldsError
 from .pipeline import enrich_fields, page_context_by_number, run_fill_pipeline
 from .playground import PLAYGROUND_HTML
+from .provider_cache import ProviderCacheMetrics
 
 LOG_LEVEL_NAME = os.getenv("LOG_LEVEL", "INFO").upper()
 # Fail closed: authentication is enabled unless explicitly disabled. Operators
@@ -139,16 +140,25 @@ def _safe_header_value(field_names: list[str]) -> str:
     return joined.encode("ascii", "ignore").decode("ascii")
 
 
-def _fill_report_headers(report: FillReport) -> dict[str, str]:
+def _fill_report_headers(
+    report: FillReport, cache_metrics: ProviderCacheMetrics | None = None
+) -> dict[str, str]:
     """Expose fill outcome via response headers.
 
     Lets clients detect non-required fields that were dropped (for example,
     flagged for review) instead of receiving a silently incomplete PDF.
     """
+    metrics = cache_metrics or ProviderCacheMetrics()
     return {
         "X-PDF-Fields-Written": str(len(report.written_fields)),
         "X-PDF-Fields-Skipped-Review": _safe_header_value(report.skipped_review_fields),
         "X-PDF-Fields-Skipped-Empty": _safe_header_value(report.skipped_empty_fields),
+        "X-Provider-Cache-Hits": str(metrics.total_hits),
+        "X-Provider-Cache-Misses": str(metrics.total_misses),
+        "X-Provider-Cache-Breakdown": (
+            f"semantic={metrics.semantic_hits}/{metrics.semantic_misses},"
+            f"fallback={metrics.fallback_hits}/{metrics.fallback_misses}"
+        ),
     }
 
 
@@ -427,7 +437,7 @@ async def fill(
         input_path.write_bytes(content)
 
         try:
-            fill_report, mapping_result, fields_total = await asyncio.wait_for(
+            fill_report, mapping_result, fields_total, cache_metrics = await asyncio.wait_for(
                 asyncio.to_thread(
                     run_fill_pipeline,
                     input_path,
@@ -467,7 +477,7 @@ async def fill(
             path=output_path,
             media_type="application/pdf",
             filename=f"{Path(pdf_file.filename or 'filled').stem}_filled.pdf",
-            headers=_fill_report_headers(fill_report),
+            headers=_fill_report_headers(fill_report, cache_metrics),
             background=BackgroundTask(temp_dir.cleanup),
         )
         response_started = True
