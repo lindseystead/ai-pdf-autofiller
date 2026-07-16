@@ -127,7 +127,7 @@ def test_extract_form_fields_from_root_fields():
             return {
                 "txtFirstName": {
                     "/FT": "/Tx",
-                    "/V": "Lindsey",
+                    "/V": "Alex",
                     "/Ff": 0x02,
                     "/P": page_ref,
                 }
@@ -195,7 +195,7 @@ def test_read_pdf_returns_document_structure(monkeypatch, tmp_path):
         def __init__(self, _):
             self.metadata = {
                 "/Title": "My Form",
-                "/Author": "Lindsey",
+                "/Author": "Alex",
                 "/Subject": object(),
                 "/Creator": "Test Suite",
                 "/Producer": "pypdf",
@@ -217,7 +217,7 @@ def test_read_pdf_returns_document_structure(monkeypatch, tmp_path):
     structure = pdf_reader.read_pdf(pdf_path)
     assert structure.metadata.num_pages == 1
     assert structure.metadata.title == "My Form"
-    assert structure.metadata.author == "Lindsey"
+    assert structure.metadata.author == "Alex"
     assert structure.metadata.subject is None
     assert len(structure.form_fields) == 1
     assert structure.form_fields[0].name == "txtLastName"

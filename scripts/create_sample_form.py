@@ -254,7 +254,7 @@ def main():
     print("\nTest it with:")
     print(
         f"  PYTHONPATH=src python -m scripts.demo_workflow {output_path} "
-        '\'{"firstname": "Lindsey", "lastname": "Stead", "dob": "1990-01-01", '
+        '\'{"firstname": "Alex", "lastname": "Example", "dob": "1990-01-01", '
         '"email": "test@example.com"}\''
     )
 

@@ -62,7 +62,7 @@ Example:
 ```bash
 curl -s -X POST http://localhost:8000/fill \
   -F "pdf_file=@samples/sample_form.pdf;type=application/pdf" \
-  -F 'user_data={"firstname":"Lindsey","lastname":"Stead","dob":"1990-01-15"}' \
+  -F 'user_data={"firstname":"Alex","lastname":"Example","dob":"1990-01-15"}' \
   -F "strict=true" \
   -o filled.pdf
 ```
