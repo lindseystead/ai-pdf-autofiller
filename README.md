@@ -67,7 +67,7 @@ curl -s -X POST http://localhost:8000/fill \
 |--------|---------|
 | **Docker** | `docker run -p 8000:8000 -e API_AUTH_ENABLED=false ghcr.io/lindseystead/ai-pdf-autofiller:latest` |
 | **GitHub Release** | `curl -fsSL .../scripts/install-from-release.sh \| bash` |
-| **From source** | `git clone ... && pip install -r requirements-dev.txt && make run-api` |
+| **From source** | `git clone https://github.com/lindseystead/ai-pdf-autofiller.git && cd ai-pdf-autofiller && pip install -r requirements-dev.txt && make run-api` |
 
 ```python
 from pdf_autofiller import fill
