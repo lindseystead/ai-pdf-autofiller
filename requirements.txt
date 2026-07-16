@@ -1,0 +1,19 @@
+# Runtime requirements for PDF Autofiller
+#
+# Install with: pip install -r requirements.txt
+# Or use Poetry: poetry install
+#
+# Minimum versions are pinned to patched releases. pypdf parses untrusted PDFs
+# and python-multipart parses untrusted uploads, so their CVE fixes are
+# security-critical for this service; keep them current.
+
+pypdf>=6.12.2
+pydantic>=2.0.0
+openai>=1.0.0
+fastapi>=0.136.0
+# starlette pinned explicitly (transitive via FastAPI) to the patched line for
+# PYSEC-2026-161; FastAPI >= 0.136 permits starlette >= 1.0.
+starlette>=1.0.1
+uvicorn>=0.30.0
+python-multipart>=0.0.30
+httpx>=0.27.0

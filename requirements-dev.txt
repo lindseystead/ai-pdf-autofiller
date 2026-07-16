@@ -1,0 +1,12 @@
+# Development requirements for PDF Autofiller
+#
+# Install with: pip install -r requirements-dev.txt
+
+-r requirements.txt
+
+black>=23.0.0
+mypy>=1.0.0
+pip-audit>=2.7.0
+pytest>=7.4.0
+pytest-cov>=4.0.0
+ruff>=0.1.0

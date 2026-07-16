@@ -1,0 +1,52 @@
+name: Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+      - name: Lint
+        run: |
+          ruff check src/ tests/ scripts/
+      - name: Type check
+        run: |
+          mypy src/
+      # Audit the runtime surface (what ships in the Docker image via requirements.txt),
+      # not dev/build tooling. No advisories are ignored: the surface must be clean.
+      - name: Security audit (runtime dependencies)
+        run: |
+          pip-audit -r requirements.txt
+      - name: Run tests
+        run: |
+          PYTHONPATH=src pytest tests/ -v --cov=src --cov-report=term --cov-fail-under=85
+
+  lockfile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Poetry
+        run: pipx install poetry
+      - name: Verify poetry.lock is in sync with pyproject.toml
+        run: poetry check --lock

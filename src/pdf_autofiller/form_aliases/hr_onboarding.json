@@ -1,0 +1,10 @@
+{
+  "emergency_contact_name": ["emergency_contact", "ice_contact", "ec_name"],
+  "emergency_contact_phone": ["emergency_phone", "ice_phone", "ec_phone"],
+  "start_date": ["hire_date", "employment_start", "start"],
+  "department": ["dept", "team", "division"],
+  "manager_name": ["supervisor", "reports_to", "manager"],
+  "employee_id": ["emp_id", "badge_number", "staff_id"],
+  "marital_status": ["marriage_status", "filing_status"],
+  "citizenship_status": ["work_authorization", "visa_status"]
+}

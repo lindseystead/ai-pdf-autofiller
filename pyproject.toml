@@ -1,0 +1,108 @@
+[project]
+name = "pdf-autofiller"
+version = "0.4.3"
+description = "Fill any AcroForm PDF from JSON — open-source FastAPI API with playground, Docker image, and Python SDK"
+readme = "README.md"
+requires-python = ">=3.11,<4.0"
+authors = [{ name = "AI PDF Autofiller contributors" }]
+license = "MIT"
+keywords = [
+    "pdf",
+    "pdf-forms",
+    "acroform",
+    "form-filling",
+    "form-automation",
+    "fastapi",
+    "python",
+    "api",
+    "docker",
+    "automation",
+    "document-processing",
+    "workflow-automation",
+    "self-hosted",
+    "open-source",
+    "govtech",
+    "pydantic",
+    "n8n",
+    "zapier",
+    "w9",
+    "hr-onboarding",
+]
+dynamic = ["dependencies"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Office/Business",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Framework :: FastAPI",
+    "Typing :: Typed",
+]
+
+[project.urls]
+Homepage = "https://github.com/lindseystead/ai-pdf-autofiller"
+Repository = "https://github.com/lindseystead/ai-pdf-autofiller"
+Documentation = "https://github.com/lindseystead/ai-pdf-autofiller/tree/main/docs"
+Pages = "https://lindseystead.github.io/ai-pdf-autofiller/"
+Issues = "https://github.com/lindseystead/ai-pdf-autofiller/issues"
+Changelog = "https://github.com/lindseystead/ai-pdf-autofiller/blob/main/CHANGELOG.md"
+
+[project.scripts]
+pdf-autofiller-api = "pdf_autofiller.api_service:run"
+
+[tool.poetry]
+packages = [
+    { include = "pdf_autofiller", from = "src" }
+]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+# pypdf and python-multipart parse untrusted input; floors track patched
+# (CVE-fixed) releases and must stay current.
+pypdf = "^6.12.2"
+pydantic = "^2.0.0"
+openai = "^1.0.0"
+# FastAPI >= 0.136 supports starlette >= 1.0. starlette is pinned explicitly
+# (transitive) to ensure every resolver picks the patched line for PYSEC-2026-161.
+fastapi = ">=0.136.0"
+starlette = ">=1.0.1"
+uvicorn = "^0.30.0"
+python-multipart = ">=0.0.30"
+httpx = "^0.27.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.0"
+pytest-cov = "^4.0.0"
+black = "^23.0.0"
+ruff = "^0.1.0"
+mypy = "^1.0.0"
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+include = '\.pyi?$'
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_ignores = true
+check_untyped_defs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

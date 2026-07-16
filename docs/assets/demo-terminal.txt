@@ -1,0 +1,62 @@
+$ git clone https://github.com/lindseystead/ai-pdf-autofiller.git
+$ cd ai-pdf-autofiller && make run-api
+INFO:     Uvicorn running on http://0.0.0.0:8000
+
+$ open http://localhost:8000/playground
+# Upload samples/sample_form.pdf, paste JSON, click Fill PDF
+
+$ curl -s -X POST http://localhost:8000/fill \
+  -F "pdf_file=@samples/sample_form.pdf;type=application/pdf" \
+  -F 'user_data={"firstname": "Jane", "lastname": "Doe", "dob": "1990-01-01"}' \
+  -F "strict=true" \
+  -o filled.pdf
+$ ls -lh filled.pdf
+-rw-r--r--  1 dev  staff   12K filled.pdf
+
+$ python -c "from pdf_autofiller import fill; fill('samples/sample_form.pdf', {'firstname':'Jane'}, 'sdk-filled.pdf')"
+SDK filled.pdf written.
+
+# Live demo_workflow output:
+============================================================
+Running PDF Autofiller Workflow
+============================================================
+
+Step 1: Reading PDF structure...
+✓ PDF loaded successfully
+  - Pages: 1
+  - Form fields found: 5
+  - Text regions: 0
+
+  Form fields:
+    - txtFirstName (text, required=True)
+    - txtLastName (text, required=True)
+    - txtDOB (text, required=True)
+    - txtEmail (text, required=False)
+    - txtPhone (text, required=False)
+
+Step 2: Inferring field semantics...
+  ⚠ Provider API key not configured, skipping semantic inference
+  (Set MODEL_PROVIDER_API_KEY environment variable to enable)
+  ⚠ Semantic inference skipped - using field names directly
+✓ Processed 5 fields
+
+Step 3: Mapping user data to fields...
+  User data keys: ['firstname', 'lastname', 'dob', 'email']
+✓ Mapping complete
+  - Decisions made: 4
+  - Missing required: 0
+  - Unmapped keys: 0
+
+  Mapping decisions:
+    ✓ txtFirstName: 'John' (confidence: 0.95)
+    ✓ txtLastName: 'Doe' (confidence: 0.95)
+    ✓ txtDOB: '1990-05-15' (confidence: 0.95)
+    ✓ txtEmail: 'john.doe@example.com' (confidence: 0.95)
+
+Step 4: Filling PDF...
+✓ PDF filled successfully
+  Output: /workspace/samples/sample_form_filled.pdf
+
+============================================================
+✓ Workflow completed successfully!
+============================================================
