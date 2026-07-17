@@ -7,14 +7,26 @@ All notable changes to this project will be documented in this file.
 ### Added
 
 - README hero images (`docs/assets/social-preview.png`, `playground-preview.png`) for discoverability
+- Live playground demo video (`docs/assets/demo-playground.mp4`) and `scripts/record_demo.py`
+- `scripts/verify_claims.py` / `make verify-claims` to re-check README and API claims
+- Playground test ensuring the default user-data JSON is valid
 - `scripts/apply-repo-metadata.sh` to set GitHub description and topics (run locally with admin `gh`)
 - Expanded `pyproject.toml` keywords for search
 
+### Fixed
+
+- Playground default JSON was missing the opening `{`, so Fill PDF failed until "Load sample JSON"
+- `docs/API.md` health example now matches live `alias_directory` / `alias_pack_count` checks
+- README / Pages SDK snippets now include required sample-form fields (`dob`)
+
 ### Changed
 
-- README restructured for discovery: keywords, use cases, playground screenshot, stars badge
-- GitHub Pages landing (`docs/site/`) updated with Open Graph / Twitter meta tags
+- `pdf_autofiller.fill()` runs the local pipeline by default (no server); pass `base_url=` for HTTP
+- Playground header brands **PDF Autofiller** as the primary title
+- README links the live demo video and claim-verification command
+- Demo terminal transcript refreshed against verified local output
 - Docs index and asset README updated
+- `.venv/` added to `.gitignore`
 
 ## [0.4.3]
 

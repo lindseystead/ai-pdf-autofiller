@@ -15,6 +15,7 @@ ruff check src/ tests/ scripts/
 mypy src/
 pip-audit -r requirements.txt
 PYTHONPATH=src pytest tests/ -v --cov=src --cov-report=term --cov-fail-under=85
+PYTHONPATH=src python -m scripts.verify_claims
 ```
 
 `pip-audit` requires network access so it can query the vulnerability advisory service.

@@ -25,12 +25,13 @@ Example response:
   "version": "0.4.3",
   "checks": {
     "auth": "disabled",
-    "alias_packs": "ok"
+    "alias_directory": "/app/src/pdf_autofiller/form_aliases",
+    "alias_pack_count": "2"
   }
 }
 ```
 
-`status` is `degraded` when auth is enabled but `API_AUTH_TOKEN` is unset (`checks.auth` = `misconfigured`). Alias pack problems surface under `checks.alias_packs`.
+`status` is `degraded` when auth is enabled but `API_AUTH_TOKEN` is unset (`checks.auth` = `misconfigured`). Alias pack health is reported via `checks.alias_directory` and `checks.alias_pack_count`.
 
 ### `GET /version`
 
