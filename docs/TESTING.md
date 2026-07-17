@@ -82,6 +82,7 @@ From repository root:
 make test
 make lint
 make format
+make verify-claims
 ```
 
 Direct commands:
@@ -89,9 +90,12 @@ Direct commands:
 ```bash
 ruff check src/ tests/ scripts/
 mypy src/
-pip-audit --ignore-vuln CVE-2026-1703
+pip-audit -r requirements.txt
 PYTHONPATH=src pytest tests/ -v --cov=src --cov-report=term --cov-fail-under=85
+PYTHONPATH=src python -m scripts.verify_claims
 ```
+
+`make verify-claims` re-checks recruiter-facing README/API claims (SDK `fill()`, health/playground/fill endpoints, alias packs, test count, and coverage floor).
 
 ## CI Validation
 

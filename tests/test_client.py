@@ -92,7 +92,22 @@ def test_client_raises_on_non_json_error():
     assert exc.value.code == "invalid_response"
 
 
-def test_fill_convenience_helper(tmp_path, monkeypatch):
+def test_fill_convenience_helper_uses_local_pipeline(tmp_path):
+    from pathlib import Path
+
+    sample = Path(__file__).resolve().parents[1] / "samples" / "sample_form.pdf"
+    output_path = tmp_path / "filled.pdf"
+    headers = fill(
+        sample,
+        {"firstname": "Jane", "lastname": "Doe", "dob": "1990-01-01"},
+        output_path,
+    )
+    assert output_path.exists()
+    assert output_path.read_bytes()[:4] == b"%PDF"
+    assert int(headers["X-PDF-Fields-Written"]) >= 3
+
+
+def test_fill_convenience_helper_can_use_http_client(tmp_path, monkeypatch):
     output_path = tmp_path / "filled.pdf"
     captured: dict[str, object] = {}
 
@@ -105,7 +120,13 @@ def test_fill_convenience_helper(tmp_path, monkeypatch):
             return {"X-PDF-Fields-Written": "1"}
 
     monkeypatch.setattr("pdf_autofiller.client.PDFAutofillerClient", lambda **kwargs: FakeClient())
-    headers = fill("form.pdf", {"firstname": "Jane"}, str(output_path), api_key="secret")
+    headers = fill(
+        "form.pdf",
+        {"firstname": "Jane"},
+        str(output_path),
+        base_url="http://testserver",
+        api_key="secret",
+    )
     assert output_path.exists()
     assert captured["user_data"] == {"firstname": "Jane"}
     assert headers["X-PDF-Fields-Written"] == "1"

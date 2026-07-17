@@ -9,6 +9,7 @@ from typing import Any, ContextManager
 import httpx
 
 from . import __version__
+from .pipeline import run_fill_pipeline
 
 
 class _BorrowedClient:
@@ -173,17 +174,44 @@ def fill(
     user_data: dict[str, Any],
     output: str | Path,
     *,
-    base_url: str = "http://localhost:8000",
-    api_key: str | None = None,
     strict: bool = True,
+    allow_fallback_mapping: bool = False,
+    use_semantic_inference: bool = False,
+    base_url: str | None = None,
+    api_key: str | None = None,
 ) -> dict[str, str]:
     """
     Convenience helper: fill a PDF in three lines.
 
+    By default this runs the local deterministic pipeline (no server required).
+    Pass ``base_url`` to use the HTTP API instead (for remote deployments).
+
     Example::
 
         from pdf_autofiller import fill
-        fill("form.pdf", {"firstname": "Jane"}, "filled.pdf")
+        fill("form.pdf", {"firstname": "Jane", "lastname": "Doe", "dob": "1990-01-01"}, "filled.pdf")
     """
-    client = PDFAutofillerClient(base_url=base_url, api_key=api_key)
-    return client.fill_to_file(pdf, user_data, output, strict=strict)
+    if base_url is not None:
+        client = PDFAutofillerClient(base_url=base_url, api_key=api_key)
+        return client.fill_to_file(
+            pdf,
+            user_data,
+            output,
+            strict=strict,
+            allow_fallback_mapping=allow_fallback_mapping,
+            use_semantic_inference=use_semantic_inference,
+        )
+
+    report, _mapping, _field_count = run_fill_pipeline(
+        Path(pdf),
+        Path(output),
+        user_data,
+        strict=strict,
+        allow_fallback_mapping=allow_fallback_mapping,
+        use_semantic_inference=use_semantic_inference,
+    )
+    return {
+        "X-PDF-Fields-Written": str(len(report.written_fields)),
+        "X-PDF-Fields-Skipped-Review": ",".join(report.skipped_review_fields),
+        "X-PDF-Fields-Skipped-Empty": ",".join(report.skipped_empty_fields),
+    }

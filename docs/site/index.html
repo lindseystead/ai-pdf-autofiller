@@ -67,7 +67,11 @@
       <div class="card">
         <h2>Python SDK</h2>
         <pre><code>from pdf_autofiller import fill
-fill("form.pdf", {"firstname": "Jane"}, "filled.pdf")</code></pre>
+fill("form.pdf", {
+  "firstname": "Jane",
+  "lastname": "Doe",
+  "dob": "1990-01-01"
+}, "filled.pdf")</code></pre>
       </div>
       <div class="card">
         <h2>W-9 recipe</h2>

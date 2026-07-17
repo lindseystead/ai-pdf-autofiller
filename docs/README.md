@@ -17,6 +17,7 @@ Supporting documentation for the PDF Autofiller service.
 | Doc | Description |
 |-----|-------------|
 | [integrations/](integrations/) | n8n, Zapier, and LangChain guides |
+| [assets/demo-playground.mp4](assets/demo-playground.mp4) | Live browser playground demo |
 | [assets/demo-terminal.txt](assets/demo-terminal.txt) | Example terminal workflow output |
 | [../README.md](../README.md) | Project overview and quick start |
 | [../CONTRIBUTING.md](../CONTRIBUTING.md) | Contributor setup and PR expectations |

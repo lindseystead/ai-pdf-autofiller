@@ -44,6 +44,8 @@ Upload a PDF, paste JSON, download the result — no Postman required.
 
 <img src="docs/assets/playground-preview.png" alt="Browser playground — upload PDF, paste JSON, download filled PDF" width="700" />
 
+**Live demo video:** [docs/assets/demo-playground.mp4](docs/assets/demo-playground.mp4) — browser playground filling `samples/sample_form.pdf` end to end.
+
 **Try free:** [Open in GitHub Codespaces](https://codespaces.new/lindseystead/ai-pdf-autofiller) → auto-opens `/playground`
 
 ## Try it now
@@ -71,7 +73,11 @@ curl -s -X POST http://localhost:8000/fill \
 
 ```python
 from pdf_autofiller import fill
-fill("form.pdf", {"firstname": "Jane", "lastname": "Doe"}, "filled.pdf")
+fill(
+    "form.pdf",
+    {"firstname": "Jane", "lastname": "Doe", "dob": "1990-01-01"},
+    "filled.pdf",
+)  # local pipeline — no server required
 ```
 
 ## API
@@ -92,7 +98,7 @@ Manual PDF field mapping does not scale. AI-only fillers are hard to audit. **PD
 
 - FastAPI HTTP API with structured error codes
 - Browser playground at `/playground`
-- Python SDK (`fill()` + `PDFAutofillerClient`)
+- Python SDK (`fill()` local pipeline + `PDFAutofillerClient` for HTTP)
 - W-9 and HR alias packs + [recipes](recipes/)
 - Docker on GHCR · Render blueprint · GitHub Release wheels
 - Auth, rate limits, and upload guards on by default
@@ -134,9 +140,10 @@ flowchart LR
 
 ```bash
 make test && make lint && make smoke-check
+make verify-claims   # re-check README/API claims against the live package
 ```
 
-105 tests · 85%+ coverage · Python 3.11 & 3.12
+107 tests · 85%+ coverage · Python 3.11 & 3.12
 
 ## License
 

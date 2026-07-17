@@ -1,5 +1,8 @@
 """Tests for playground routes."""
 
+import json
+import re
+
 from fastapi.testclient import TestClient
 
 from pdf_autofiller import api_service
@@ -17,5 +20,19 @@ def test_playground_page_renders_html():
     response = client.get("/playground")
     assert response.status_code == 200
     assert "text/html" in response.headers["content-type"]
-    assert "Fill any PDF from JSON" in response.text
+    assert "PDF Autofiller" in response.text
     assert 'id="fillBtn"' in response.text
+
+
+def test_playground_default_user_data_is_valid_json():
+    response = client.get("/playground")
+    match = re.search(
+        r'<textarea id="userData"[^>]*>(.*?)</textarea>',
+        response.text,
+        re.DOTALL,
+    )
+    assert match is not None
+    payload = json.loads(match.group(1))
+    assert isinstance(payload, dict)
+    assert payload["firstname"] == "Jane"
+    assert payload["lastname"] == "Doe"
