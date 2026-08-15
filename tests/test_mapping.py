@@ -296,7 +296,7 @@ def test_map_user_data_to_fields_normalized_matching(sample_enriched_fields):
     assert first_name_decision.selected_value == "John"
 
 
-def test_semantic_fallback_mapping_returns_empty_on_client_error():
+def test_semantic_fallback_mapping_returns_empty_on_client_error(monkeypatch):
     fields = [
         EnrichedFormField(
             field=FormField(name="txtDOB", field_type="text", required=True, page_number=1),
@@ -320,17 +320,13 @@ def test_semantic_fallback_mapping_returns_empty_on_client_error():
         def create_json_completion(**_kwargs):
             raise RuntimeError("provider failure")
 
-    original_client = mapping_module.SemanticClient
-    mapping_module.SemanticClient = BrokenClient
-    try:
-        result = semantic_fallback_mapping(fields, {"dob": "1990-01-15"})
-    finally:
-        mapping_module.SemanticClient = original_client
+    monkeypatch.setattr(mapping_module, "SemanticClient", BrokenClient)
+    result = semantic_fallback_mapping(fields, {"dob": "1990-01-15"})
 
     assert result == {}
 
 
-def test_semantic_fallback_mapping_parses_markdown_and_coerces_values():
+def test_semantic_fallback_mapping_parses_markdown_and_coerces_values(monkeypatch):
     fields = [
         EnrichedFormField(
             field=FormField(name="txtConsent", field_type="text", required=False, page_number=1),
@@ -356,12 +352,8 @@ def test_semantic_fallback_mapping_parses_markdown_and_coerces_values():
 {"txtConsent":{"matched_key":"agree","confidence":0.88,"reason":"Matched consent"}}
 ```"""
 
-    original_client = mapping_module.SemanticClient
-    mapping_module.SemanticClient = GoodClient
-    try:
-        result = semantic_fallback_mapping(fields, {"agree": "yes"})
-    finally:
-        mapping_module.SemanticClient = original_client
+    monkeypatch.setattr(mapping_module, "SemanticClient", GoodClient)
+    result = semantic_fallback_mapping(fields, {"agree": "yes"})
 
     assert "txtConsent" in result
     matched_key, matched_value, confidence, reason, requires_review = result["txtConsent"]
@@ -375,7 +367,7 @@ def test_semantic_fallback_mapping_parses_markdown_and_coerces_values():
     assert requires_review is False
 
 
-def test_semantic_fallback_prompt_includes_keys_beyond_preview_limit():
+def test_semantic_fallback_prompt_includes_keys_beyond_preview_limit(monkeypatch):
     fields = [
         EnrichedFormField(
             field=FormField(name="txtExtra", field_type="text", required=False, page_number=1),
@@ -401,20 +393,16 @@ def test_semantic_fallback_prompt_includes_keys_beyond_preview_limit():
             captured_prompt["user_prompt"] = kwargs["user_prompt"]
             return '{"txtExtra":{"matched_key":null,"confidence":0.0,"reason":"No match"}}'
 
-    original_client = mapping_module.SemanticClient
-    mapping_module.SemanticClient = RecordingClient
-    try:
-        semantic_fallback_mapping(
-            fields,
-            {f"extra_{index}": f"value_{index}" for index in range(11)},
-        )
-    finally:
-        mapping_module.SemanticClient = original_client
+    monkeypatch.setattr(mapping_module, "SemanticClient", RecordingClient)
+    semantic_fallback_mapping(
+        fields,
+        {f"extra_{index}": f"value_{index}" for index in range(11)},
+    )
 
     assert '"extra_10"' in captured_prompt["user_prompt"]
 
 
-def test_semantic_fallback_prompt_withholds_raw_user_values():
+def test_semantic_fallback_prompt_withholds_raw_user_values(monkeypatch):
     fields = [
         EnrichedFormField(
             field=FormField(name="txtName", field_type="text", required=False, page_number=1),
@@ -440,12 +428,8 @@ def test_semantic_fallback_prompt_withholds_raw_user_values():
             captured_prompt["user_prompt"] = kwargs["user_prompt"]
             return '{"txtName":{"matched_key":null,"confidence":0.0,"reason":"No match"}}'
 
-    original_client = mapping_module.SemanticClient
-    mapping_module.SemanticClient = RecordingClient
-    try:
-        semantic_fallback_mapping(fields, {"firstname": "TopSecretValue"})
-    finally:
-        mapping_module.SemanticClient = original_client
+    monkeypatch.setattr(mapping_module, "SemanticClient", RecordingClient)
+    semantic_fallback_mapping(fields, {"firstname": "TopSecretValue"})
 
     prompt = captured_prompt["user_prompt"]
     # Key names and value types are shared; raw PII values are not.
