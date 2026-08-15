@@ -73,6 +73,16 @@ _MAPPING_SYSTEM_PROMPT = (
 )
 
 
+class SemanticBudgetExhaustedError(RuntimeError):
+    """Raised when the inference budget ran out before a call could be made.
+
+    Distinct from a provider failure: nothing went wrong upstream, there was
+    simply no time left. Keeping the two apart stops telemetry from reporting a
+    provider outage that never happened. Subclasses ``RuntimeError`` so callers
+    that only care about "inference did not produce a result" still catch it.
+    """
+
+
 def strip_json_code_fence(content: str) -> str:
     """Normalize JSON-ish model output by removing surrounding markdown fences."""
     normalized = content.strip()
@@ -175,6 +185,12 @@ class SemanticClient:
             if deadline is not None:
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
+                    if last_error is None:
+                        # Nothing was attempted; this is an exhausted budget,
+                        # not a provider failure, and must not be counted as one.
+                        raise SemanticBudgetExhaustedError(
+                            "Semantic inference budget exhausted before any attempt"
+                        )
                     break
                 call_timeout = min(call_timeout, remaining)
             if attempt:
@@ -310,6 +326,15 @@ class SemanticClient:
                     deadline=deadline,
                 )
                 resolved.update(self._parse_batch_response(content, batch))
+            except SemanticBudgetExhaustedError:
+                # Ran out of time mid-loop rather than mid-call. Keep what is
+                # already resolved and stop; this is not a provider failure.
+                logger.warning(
+                    "Semantic inference budget exhausted mid-batch; %d field(s) kept",
+                    len(resolved),
+                )
+                self.usage.note_degraded("semantic_budget_exhausted")
+                break
             except (RuntimeError, ValueError) as exc:
                 failures += 1
                 logger.warning("Semantic batch failed; keeping earlier results: %s", exc)

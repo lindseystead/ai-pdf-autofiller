@@ -86,6 +86,7 @@ fields that were dropped instead of silently losing them:
 
 - `X-PDF-Fields-Written`: count of fields **verified present in the output document**. The service re-reads the PDF it produced rather than assuming a write succeeded.
 - `X-PDF-Fields-Failed`: comma-separated field names that were written but could not be verified in the output. Verification fails closed: if the output cannot be re-read at all, every intended field is reported here rather than as written.
+- `X-PDF-Fields-Failed-Count`, `X-PDF-Fields-Skipped-Review-Count`, `X-PDF-Fields-Skipped-Empty-Count`: exact totals for the corresponding lists. The name lists are truncated at 1024 characters so a form with many fields cannot push a header past what servers accept; **these counts are never truncated**, so branch on them rather than on the length of the name list.
 - `X-PDF-Fields-Skipped-Review`: comma-separated field names skipped because the mapping was flagged for review
 - `X-PDF-Fields-Skipped-Empty`: comma-separated field names skipped because the mapped value was empty
 - `X-PDF-Semantic-Inference`: what the optional model path actually did — `off`, `applied`, `degraded-partial`, or `degraded`. **`degraded` means inference was requested but did not run** (no provider configured, or the provider failed) and the fill used deterministic semantics.

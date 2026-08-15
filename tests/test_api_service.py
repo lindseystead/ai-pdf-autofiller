@@ -453,3 +453,32 @@ def test_header_values_strip_control_characters():
         assert forbidden not in rendered
     assert "good_field" in rendered
     assert all(32 <= ord(char) < 127 for char in rendered)
+
+
+def test_header_value_is_length_bounded():
+    """A form with many fields must not push a header past what servers accept.
+
+    Fail-closed verification can place every field name in X-PDF-Fields-Failed,
+    so an unbounded value would turn a successful fill into a failed response.
+    """
+    many = [f"field_number_{index:04d}" for index in range(2000)]
+    rendered = api_service._safe_header_value(many)
+
+    assert len(rendered) <= api_service.MAX_HEADER_VALUE_CHARS
+    assert rendered.endswith("...")
+    assert "field_number_0000" in rendered
+
+
+def test_counts_survive_header_truncation():
+    """Truncating the name list must not lose the totals."""
+    from pdf_autofiller.models import FillReport, PipelineTelemetry
+
+    many = [f"field_number_{index:04d}" for index in range(2000)]
+    headers = api_service._fill_report_headers(
+        FillReport(written_fields=[], failed_fields=many),
+        PipelineTelemetry(),
+    )
+
+    assert len(headers["X-PDF-Fields-Failed"]) <= api_service.MAX_HEADER_VALUE_CHARS
+    # The exact total is still reported even though the names were cut short.
+    assert headers["X-PDF-Fields-Failed-Count"] == "2000"

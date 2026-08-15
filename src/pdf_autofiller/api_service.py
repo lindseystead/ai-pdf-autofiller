@@ -126,17 +126,33 @@ def _api_error(
     )
 
 
+# Cap for a rendered field-name header. Servers and proxies commonly reject
+# headers above ~8 KB, and a large form can put hundreds of names into one
+# value, so the list is truncated and the exact totals are carried by the
+# matching *-Count headers instead.
+MAX_HEADER_VALUE_CHARS = 1024
+
+
 def _safe_header_value(field_names: list[str]) -> str:
     """Render field names as a header-safe, comma-separated value.
 
-    Field names come from an uploaded PDF and are attacker-controlled. Dropping
-    non-ASCII bytes is not enough: an ASCII control character (CR, LF, NUL) in a
-    field name would break the response header framing, which a strict ASGI
-    server turns into a 500 and a permissive one turns into response splitting.
-    Restrict the output to printable ASCII.
+    Field names come from an uploaded PDF and are attacker-controlled, so this
+    guards two distinct failure modes:
+
+    - **Framing.** Dropping non-ASCII bytes is not enough: an ASCII control
+      character (CR, LF, NUL) in a field name would break the response header
+      framing, which a strict ASGI server turns into a 500 and a permissive one
+      turns into response splitting. Output is restricted to printable ASCII.
+    - **Length.** A document with many fields can otherwise push the value past
+      what servers accept, turning a successful fill into a failed response.
+      The value is truncated; the companion ``*-Count`` header still reports the
+      true total.
     """
     ascii_only = ",".join(field_names).encode("ascii", "ignore").decode("ascii")
-    return "".join(char for char in ascii_only if 32 <= ord(char) < 127)
+    printable = "".join(char for char in ascii_only if 32 <= ord(char) < 127)
+    if len(printable) <= MAX_HEADER_VALUE_CHARS:
+        return printable
+    return printable[: MAX_HEADER_VALUE_CHARS - 3] + "..."
 
 
 def _semantic_status(telemetry: PipelineTelemetry) -> str:
@@ -158,9 +174,14 @@ def _fill_report_headers(report: FillReport, telemetry: PipelineTelemetry) -> di
     """
     return {
         "X-PDF-Fields-Written": str(len(report.written_fields)),
+        # Name lists are truncated at MAX_HEADER_VALUE_CHARS; the counts are not,
+        # so a client can always detect dropped fields even on a large form.
         "X-PDF-Fields-Failed": _safe_header_value(report.failed_fields),
+        "X-PDF-Fields-Failed-Count": str(len(report.failed_fields)),
         "X-PDF-Fields-Skipped-Review": _safe_header_value(report.skipped_review_fields),
+        "X-PDF-Fields-Skipped-Review-Count": str(len(report.skipped_review_fields)),
         "X-PDF-Fields-Skipped-Empty": _safe_header_value(report.skipped_empty_fields),
+        "X-PDF-Fields-Skipped-Empty-Count": str(len(report.skipped_empty_fields)),
         "X-PDF-Semantic-Inference": _semantic_status(telemetry),
         "X-PDF-Provider-Calls": str(telemetry.provider_calls),
         "X-PDF-Provider-Tokens": str(telemetry.total_tokens),

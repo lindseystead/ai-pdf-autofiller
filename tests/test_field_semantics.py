@@ -418,7 +418,7 @@ def test_batch_loop_stops_once_the_budget_is_spent(monkeypatch):
     )
     client = _client_with([_response(payload)] * 5, usage=usage)
 
-    # A deadline already in the past after the first batch: only one call runs.
+    # The deadline is already in the past when the loop starts, so no call runs.
     deadline = time_module.monotonic() + 0.001
     items = [(sample_field(f"f{index}"), None) for index in range(5)]
     time_module.sleep(0.01)
@@ -442,3 +442,43 @@ def test_call_timeout_is_trimmed_to_the_remaining_budget(monkeypatch):
     )
 
     assert client._client.calls[0]["timeout"] <= 2.0
+
+
+def test_exhausted_budget_is_not_recorded_as_a_provider_failure(monkeypatch):
+    """An exhausted budget is not a provider outage and must not read as one."""
+    import time as time_module
+
+    monkeypatch.setattr(field_semantics, "MODEL_SEMANTIC_BATCH_SIZE", 1)
+
+    usage = ProviderUsage()
+    client = _client_with([], usage=usage)
+
+    deadline = time_module.monotonic() - 1  # already spent
+    client.infer_semantics_batch([(sample_field("a"), None)], deadline=deadline)
+
+    assert usage.failures == 0
+    assert "semantic_budget_exhausted" in usage.degraded_reasons
+    assert "semantic_batch_failed" not in usage.degraded_reasons
+
+
+def test_budget_exhaustion_raises_a_distinct_error():
+    """The error names the real cause instead of reporting a null provider error."""
+    import time as time_module
+
+    client = _client_with([])
+
+    with pytest.raises(
+        field_semantics.SemanticBudgetExhaustedError, match="budget exhausted"
+    ):
+        client._completion_with_retry(
+            system_prompt="s",
+            user_prompt="u",
+            model="m",
+            temperature=0.0,
+            deadline=time_module.monotonic() - 1,
+        )
+
+
+def test_budget_error_still_caught_as_runtime_error():
+    """Subclassing RuntimeError keeps existing callers working unchanged."""
+    assert issubclass(field_semantics.SemanticBudgetExhaustedError, RuntimeError)
