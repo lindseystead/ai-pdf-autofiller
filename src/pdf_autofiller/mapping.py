@@ -303,8 +303,16 @@ def semantic_fallback_mapping(
 
     # Field names and semantics originate in the uploaded document; sanitize them
     # before they enter the prompt.
+    #
+    # Responses are keyed by a synthetic id rather than by the field name. The
+    # sanitized name that reaches the model can differ from the raw name (NFKC
+    # normalization, stripped control characters, collapsed whitespace,
+    # truncation) and two distinct raw names can sanitize to the same string, so
+    # keying by name would silently drop fields and could collide.
+    field_ids = {f"f{index}": field for index, field in enumerate(unmapped_fields)}
     fields_info = [
         {
+            "id": field_id,
             "field_name": sanitize_untrusted_text(field.field.name, limit=200),
             "semantic_meaning": sanitize_untrusted_text(
                 field.semantics.semantic_meaning, limit=100
@@ -312,7 +320,7 @@ def semantic_fallback_mapping(
             "expected_type": field.semantics.expected_data_type,
             "required": field.field.required,
         }
-        for field in unmapped_fields
+        for field_id, field in field_ids.items()
     ]
 
     user_data_keys = list(user_data.keys())
@@ -336,14 +344,14 @@ User Data Value Types (type names only; raw values withheld for privacy):
 
 For each field, determine which user data key best matches the semantic meaning.
 Only choose matched_key values from the Available User Data Keys list.
-Return a JSON object mapping field_name to:
+Return a JSON object mapping each field's "id" (not its name) to:
 - matched_key: The user data key that matches (or null if no match)
 - confidence: Float between 0.0 and 1.0
 - reason: Brief explanation
 
 Example response:
 {{
-  "txtFirstName": {{
+  "f0": {{
     "matched_key": "firstname",
     "confidence": 0.85,
     "reason": "User key 'firstname' matches semantic 'first_name'"
@@ -367,9 +375,9 @@ Example response:
             raise ValueError("Fallback mapping response was not a JSON object")
 
         result: dict[str, tuple[str, str | None, float, str, bool]] = {}
-        for field in unmapped_fields:
+        for field_id, field in field_ids.items():
             field_name = field.field.name
-            match_info = fallback_result.get(field_name)
+            match_info = fallback_result.get(field_id)
             if not isinstance(match_info, dict):
                 continue
 
@@ -379,7 +387,15 @@ Example response:
             if not matched_key or matched_key not in user_data:
                 continue
 
-            confidence = clamp_model_confidence(match_info.get("confidence", 0.0))
+            # One malformed confidence must not discard the rest of the batch:
+            # a non-numeric value would raise out of the loop and throw away
+            # every field already resolved from this paid call.
+            raw_confidence = match_info.get("confidence", 0.0)
+            if isinstance(raw_confidence, bool) or not isinstance(
+                raw_confidence, (int, float)
+            ):
+                raw_confidence = 0.0
+            confidence = clamp_model_confidence(raw_confidence)
             reason = str(match_info.get("reason", "Fallback mapping"))
             coerced_value, requires_review = coerce_value(
                 user_data[matched_key], field.semantics.expected_data_type

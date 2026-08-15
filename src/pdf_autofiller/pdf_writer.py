@@ -154,9 +154,10 @@ def _verify_written_values(
     Returns:
         Tuple of (verified_field_names, unverified_field_names)
 
-    If the output cannot be re-read or exposes no fields, verification is not
-    possible and every intended field is reported as verified — the same
-    behavior as before verification existed — with a warning logged.
+    Verification fails closed. If the output cannot be re-read or exposes no
+    fields, nothing can be confirmed, so every intended field is reported as
+    unverified rather than assumed written — otherwise ``written_fields`` would
+    claim a confirmation the service never actually obtained.
     """
     if not intended:
         return [], []
@@ -167,11 +168,11 @@ def _verify_written_values(
         logger.warning(
             "Could not re-read output PDF to verify written fields", exc_info=True
         )
-        return sorted(intended), []
+        return [], sorted(intended)
 
     if not output_fields:
-        logger.warning("Output PDF exposed no form fields; skipping write verification")
-        return sorted(intended), []
+        logger.warning("Output PDF exposed no form fields; cannot verify writes")
+        return [], sorted(intended)
 
     verified: list[str] = []
     unverified: list[str] = []

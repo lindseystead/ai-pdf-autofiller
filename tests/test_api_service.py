@@ -437,3 +437,19 @@ def test_health_reports_model_provider_state():
     payload = client.get("/health").json()
     assert payload["checks"]["model_provider"] in ("configured", "not_configured")
     assert payload["checks"]["model_name"]
+
+
+def test_header_values_strip_control_characters():
+    """Field names come from untrusted PDFs; CR/LF must never reach a header.
+
+    Otherwise a crafted field name breaks response header framing — a 500 on a
+    strict ASGI server, response splitting on a permissive one.
+    """
+    rendered = api_service._safe_header_value(
+        ["good_field", "evil\r\nX-Injected: yes", "nul\x00byte", "tab\tfield"]
+    )
+
+    for forbidden in ("\r", "\n", "\x00", "\t"):
+        assert forbidden not in rendered
+    assert "good_field" in rendered
+    assert all(32 <= ord(char) < 127 for char in rendered)

@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Security
 
+- `_safe_header_value` stripped non-ASCII bytes but kept ASCII control characters. A crafted PDF field name containing CR/LF could break response header framing on `X-PDF-Fields-Failed` and the skip headers — a 500 on a strict ASGI server, response splitting on a permissive one. Output is now restricted to printable ASCII.
 - Documented and mitigated **prompt injection via uploaded PDFs**. Page text and field names are attacker-controlled and, when the optional model path is enabled, reach a model prompt. Model output is now constrained to a strict identifier pattern, model confidence is capped below the review threshold, fallback mapping may only select caller-supplied keys, batched responses are keyed by position, and untrusted text is sanitized and fenced. See `SECURITY.md` for what this does and does not solve.
 - Bounded PDF processing with a dedicated worker pool (`PDF_WORKER_THREADS`, `PDF_QUEUE_DEPTH`). A worker thread cannot be cancelled, so a timed-out job now keeps its slot until it genuinely finishes and excess requests are shed with `503 server_busy`. Previously a timed-out request returned 503 while its thread kept running unaccounted, so hostile uploads could exhaust the shared executor.
 - Fixed a race where a timed-out request deleted the temporary directory while its worker was still reading and writing files. Ownership is now handed to whichever side finishes last.
@@ -34,6 +35,11 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- Provider-backed fallback mapping sent **sanitized** field names to the model but looked responses up by the **raw** name. Any name changed by NFKC normalization, control-character stripping, whitespace collapsing, or truncation silently missed, so the field was dropped and the paid call wasted. Responses are now keyed by a synthetic per-field id, which also removes the collision risk when two raw names sanitize to the same string.
+- Write verification failed **open**: when the output could not be re-read or exposed no fields, every intended field was reported as written. `written_fields` therefore claimed a confirmation the service never obtained. It now fails closed and reports those fields as unverified.
+- A single failing batch in `infer_semantics_batch` discarded the fields every earlier batch had already resolved. Batches are now isolated; the call only raises if every batch failed.
+- A non-numeric `confidence` in a fallback-mapping response raised out of the per-field loop and discarded every field already resolved from that call. Malformed confidences are now coerced to `0.0` per field.
+- Worst-case provider wall time scaled with batch count — each batch could spend `MODEL_TIMEOUT_SECONDS * (MODEL_MAX_RETRIES + 1)` plus backoff — so a many-batch document could hold its worker slot far longer than the request budget implied. A single deadline now covers the whole batch loop and trims each call's timeout; fields resolved before the budget runs out are kept.
 - Fallback mapping coerced each value twice, discarding the ambiguity flag from the first pass; it now coerces once and preserves `requires_review`.
 - Removed three backward-compatibility wrappers in `api_service.py` that existed only for tests, plus the test-only rate-limiter reset helper.
 - Removed `TextRegion.x` / `TextRegion.y`, which were declared but never populated.

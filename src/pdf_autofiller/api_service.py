@@ -49,6 +49,9 @@ from .pdf_writer import UnresolvedRequiredFieldsError
 from .pipeline import run_fill_pipeline
 from .playground import PLAYGROUND_HTML
 from .provider_config import MODEL_NAME
+from .provider_config import (
+    SEMANTIC_TIMEOUT_SECONDS as PROVIDER_SEMANTIC_TIMEOUT_SECONDS,
+)
 
 LOG_LEVEL_NAME = os.getenv("LOG_LEVEL", "INFO").upper()
 # Fail closed: authentication is enabled unless explicitly disabled. Operators
@@ -63,8 +66,9 @@ MAX_PDF_PAGES = int(os.getenv("MAX_PDF_PAGES", "200"))
 PDF_READ_TIMEOUT_SECONDS = float(os.getenv("PDF_READ_TIMEOUT_SECONDS", "20"))
 # Additional budget granted when a request opts into provider-backed features.
 # Model latency is not PDF parsing time and must not be charged to the same
-# clock, or enabling inference would make every large form time out.
-SEMANTIC_TIMEOUT_SECONDS = float(os.getenv("SEMANTIC_TIMEOUT_SECONDS", "45"))
+# clock, or enabling inference would make every large form time out. Defined in
+# provider_config so the batch loop and this request budget cannot drift apart.
+SEMANTIC_TIMEOUT_SECONDS = PROVIDER_SEMANTIC_TIMEOUT_SECONDS
 # Bounded worker pool for PDF work, plus how many requests may wait for a slot.
 PDF_WORKER_THREADS = max(1, int(os.getenv("PDF_WORKER_THREADS", "4")))
 PDF_QUEUE_DEPTH = max(0, int(os.getenv("PDF_QUEUE_DEPTH", "4")))
@@ -123,8 +127,16 @@ def _api_error(
 
 
 def _safe_header_value(field_names: list[str]) -> str:
-    """Render field names as an ASCII-safe, comma-separated HTTP header value."""
-    return ",".join(field_names).encode("ascii", "ignore").decode("ascii")
+    """Render field names as a header-safe, comma-separated value.
+
+    Field names come from an uploaded PDF and are attacker-controlled. Dropping
+    non-ASCII bytes is not enough: an ASCII control character (CR, LF, NUL) in a
+    field name would break the response header framing, which a strict ASGI
+    server turns into a 500 and a permissive one turns into response splitting.
+    Restrict the output to printable ASCII.
+    """
+    ascii_only = ",".join(field_names).encode("ascii", "ignore").decode("ascii")
+    return "".join(char for char in ascii_only if 32 <= ord(char) < 127)
 
 
 def _semantic_status(telemetry: PipelineTelemetry) -> str:

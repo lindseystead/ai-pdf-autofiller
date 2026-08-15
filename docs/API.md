@@ -22,15 +22,18 @@ Example response:
 {
   "status": "ok",
   "service": "pdf-autofiller",
-  "version": "0.4.3",
+  "version": "0.5.0",
   "checks": {
     "auth": "disabled",
-    "alias_packs": "ok"
+    "model_provider": "not_configured",
+    "model_name": "gpt-4o-mini",
+    "alias_directory": "/app/src/pdf_autofiller/form_aliases",
+    "alias_pack_count": "2"
   }
 }
 ```
 
-`status` is `degraded` when auth is enabled but `API_AUTH_TOKEN` is unset (`checks.auth` = `misconfigured`). Alias pack problems surface under `checks.alias_packs`.
+`status` is `degraded` when auth is enabled but `API_AUTH_TOKEN` is unset (`checks.auth` = `misconfigured`). `checks.model_provider` reports whether a provider credential is configured; it does not imply any given request used the model path. Alias pack resolution surfaces under `checks.alias_directory` and `checks.alias_pack_count`.
 
 ### `GET /version`
 
@@ -82,7 +85,7 @@ Successful responses also include fill-outcome headers so clients can detect
 fields that were dropped instead of silently losing them:
 
 - `X-PDF-Fields-Written`: count of fields **verified present in the output document**. The service re-reads the PDF it produced rather than assuming a write succeeded.
-- `X-PDF-Fields-Failed`: comma-separated field names that were written but could not be verified in the output
+- `X-PDF-Fields-Failed`: comma-separated field names that were written but could not be verified in the output. Verification fails closed: if the output cannot be re-read at all, every intended field is reported here rather than as written.
 - `X-PDF-Fields-Skipped-Review`: comma-separated field names skipped because the mapping was flagged for review
 - `X-PDF-Fields-Skipped-Empty`: comma-separated field names skipped because the mapped value was empty
 - `X-PDF-Semantic-Inference`: what the optional model path actually did — `off`, `applied`, `degraded-partial`, or `degraded`. **`degraded` means inference was requested but did not run** (no provider configured, or the provider failed) and the fill used deterministic semantics.

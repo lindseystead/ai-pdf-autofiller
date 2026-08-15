@@ -342,7 +342,8 @@ def test_infer_field_semantics_wrapper(monkeypatch):
 
 
 def test_infer_fields_semantics_helper(monkeypatch):
-    def fake_batch(self, items):
+    def fake_batch(self, items, *, deadline=None):
+        del deadline
         return {
             field.name: FieldSemantics(
                 semantic_meaning="last_name",
@@ -357,3 +358,87 @@ def test_infer_fields_semantics_helper(monkeypatch):
         [(sample_field(), None)], api_key="dummy"
     )
     assert resolved["txtFirstName"].semantic_meaning == "last_name"
+
+
+def test_one_failing_batch_keeps_earlier_batch_results(monkeypatch):
+    """A later failure must not discard fields an earlier batch resolved."""
+    monkeypatch.setattr(field_semantics, "MODEL_SEMANTIC_BATCH_SIZE", 1)
+    monkeypatch.setattr(field_semantics, "MODEL_MAX_RETRIES", 0)
+    monkeypatch.setattr(field_semantics, "MODEL_RETRY_BACKOFF_SECONDS", 0)
+
+    good = _batch_payload(
+        {
+            "0": {
+                "semantic_meaning": "first_name",
+                "expected_data_type": "string",
+                "confidence_score": 0.9,
+            }
+        }
+    )
+    usage = ProviderUsage()
+    client = _client_with([_response(good), ConnectionError("second batch down")], usage=usage)
+
+    resolved = client.infer_semantics_batch(
+        [(sample_field("kept"), None), (sample_field("lost"), None)]
+    )
+
+    assert set(resolved) == {"kept"}
+    assert usage.failures == 1
+    assert "semantic_batch_failed" in usage.degraded_reasons
+
+
+def test_all_batches_failing_raises(monkeypatch):
+    monkeypatch.setattr(field_semantics, "MODEL_SEMANTIC_BATCH_SIZE", 1)
+    monkeypatch.setattr(field_semantics, "MODEL_MAX_RETRIES", 0)
+    monkeypatch.setattr(field_semantics, "MODEL_RETRY_BACKOFF_SECONDS", 0)
+
+    client = _client_with([ConnectionError("down"), ConnectionError("down")])
+
+    with pytest.raises(RuntimeError, match="Every semantic inference batch failed"):
+        client.infer_semantics_batch(
+            [(sample_field("a"), None), (sample_field("b"), None)]
+        )
+
+
+def test_batch_loop_stops_once_the_budget_is_spent(monkeypatch):
+    """Total provider time must not scale with batch count past the budget."""
+    import time as time_module
+
+    monkeypatch.setattr(field_semantics, "MODEL_SEMANTIC_BATCH_SIZE", 1)
+
+    usage = ProviderUsage()
+    payload = _batch_payload(
+        {
+            "0": {
+                "semantic_meaning": "first_name",
+                "expected_data_type": "string",
+                "confidence_score": 0.9,
+            }
+        }
+    )
+    client = _client_with([_response(payload)] * 5, usage=usage)
+
+    # A deadline already in the past after the first batch: only one call runs.
+    deadline = time_module.monotonic() + 0.001
+    items = [(sample_field(f"f{index}"), None) for index in range(5)]
+    time_module.sleep(0.01)
+    resolved = client.infer_semantics_batch(items, deadline=deadline)
+
+    assert len(client._client.calls) == 0
+    assert resolved == {}
+    assert "semantic_budget_exhausted" in usage.degraded_reasons
+
+
+def test_call_timeout_is_trimmed_to_the_remaining_budget(monkeypatch):
+    """A single call may not overrun the budget shared across batches."""
+    import time as time_module
+
+    monkeypatch.setattr(field_semantics, "MODEL_TIMEOUT_SECONDS", 15.0)
+    client = _client_with([_response('{"ok":true}')])
+
+    deadline = time_module.monotonic() + 2.0
+    client._completion_with_retry(
+        system_prompt="s", user_prompt="u", model="m", temperature=0.0, deadline=deadline
+    )
+
+    assert client._client.calls[0]["timeout"] <= 2.0

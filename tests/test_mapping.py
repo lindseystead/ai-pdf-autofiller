@@ -349,7 +349,7 @@ def test_semantic_fallback_mapping_parses_markdown_and_coerces_values(monkeypatc
         @staticmethod
         def create_json_completion(**_kwargs):
             return """```json
-{"txtConsent":{"matched_key":"agree","confidence":0.88,"reason":"Matched consent"}}
+{"f0":{"matched_key":"agree","confidence":0.88,"reason":"Matched consent"}}
 ```"""
 
     monkeypatch.setattr(mapping_module, "SemanticClient", GoodClient)
@@ -391,7 +391,7 @@ def test_semantic_fallback_prompt_includes_keys_beyond_preview_limit(monkeypatch
         @staticmethod
         def create_json_completion(**kwargs):
             captured_prompt["user_prompt"] = kwargs["user_prompt"]
-            return '{"txtExtra":{"matched_key":null,"confidence":0.0,"reason":"No match"}}'
+            return '{"f0":{"matched_key":null,"confidence":0.0,"reason":"No match"}}'
 
     monkeypatch.setattr(mapping_module, "SemanticClient", RecordingClient)
     semantic_fallback_mapping(
@@ -426,7 +426,7 @@ def test_semantic_fallback_prompt_withholds_raw_user_values(monkeypatch):
         @staticmethod
         def create_json_completion(**kwargs):
             captured_prompt["user_prompt"] = kwargs["user_prompt"]
-            return '{"txtName":{"matched_key":null,"confidence":0.0,"reason":"No match"}}'
+            return '{"f0":{"matched_key":null,"confidence":0.0,"reason":"No match"}}'
 
     monkeypatch.setattr(mapping_module, "SemanticClient", RecordingClient)
     semantic_fallback_mapping(fields, {"firstname": "TopSecretValue"})
@@ -536,7 +536,7 @@ def test_model_confidence_is_capped_below_the_review_threshold(monkeypatch):
         mapping_module,
         "SemanticClient",
         _fallback_client(
-            '{"txtMystery":{"matched_key":"opaque_source_key","confidence":0.99,'
+            '{"f0":{"matched_key":"opaque_source_key","confidence":0.99,'
             '"reason":"model says so"}}'
         ),
     )
@@ -592,7 +592,7 @@ def test_fallback_ignores_keys_the_caller_never_supplied(monkeypatch):
         mapping_module,
         "SemanticClient",
         _fallback_client(
-            '{"txtMystery":{"matched_key":"not_a_real_key","confidence":0.9,'
+            '{"f0":{"matched_key":"not_a_real_key","confidence":0.9,'
             '"reason":"hallucinated"}}'
         ),
     )
@@ -620,7 +620,7 @@ def test_fallback_coerces_each_value_exactly_once(monkeypatch):
         mapping_module,
         "SemanticClient",
         _fallback_client(
-            '{"txtWhen":{"matched_key":"opaque_date_key","confidence":0.9,'
+            '{"f0":{"matched_key":"opaque_date_key","confidence":0.9,'
             '"reason":"date-ish"}}'
         ),
     )
@@ -651,8 +651,23 @@ def test_fallback_coerces_each_value_exactly_once(monkeypatch):
     assert decision.requires_review is True
 
 
-def test_fallback_records_degradation_when_provider_unavailable():
+def test_fallback_records_degradation_when_provider_unavailable(monkeypatch):
+    """Force the unavailable state rather than relying on an unset API key.
+
+    Otherwise a developer machine or CI with MODEL_PROVIDER_API_KEY set would
+    issue a real provider request from this test.
+    """
     from pdf_autofiller.provider_config import ProviderUsage
+
+    class UnavailableClient:
+        def __init__(self, api_key=None, usage=None):
+            del api_key, usage
+
+        @staticmethod
+        def is_available():
+            return False
+
+    monkeypatch.setattr(mapping_module, "SemanticClient", UnavailableClient)
 
     fields = [
         EnrichedFormField(
@@ -706,3 +721,72 @@ def test_fallback_prompt_marks_document_text_as_untrusted(monkeypatch):
 
     assert "untrusted" in captured["user_prompt"].lower()
     assert "UNTRUSTED DATA" in captured["system_prompt"]
+
+
+def test_fallback_lookup_survives_field_name_sanitization(monkeypatch):
+    """Responses are keyed by synthetic id, not by the sanitized name.
+
+    The prompt carries a sanitized field name; keying the lookup by the raw name
+    silently dropped any field whose name normalization changed it.
+    """
+    monkeypatch.setattr(
+        mapping_module,
+        "SemanticClient",
+        _fallback_client(
+            '{"f0":{"matched_key":"opaque_source_key","confidence":0.5,'
+            '"reason":"matched by id"}}'
+        ),
+    )
+
+    # A name that sanitization rewrites: zero-width joiner plus padded spaces.
+    hostile_name = "  txt​Mystery   Field  "
+    fields = [
+        EnrichedFormField(
+            field=FormField(
+                name=hostile_name, field_type="text", required=False, page_number=1
+            ),
+            semantics=FieldSemantics(
+                semantic_meaning="mystery_field",
+                expected_data_type="string",
+                confidence_score=0.95,
+            ),
+        )
+    ]
+
+    result = semantic_fallback_mapping(fields, {"opaque_source_key": "value"})
+
+    # Keyed back to the raw field name the writer will use.
+    assert hostile_name in result
+    assert result[hostile_name][0] == "opaque_source_key"
+
+
+def test_malformed_confidence_does_not_discard_the_batch(monkeypatch):
+    """A non-numeric confidence must skip one field, not the whole response."""
+    monkeypatch.setattr(
+        mapping_module,
+        "SemanticClient",
+        _fallback_client(
+            '{"f0":{"matched_key":"key_a","confidence":[1,2],"reason":"broken"},'
+            '"f1":{"matched_key":"key_b","confidence":0.6,"reason":"fine"}}'
+        ),
+    )
+
+    def _field(name: str, semantic: str) -> EnrichedFormField:
+        return EnrichedFormField(
+            field=FormField(name=name, field_type="text", required=False, page_number=1),
+            semantics=FieldSemantics(
+                semantic_meaning=semantic,
+                expected_data_type="string",
+                confidence_score=0.95,
+            ),
+        )
+
+    result = semantic_fallback_mapping(
+        [_field("txtA", "alpha"), _field("txtB", "beta")],
+        {"key_a": "one", "key_b": "two"},
+    )
+
+    # Both survive; the malformed confidence is floored rather than fatal.
+    assert set(result) == {"txtA", "txtB"}
+    assert result["txtA"][2] == 0.0
+    assert result["txtB"][2] == pytest.approx(0.6)

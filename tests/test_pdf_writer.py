@@ -561,8 +561,14 @@ def test_unverifiable_required_field_raises(tmp_path, monkeypatch):
     assert "chkRequired" in excinfo.value.missing_fields
 
 
-def test_verification_degrades_gracefully_when_output_has_no_fields(tmp_path, monkeypatch):
-    """If the output cannot be introspected, do not claim writes failed."""
+def test_verification_fails_closed_when_output_cannot_be_introspected(
+    tmp_path, monkeypatch
+):
+    """If the output cannot be introspected, nothing may be claimed as verified.
+
+    Failing open here would let `written_fields` assert a confirmation the
+    service never obtained — the exact thing verification exists to prevent.
+    """
     input_pdf = tmp_path / "input.pdf"
     output_pdf = tmp_path / "output.pdf"
     create_pdf_with_checkbox(input_pdf)
@@ -579,5 +585,28 @@ def test_verification_degrades_gracefully_when_output_has_no_fields(tmp_path, mo
 
     report = fill_pdf(input_pdf, output_pdf, _text_decision("chkAgree", "true"))
 
-    assert report.written_fields == ["chkAgree"]
-    assert report.failed_fields == []
+    assert report.written_fields == []
+    assert report.failed_fields == ["chkAgree"]
+
+
+def test_verification_fails_closed_when_output_cannot_be_read(tmp_path, monkeypatch):
+    """An unreadable output document is unverified, not verified."""
+    input_pdf = tmp_path / "input.pdf"
+    output_pdf = tmp_path / "output.pdf"
+    create_pdf_with_checkbox(input_pdf)
+
+    real_reader = pdf_writer_module.PdfReader
+    state = {"first": True}
+
+    def reader_failing_on_output(path):
+        if state["first"]:
+            state["first"] = False
+            return real_reader(path)
+        raise OSError("output unreadable")
+
+    monkeypatch.setattr(pdf_writer_module, "PdfReader", reader_failing_on_output)
+
+    report = fill_pdf(input_pdf, output_pdf, _text_decision("chkAgree", "true"))
+
+    assert report.written_fields == []
+    assert report.failed_fields == ["chkAgree"]

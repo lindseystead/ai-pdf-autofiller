@@ -37,6 +37,7 @@ from .provider_config import (
     MODEL_SEMANTIC_BATCH_SIZE,
     MODEL_TEMPERATURE,
     MODEL_TIMEOUT_SECONDS,
+    SEMANTIC_TIMEOUT_SECONDS,
     ProviderUsage,
 )
 from .untrusted_text import (
@@ -153,8 +154,15 @@ class SemanticClient:
         user_prompt: str,
         model: str,
         temperature: float,
+        deadline: float | None = None,
     ) -> str:
         """Call the provider with bounded retries and record usage.
+
+        Args:
+            deadline: Optional ``time.monotonic()`` instant past which no further
+                attempt is started, and against which each call's timeout is
+                trimmed. Keeps retries inside the caller's overall budget rather
+                than letting each attempt spend a full independent window.
 
         Raises:
             RuntimeError: If every attempt fails, or the response has no content
@@ -163,6 +171,12 @@ class SemanticClient:
         last_error: Exception | None = None
 
         for attempt in range(MODEL_MAX_RETRIES + 1):
+            call_timeout = MODEL_TIMEOUT_SECONDS
+            if deadline is not None:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    break
+                call_timeout = min(call_timeout, remaining)
             if attempt:
                 self.usage.record_retry()
                 time.sleep(MODEL_RETRY_BACKOFF_SECONDS * (2 ** (attempt - 1)))
@@ -175,7 +189,7 @@ class SemanticClient:
                     ],
                     response_format={"type": "json_object"},
                     temperature=temperature,
-                    timeout=MODEL_TIMEOUT_SECONDS,
+                    timeout=call_timeout,
                 )
             except Exception as exc:  # noqa: BLE001 - any provider error is retryable here
                 last_error = exc
@@ -212,28 +226,56 @@ class SemanticClient:
             RuntimeError: If the semantic client is not available or inference fails
             ValueError: If the response cannot be parsed
         """
-        results = self.infer_semantics_batch([(field, context_text)])
-        semantics = results.get(field.name)
+        if not self.is_available():
+            raise RuntimeError(
+                "Semantic client not available. Set MODEL_PROVIDER_API_KEY environment variable "
+                "or install openai package."
+            )
+
+        # Deliberately not routed through infer_semantics_batch: that loop
+        # isolates batch failures to keep earlier results, which would convert
+        # this single-field call's parse errors into a generic RuntimeError.
+        batch = [(field, context_text)]
+        content = self._completion_with_retry(
+            system_prompt=_SEMANTICS_SYSTEM_PROMPT,
+            user_prompt=self._build_batch_prompt(batch),
+            model=MODEL_NAME,
+            temperature=MODEL_TEMPERATURE,
+        )
+        semantics = self._parse_batch_response(content, batch).get(field.name)
         if semantics is None:
             raise ValueError("Semantic response did not cover the requested field")
         return semantics
 
     def infer_semantics_batch(
-        self, items: list[tuple[FormField, str | None]]
+        self,
+        items: list[tuple[FormField, str | None]],
+        *,
+        deadline: float | None = None,
     ) -> dict[str, FieldSemantics]:
         """
         Infer semantics for many fields using as few provider calls as possible.
 
+        Each batch is isolated: a batch that fails does not discard the fields an
+        earlier batch already resolved, matching the per-entry tolerance in
+        :meth:`_parse_batch_response`. The loop is also bounded by a single
+        deadline covering every batch, so total provider time cannot grow with
+        batch count beyond the caller's budget.
+
         Args:
             items: (field, optional surrounding page text) pairs
+            deadline: Optional ``time.monotonic()`` instant past which no further
+                batch is started. Defaults to ``SEMANTIC_TIMEOUT_SECONDS`` from now.
 
         Returns:
             Mapping of field name to inferred semantics. Fields the model did
-            not cover, or covered with an unusable answer, are simply absent —
-            callers fall back to deterministic semantics for those.
+            not cover, covered with an unusable answer, or that were skipped
+            because the budget ran out, are simply absent — callers fall back to
+            deterministic semantics for those.
 
         Raises:
-            RuntimeError: If the semantic client is not available or a call fails
+            RuntimeError: If the semantic client is not available, or every batch
+                failed and nothing was resolved
         """
         if not self.is_available():
             raise RuntimeError(
@@ -243,16 +285,38 @@ class SemanticClient:
         if not items:
             return {}
 
+        if deadline is None:
+            deadline = time.monotonic() + SEMANTIC_TIMEOUT_SECONDS
+
         resolved: dict[str, FieldSemantics] = {}
+        failures = 0
         for start in range(0, len(items), MODEL_SEMANTIC_BATCH_SIZE):
+            if time.monotonic() >= deadline:
+                logger.warning(
+                    "Semantic inference budget exhausted; %d field(s) resolved before "
+                    "remaining batches were skipped",
+                    len(resolved),
+                )
+                self.usage.note_degraded("semantic_budget_exhausted")
+                break
+
             batch = items[start : start + MODEL_SEMANTIC_BATCH_SIZE]
-            content = self._completion_with_retry(
-                system_prompt=_SEMANTICS_SYSTEM_PROMPT,
-                user_prompt=self._build_batch_prompt(batch),
-                model=MODEL_NAME,
-                temperature=MODEL_TEMPERATURE,
-            )
-            resolved.update(self._parse_batch_response(content, batch))
+            try:
+                content = self._completion_with_retry(
+                    system_prompt=_SEMANTICS_SYSTEM_PROMPT,
+                    user_prompt=self._build_batch_prompt(batch),
+                    model=MODEL_NAME,
+                    temperature=MODEL_TEMPERATURE,
+                    deadline=deadline,
+                )
+                resolved.update(self._parse_batch_response(content, batch))
+            except (RuntimeError, ValueError) as exc:
+                failures += 1
+                logger.warning("Semantic batch failed; keeping earlier results: %s", exc)
+                self.usage.record_failure("semantic_batch_failed")
+
+        if failures and not resolved:
+            raise RuntimeError("Every semantic inference batch failed")
 
         return resolved
 
@@ -451,6 +515,7 @@ def infer_fields_semantics(
     api_key: str | None = None,
     *,
     usage: ProviderUsage | None = None,
+    deadline: float | None = None,
 ) -> dict[str, FieldSemantics]:
     """
     Infer semantics for many fields in as few provider calls as possible.
@@ -459,6 +524,7 @@ def infer_fields_semantics(
         items: (field, optional page context) pairs
         api_key: Provider API key (defaults to MODEL_PROVIDER_API_KEY env var)
         usage: Optional accumulator recording calls, tokens, and failures
+        deadline: Optional ``time.monotonic()`` bound covering every batch
 
     Returns:
         Mapping of field name to semantics for every field the model resolved
@@ -468,4 +534,4 @@ def infer_fields_semantics(
         ValueError: If a response cannot be parsed
     """
     client = SemanticClient(api_key=api_key, usage=usage)
-    return client.infer_semantics_batch(items)
+    return client.infer_semantics_batch(items, deadline=deadline)

@@ -63,6 +63,16 @@ MODEL_CONFIDENCE_CEILING = _env_float("MODEL_CONFIDENCE_CEILING", 0.75)
 # Confidence at or above which a mapping decision is written without review.
 MAPPING_REVIEW_THRESHOLD = _env_float("MAPPING_REVIEW_THRESHOLD", 0.80)
 
+# Total wall-clock budget for all provider work in one fill.
+#
+# This bounds the batch loop as a whole. Without it, worst-case provider time
+# scales with batch count — each batch can spend
+# MODEL_TIMEOUT_SECONDS * (MODEL_MAX_RETRIES + 1) plus backoff — so a document
+# with many batches could hold its worker slot far longer than the request
+# budget implies. The API grants the same allowance on top of its parsing
+# budget, so the two stay in step.
+SEMANTIC_TIMEOUT_SECONDS = _env_float("SEMANTIC_TIMEOUT_SECONDS", 45.0)
+
 
 @dataclass
 class ProviderUsage:
