@@ -7,22 +7,31 @@ Core PDF logic remains in the reader/mapping/writer modules.
 Security posture (this service accepts untrusted uploads from the public):
 - Authentication on POST /fill is enabled by default and fails closed.
 - Per-client rate limiting protects against request floods.
-- Uploads are size-, signature-, and page-count-checked, and PDF parsing runs
-  off the event loop under a wall-clock timeout to bound DoS from hostile PDFs.
-- Temporary files are removed on every code path.
-- A structured, PII-free audit line is emitted per fill.
+- Uploads are size-, signature-, and page-count-checked.
+- PDF work runs on a bounded worker pool. A request that exceeds its time
+  budget returns 503, but its worker slot stays held until the job actually
+  finishes, so timed-out work cannot accumulate and exhaust the pool.
+- Temporary files are removed on every code path, including deferred cleanup
+  for a job that outlives its request.
+- A structured, PII-free audit line is emitted per fill, recording what the
+  model path actually did rather than only which flags were requested.
 See docs/OPERATIONS.md for rationale and configuration.
 """
 
 import asyncio
+import contextlib
+import functools
 import json
 import logging
 import os
 import secrets
 import tempfile
+import threading
 import time
 import uuid
 from collections import defaultdict, deque
+from collections.abc import AsyncIterator
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
@@ -34,11 +43,12 @@ from starlette.background import BackgroundTask
 
 from . import __version__
 from .mapping import alias_pack_status
-from .models import FillReport
+from .models import FillReport, PipelineTelemetry
 from .pdf_reader import PdfPageLimitError
 from .pdf_writer import UnresolvedRequiredFieldsError
-from .pipeline import enrich_fields, page_context_by_number, run_fill_pipeline
+from .pipeline import run_fill_pipeline
 from .playground import PLAYGROUND_HTML
+from .provider_config import MODEL_NAME
 
 LOG_LEVEL_NAME = os.getenv("LOG_LEVEL", "INFO").upper()
 # Fail closed: authentication is enabled unless explicitly disabled. Operators
@@ -51,6 +61,13 @@ MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(5 * 1024 * 1024)))
 MAX_PDF_PAGES = int(os.getenv("MAX_PDF_PAGES", "200"))
 # Wall-clock budget for PDF parsing/extraction, the main CPU/memory DoS vector.
 PDF_READ_TIMEOUT_SECONDS = float(os.getenv("PDF_READ_TIMEOUT_SECONDS", "20"))
+# Additional budget granted when a request opts into provider-backed features.
+# Model latency is not PDF parsing time and must not be charged to the same
+# clock, or enabling inference would make every large form time out.
+SEMANTIC_TIMEOUT_SECONDS = float(os.getenv("SEMANTIC_TIMEOUT_SECONDS", "45"))
+# Bounded worker pool for PDF work, plus how many requests may wait for a slot.
+PDF_WORKER_THREADS = max(1, int(os.getenv("PDF_WORKER_THREADS", "4")))
+PDF_QUEUE_DEPTH = max(0, int(os.getenv("PDF_QUEUE_DEPTH", "4")))
 # Per-client request budget for POST /fill. Set to 0 to disable.
 RATE_LIMIT_PER_MINUTE = int(os.getenv("RATE_LIMIT_PER_MINUTE", "60"))
 # Trust X-Forwarded-For for per-client rate limiting behind a reverse proxy.
@@ -84,10 +101,7 @@ class VersionResponse(BaseModel):
 
 
 def _api_error_payload(
-    *,
-    code: str,
-    message: str,
-    details: dict[str, Any] | None = None,
+    *, code: str, message: str, details: dict[str, Any] | None = None
 ) -> dict[str, Any]:
     """Build a consistent API error payload."""
     payload: dict[str, Any] = {"error": {"code": code, "message": message}}
@@ -97,11 +111,7 @@ def _api_error_payload(
 
 
 def _api_error(
-    *,
-    status_code: int,
-    code: str,
-    message: str,
-    details: dict[str, Any] | None = None,
+    *, status_code: int, code: str, message: str, details: dict[str, Any] | None = None
 ) -> HTTPException:
     # Centralize API error formatting so clients can rely on one contract
     # regardless of which endpoint raised the error.
@@ -112,43 +122,36 @@ def _api_error(
     )
 
 
-def _fallback_semantics(field):
-    """Backward-compatible wrapper for tests importing the helper."""
-    from .pipeline import fallback_semantics
-
-    return fallback_semantics(field)
-
-
-def _page_context_by_number(text_regions):
-    """Backward-compatible wrapper for tests importing the helper."""
-    return page_context_by_number(text_regions)
-
-
-def _enrich_fields(fields, *, use_semantic_inference, page_context=None):
-    """Backward-compatible wrapper for tests importing the helper."""
-    return enrich_fields(
-        fields,
-        use_semantic_inference=use_semantic_inference,
-        page_context=page_context,
-    )
-
-
 def _safe_header_value(field_names: list[str]) -> str:
     """Render field names as an ASCII-safe, comma-separated HTTP header value."""
-    joined = ",".join(field_names)
-    return joined.encode("ascii", "ignore").decode("ascii")
+    return ",".join(field_names).encode("ascii", "ignore").decode("ascii")
 
 
-def _fill_report_headers(report: FillReport) -> dict[str, str]:
+def _semantic_status(telemetry: PipelineTelemetry) -> str:
+    """Summarize what the model path actually did, for the response header."""
+    if not telemetry.semantic_inference_requested:
+        return "off"
+    if not telemetry.semantic_inference_applied:
+        return "degraded"
+    return "degraded-partial" if telemetry.degraded else "applied"
+
+
+def _fill_report_headers(report: FillReport, telemetry: PipelineTelemetry) -> dict[str, str]:
     """Expose fill outcome via response headers.
 
     Lets clients detect non-required fields that were dropped (for example,
-    flagged for review) instead of receiving a silently incomplete PDF.
+    flagged for review), writes that could not be verified in the output, and
+    whether an opt-in model feature silently fell back to deterministic
+    behavior, instead of receiving a silently incomplete PDF.
     """
     return {
         "X-PDF-Fields-Written": str(len(report.written_fields)),
+        "X-PDF-Fields-Failed": _safe_header_value(report.failed_fields),
         "X-PDF-Fields-Skipped-Review": _safe_header_value(report.skipped_review_fields),
         "X-PDF-Fields-Skipped-Empty": _safe_header_value(report.skipped_empty_fields),
+        "X-PDF-Semantic-Inference": _semantic_status(telemetry),
+        "X-PDF-Provider-Calls": str(telemetry.provider_calls),
+        "X-PDF-Provider-Tokens": str(telemetry.total_tokens),
     }
 
 
@@ -158,32 +161,134 @@ def _audit_log_fill(
     fields_total: int,
     report: FillReport,
     missing_required: int,
-    use_semantic_inference: bool,
-    allow_fallback_mapping: bool,
+    telemetry: PipelineTelemetry,
 ) -> None:
     """Emit a structured, PII-free audit record for a completed fill.
 
     This is the application-level audit trail. It deliberately records only
-    counts, request identity, and which optional features ran — never field
-    names or user values — so the line is safe to ship to a central log store.
-    Persistent retention/storage is a deployment responsibility (see
+    counts, request identity, and what the optional model path actually did —
+    never field names or user values — so the line is safe to ship to a central
+    log store. Persistent retention/storage is a deployment responsibility (see
     docs/OPERATIONS.md).
     """
     request_id = getattr(request.state, "request_id", "unknown")
     logger.info(
         "audit action=fill request_id=%s auth=%s fields_total=%d fields_written=%d "
-        "fields_review_skipped=%d fields_empty_skipped=%d missing_required=%d "
-        "semantic_inference=%s fallback_mapping=%s",
+        "fields_failed=%d fields_review_skipped=%d fields_empty_skipped=%d "
+        "missing_required=%d semantic_requested=%s semantic_applied=%s "
+        "fallback_requested=%s fallback_applied=%s fields_inferred=%d model=%s "
+        "provider_calls=%d provider_retries=%d provider_failures=%d tokens=%d "
+        "degraded=%s",
         request_id,
         "enabled" if API_AUTH_ENABLED else "disabled",
         fields_total,
         len(report.written_fields),
+        len(report.failed_fields),
         len(report.skipped_review_fields),
         len(report.skipped_empty_fields),
         missing_required,
-        use_semantic_inference,
-        allow_fallback_mapping,
+        telemetry.semantic_inference_requested,
+        telemetry.semantic_inference_applied,
+        telemetry.fallback_mapping_requested,
+        telemetry.fallback_mapping_applied,
+        telemetry.fields_inferred,
+        MODEL_NAME if telemetry.provider_calls else "none",
+        telemetry.provider_calls,
+        telemetry.provider_retries,
+        telemetry.provider_failures,
+        telemetry.total_tokens,
+        ",".join(telemetry.degraded_reasons) or "no",
     )
+
+
+# Bounded pool for PDF work. Sizing it explicitly (rather than borrowing the
+# default asyncio executor) is what makes the timeout guard meaningful: a job
+# that outlives its request keeps occupying a slot until it truly finishes.
+_pdf_executor = ThreadPoolExecutor(
+    max_workers=PDF_WORKER_THREADS, thread_name_prefix="pdf-fill"
+)
+_pdf_slot_lock = threading.Lock()
+_active_pdf_jobs = 0
+
+
+def _try_acquire_pdf_slot() -> bool:
+    """Reserve capacity for one PDF job, or report saturation."""
+    global _active_pdf_jobs
+    with _pdf_slot_lock:
+        if _active_pdf_jobs >= PDF_WORKER_THREADS + PDF_QUEUE_DEPTH:
+            return False
+        _active_pdf_jobs += 1
+        return True
+
+
+def _release_pdf_slot() -> None:
+    """Return capacity reserved by :func:`_try_acquire_pdf_slot`.
+
+    Called from the worker thread when a job genuinely ends, so accounting does
+    not depend on an event-loop callback that a torn-down loop could drop.
+    """
+    global _active_pdf_jobs
+    with _pdf_slot_lock:
+        _active_pdf_jobs = max(0, _active_pdf_jobs - 1)
+
+
+class _JobContext:
+    """Coordinates temp-directory ownership between a request and its job.
+
+    A request that times out must not delete files a still-running worker is
+    reading, and a worker that finishes after the request gave up must not leave
+    the directory behind. Whichever side arrives last performs the cleanup.
+    """
+
+    def __init__(self, temp_dir: tempfile.TemporaryDirectory):
+        self._lock = threading.Lock()
+        self._temp_dir = temp_dir
+        self._finished = False
+        self._abandoned = False
+
+    def finish(self) -> None:
+        """Mark the job complete, cleaning up if the request already gave up."""
+        with self._lock:
+            self._finished = True
+            should_clean = self._abandoned
+        if should_clean:
+            self._temp_dir.cleanup()
+
+    def abandon(self) -> None:
+        """Hand cleanup to the job, or do it now if the job already ended."""
+        with self._lock:
+            self._abandoned = True
+            should_clean = self._finished
+        if should_clean:
+            self._temp_dir.cleanup()
+
+
+def _run_pipeline_job(job_callable, context: _JobContext):
+    """Run one pipeline job, always releasing its slot and settling cleanup."""
+    try:
+        return job_callable()
+    finally:
+        _release_pdf_slot()
+        context.finish()
+
+
+def _log_abandoned_job(future) -> None:
+    """Record how a job that outlived its request ended, and consume its result."""
+    if future.cancelled():
+        return
+    error = future.exception()
+    if error is not None:
+        logger.warning("Abandoned PDF job finished with an error: %s", error)
+
+
+@contextlib.asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """Shut the PDF worker pool down cleanly with the application."""
+    del app
+    try:
+        yield
+    finally:
+        _pdf_executor.shutdown(wait=False, cancel_futures=True)
 
 
 app = FastAPI(
@@ -192,6 +297,7 @@ app = FastAPI(
     description=(
         "HTTP API for deterministic-first PDF form filling with optional semantic inference."
     ),
+    lifespan=lifespan,
 )
 
 
@@ -237,11 +343,6 @@ async def request_context_middleware(request: Request, call_next):
 # in-process guard suitable for a single worker; multi-worker deployments should
 # add a shared limiter (e.g. at the ingress/proxy layer).
 _rate_limit_state: dict[str, deque[float]] = defaultdict(deque)
-
-
-def _reset_rate_limit_state() -> None:
-    """Clear rate-limiter state (used by tests)."""
-    _rate_limit_state.clear()
 
 
 def _client_identifier(request: Request) -> str:
@@ -324,11 +425,7 @@ def _require_api_key(request: Request) -> None:
 
     incoming_token = request.headers.get(API_KEY_HEADER)
     if incoming_token is None or not secrets.compare_digest(incoming_token, API_AUTH_TOKEN):
-        raise _api_error(
-            status_code=401,
-            code="unauthorized",
-            message="Unauthorized",
-        )
+        raise _api_error(status_code=401, code="unauthorized", message="Unauthorized")
 
 
 @app.get("/")
@@ -349,22 +446,37 @@ def health() -> HealthResponse:
         "auth": (
             "enabled"
             if API_AUTH_ENABLED and API_AUTH_TOKEN
-            else "disabled" if not API_AUTH_ENABLED else "misconfigured"
+            else "disabled"
+            if not API_AUTH_ENABLED
+            else "misconfigured"
         ),
+        "model_provider": (
+            "configured" if os.getenv("MODEL_PROVIDER_API_KEY") else "not_configured"
+        ),
+        "model_name": MODEL_NAME,
         **alias_pack_status(),
     }
     status = "ok" if checks["auth"] != "misconfigured" else "degraded"
     return HealthResponse(
-        status=status,
-        service="pdf-autofiller",
-        version=__version__,
-        checks=checks,
+        status=status, service="pdf-autofiller", version=__version__, checks=checks
     )
 
 
 @app.get("/version", response_model=VersionResponse)
 def version() -> VersionResponse:
     return VersionResponse(service="pdf-autofiller", version=__version__)
+
+
+def _request_time_budget(*, use_semantic_inference: bool, allow_fallback_mapping: bool) -> float:
+    """Compute the wall-clock budget for one fill.
+
+    Provider-backed features get their own allowance on top of the parsing
+    budget so opting into them does not push ordinary forms over the limit.
+    """
+    budget = PDF_READ_TIMEOUT_SECONDS
+    if use_semantic_inference or allow_fallback_mapping:
+        budget += SEMANTIC_TIMEOUT_SECONDS
+    return budget
 
 
 @app.post("/fill")
@@ -389,9 +501,10 @@ async def fill(
     """
     temp_dir = None
     # The FileResponse streams the output and cleans up the temp dir via a
-    # BackgroundTask. On every other path we must clean up here, so track whether
-    # ownership of the temp dir was handed off to a successful response.
-    response_started = False
+    # BackgroundTask; a timed-out job cleans up when it finally finishes. On
+    # every other path we clean up here, so track who owns the directory.
+    temp_dir_owner_assigned = False
+    slot_held = False
 
     try:
         _enforce_rate_limit(request)
@@ -412,6 +525,15 @@ async def fill(
                 message="user_data must be a JSON object",
             )
 
+        if not _try_acquire_pdf_slot():
+            raise _api_error(
+                status_code=503,
+                code="server_busy",
+                message="PDF processing capacity is saturated; retry shortly",
+                details={"worker_threads": PDF_WORKER_THREADS},
+            )
+        slot_held = True
+
         temp_dir = tempfile.TemporaryDirectory(prefix="pdf-autofiller-")
         temp_path = Path(temp_dir.name)
         input_path = temp_path / "input.pdf"
@@ -426,9 +548,13 @@ async def fill(
             )
         input_path.write_bytes(content)
 
-        try:
-            fill_report, mapping_result, fields_total = await asyncio.wait_for(
-                asyncio.to_thread(
+        job_context = _JobContext(temp_dir)
+        loop = asyncio.get_running_loop()
+        job = loop.run_in_executor(
+            _pdf_executor,
+            functools.partial(
+                _run_pipeline_job,
+                functools.partial(
                     run_fill_pipeline,
                     input_path,
                     output_path,
@@ -438,14 +564,34 @@ async def fill(
                     use_semantic_inference=use_semantic_inference,
                     max_pages=MAX_PDF_PAGES,
                 ),
-                timeout=PDF_READ_TIMEOUT_SECONDS,
-            )
-        except asyncio.TimeoutError as exc:
+                job_context,
+            ),
+        )
+        # The worker now owns slot release, so work that outlived its timeout
+        # still counts against capacity until it genuinely finishes.
+        slot_held = False
+
+        budget = _request_time_budget(
+            use_semantic_inference=use_semantic_inference,
+            allow_fallback_mapping=allow_fallback_mapping,
+        )
+
+        try:
+            # shield: the worker thread cannot be cancelled, so let it run to
+            # completion and reclaim its slot rather than pretending it stopped.
+            result = await asyncio.wait_for(asyncio.shield(job), timeout=budget)
+        except TimeoutError as exc:
+            # The job may still own the temp directory. Deleting it here would
+            # pull files out from under a thread that is still reading and
+            # writing, so hand cleanup to whichever side finishes last.
+            job_context.abandon()
+            job.add_done_callback(_log_abandoned_job)
+            temp_dir_owner_assigned = True
             raise _api_error(
                 status_code=503,
                 code="pdf_processing_timeout",
                 message="PDF processing exceeded the time limit",
-                details={"timeout_seconds": PDF_READ_TIMEOUT_SECONDS},
+                details={"timeout_seconds": budget},
             ) from exc
         except PdfPageLimitError as exc:
             raise _api_error(
@@ -457,20 +603,19 @@ async def fill(
 
         _audit_log_fill(
             request,
-            fields_total=fields_total,
-            report=fill_report,
-            missing_required=len(mapping_result.missing_required),
-            use_semantic_inference=use_semantic_inference,
-            allow_fallback_mapping=allow_fallback_mapping,
+            fields_total=result.fields_total,
+            report=result.fill_report,
+            missing_required=len(result.mapping_result.missing_required),
+            telemetry=result.telemetry,
         )
         response = FileResponse(
             path=output_path,
             media_type="application/pdf",
             filename=f"{Path(pdf_file.filename or 'filled').stem}_filled.pdf",
-            headers=_fill_report_headers(fill_report),
+            headers=_fill_report_headers(result.fill_report, result.telemetry),
             background=BackgroundTask(temp_dir.cleanup),
         )
-        response_started = True
+        temp_dir_owner_assigned = True
         return response
     except json.JSONDecodeError as exc:
         raise _api_error(
@@ -494,14 +639,14 @@ async def fill(
     except Exception as exc:
         logger.exception("PDF fill request failed")
         raise _api_error(
-            status_code=500,
-            code="pdf_fill_failed",
-            message="PDF fill failed",
+            status_code=500, code="pdf_fill_failed", message="PDF fill failed"
         ) from exc
     finally:
-        # Clean up unless a successful response took ownership of the temp dir.
-        if temp_dir is not None and not response_started:
+        # Clean up unless a response or a still-running job took ownership.
+        if temp_dir is not None and not temp_dir_owner_assigned:
             temp_dir.cleanup()
+        if slot_held:
+            _release_pdf_slot()
         await pdf_file.close()
 
 

@@ -6,7 +6,7 @@ AcroForm metadata is incomplete and widget annotations must be scanned.
 """
 
 import logging
-from typing import Literal, Optional, cast
+from typing import Literal, cast
 
 from pypdf import PdfReader
 from pypdf.generic import IndirectObject
@@ -15,6 +15,11 @@ from .field_utils import is_field_required
 from .models import FormField
 
 logger = logging.getLogger(__name__)
+
+
+def resolve_object(candidate):
+    """Resolve an indirect PDF reference to its target object."""
+    return candidate.get_object() if hasattr(candidate, "get_object") else candidate
 
 
 def get_field_type(field_obj) -> Literal["text", "button", "choice", "signature", "unknown"]:
@@ -31,7 +36,7 @@ def get_field_type(field_obj) -> Literal["text", "button", "choice", "signature"
     return "unknown"
 
 
-def get_field_value(field_obj) -> Optional[str]:
+def get_field_value(field_obj) -> str | None:
     """Read the current value from a PDF field object."""
     value = field_obj.get("/V")
     if value is None:
@@ -45,7 +50,7 @@ def get_field_value(field_obj) -> Optional[str]:
             resolved = value.get_object()
             if isinstance(resolved, (str, bool, int, float)):
                 return str(resolved)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - malformed refs must not abort extraction
             logger.debug("Failed to resolve indirect field value: %s", exc)
 
     return str(value) if value else None
@@ -61,7 +66,7 @@ def find_field_page(reader: PdfReader, field_obj) -> int:
         return 1
 
     try:
-        page_obj = page_ref.get_object() if hasattr(page_ref, "get_object") else page_ref
+        page_obj = resolve_object(page_ref)
         for idx, page in enumerate(reader.pages, start=1):
             if page == page_obj or (
                 hasattr(page, "indirect_reference") and page.indirect_reference == page_ref
@@ -94,21 +99,21 @@ def collect_field_objects(reader: PdfReader) -> dict[str, object]:
 
             for annot_ref in annotations:
                 try:
-                    annot = annot_ref.get_object() if hasattr(annot_ref, "get_object") else annot_ref
+                    annot = resolve_object(annot_ref)
                     if annot.get("/Subtype") != "/Widget":
                         continue
 
                     parent = annot.get("/Parent")
                     field_name = annot.get("/T")
                     if not field_name and parent:
-                        parent_obj = parent.get_object() if hasattr(parent, "get_object") else parent
+                        parent_obj = resolve_object(parent)
                         field_name = parent_obj.get("/T")
                     if not field_name:
                         continue
 
                     field_obj = annot
                     if parent:
-                        field_obj = parent.get_object() if hasattr(parent, "get_object") else parent
+                        field_obj = resolve_object(parent)
                     fallback_fields.setdefault(str(field_name), field_obj)
                 except Exception:
                     logger.debug(
@@ -141,7 +146,9 @@ def extract_form_fields(reader: PdfReader) -> list[FormField]:
                         )
                     )
                 except Exception:
-                    logger.debug("Failed to parse form field from root fields", exc_info=True)
+                    logger.debug(
+                        "Failed to parse form field from root fields", exc_info=True
+                    )
                     continue
             return form_fields
     except Exception:
@@ -158,7 +165,7 @@ def extract_form_fields(reader: PdfReader) -> list[FormField]:
 
             for annot_ref in cast(list, annotations):
                 try:
-                    annot = annot_ref.get_object() if hasattr(annot_ref, "get_object") else annot_ref
+                    annot = resolve_object(annot_ref)
                     if annot.get("/Subtype") != "/Widget":
                         continue
 
@@ -167,10 +174,7 @@ def extract_form_fields(reader: PdfReader) -> list[FormField]:
                         continue
 
                     parent = annot.get("/Parent")
-                    if parent:
-                        field_obj = parent.get_object() if hasattr(parent, "get_object") else parent
-                    else:
-                        field_obj = annot
+                    field_obj = resolve_object(parent) if parent else annot
 
                     form_fields.append(
                         FormField(
@@ -182,10 +186,16 @@ def extract_form_fields(reader: PdfReader) -> list[FormField]:
                         )
                     )
                 except Exception:
-                    logger.debug("Failed to parse widget annotation on page %s", page_num, exc_info=True)
+                    logger.debug(
+                        "Failed to parse widget annotation on page %s",
+                        page_num,
+                        exc_info=True,
+                    )
                     continue
         except Exception:
-            logger.debug("Failed to process page %s annotations", page_num, exc_info=True)
+            logger.debug(
+                "Failed to process page %s annotations", page_num, exc_info=True
+            )
             continue
 
     return form_fields

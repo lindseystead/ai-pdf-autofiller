@@ -1,12 +1,17 @@
 # Development requirements for PDF Autofiller
 #
 # Install with: pip install -r requirements-dev.txt
+#
+# These are PINNED, not floored. CI runs `ruff check` and `mypy` as blocking
+# gates, so an unpinned floor lets a linter release turn a green build red with
+# no code change. Upgrade them deliberately, in a commit that also fixes
+# whatever the new version reports.
 
 -r requirements.txt
 
-black>=23.0.0
-mypy>=1.0.0
-pip-audit>=2.7.0
-pytest>=7.4.0
-pytest-cov>=4.0.0
-ruff>=0.1.0
+black==26.5.1
+mypy==2.3.1
+pip-audit==2.9.0
+pytest==9.1.1
+pytest-cov==7.1.0
+ruff==0.16.3

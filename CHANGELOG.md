@@ -4,14 +4,45 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Security
+
+- Documented and mitigated **prompt injection via uploaded PDFs**. Page text and field names are attacker-controlled and, when the optional model path is enabled, reach a model prompt. Model output is now constrained to a strict identifier pattern, model confidence is capped below the review threshold, fallback mapping may only select caller-supplied keys, batched responses are keyed by position, and untrusted text is sanitized and fenced. See `SECURITY.md` for what this does and does not solve.
+- Bounded PDF processing with a dedicated worker pool (`PDF_WORKER_THREADS`, `PDF_QUEUE_DEPTH`). A worker thread cannot be cancelled, so a timed-out job now keeps its slot until it genuinely finishes and excess requests are shed with `503 server_busy`. Previously a timed-out request returned 503 while its thread kept running unaccounted, so hostile uploads could exhaust the shared executor.
+- Fixed a race where a timed-out request deleted the temporary directory while its worker was still reading and writing files. Ownership is now handed to whichever side finishes last.
+
 ### Added
+
+- `provider_config.py`: all model settings are configurable and pinned by default — `MODEL_NAME`, `MODEL_TEMPERATURE` (now `0.0`), `MODEL_TIMEOUT_SECONDS`, `MODEL_MAX_RETRIES`, `MODEL_RETRY_BACKOFF_SECONDS`, `MODEL_SEMANTIC_BATCH_SIZE`, `MODEL_CONTEXT_CHAR_LIMIT`, `MODEL_CONFIDENCE_CEILING`, `MAPPING_REVIEW_THRESHOLD`.
+- Bounded retries with exponential backoff, and an explicit per-call timeout, on every provider request.
+- `PipelineTelemetry`: provider calls, retries, failures, token counts, fields inferred, and degradation reasons, surfaced via response headers and the audit log.
+- New response headers: `X-PDF-Fields-Failed`, `X-PDF-Semantic-Inference`, `X-PDF-Provider-Calls`, `X-PDF-Provider-Tokens`.
+- `FieldMappingDecision.confidence_source` (`deterministic` | `model`) records where a confidence came from.
+- `SEMANTIC_TIMEOUT_SECONDS`: provider-backed requests get their own time budget on top of the PDF parsing budget.
+- `server_busy` error code.
+
+### Changed
+
+- **Semantic inference is now batched.** It previously constructed a client and issued one provider call *per field*; a 25-field form cost 25 calls. It now issues one call per `MODEL_SEMANTIC_BATCH_SIZE` fields. Combined with the separate time budget, `use_semantic_inference=true` no longer reliably times out on forms with more than ~15 fields.
+- **Model self-reported confidence no longer clears the review gate.** It is clamped to `MODEL_CONFIDENCE_CEILING` (0.75), below `MAPPING_REVIEW_THRESHOLD` (0.80), so model-derived mappings are flagged for review by default. Operators can raise the ceiling to restore the previous behavior.
+- **`fill_pdf` verifies its writes.** `FillReport.written_fields` now lists fields confirmed present in the output document; anything the PDF library declined to persist appears in the new `failed_fields`. A required field that cannot be verified raises `UnresolvedRequiredFieldsError`. Previously a field was recorded as written before the write was attempted, and write failures were swallowed at debug level.
+- **A degraded model path is now visible.** Inference failures were silently swallowed; they are now logged, recorded in telemetry, and reported via `X-PDF-Semantic-Inference` and the audit line, which distinguishes *requested* from *applied*.
+- `map_user_data_to_fields` defaults now match the HTTP API (`strict=True`, `allow_fallback_mapping=False`). The library previously enabled the provider path by default while the API did not.
+- The provider SDK is referenced directly instead of via a runtime-assembled attribute name, restoring static analysis over the provider call site.
+- Dev tooling is **pinned** (`ruff`, `mypy`, `black`, `pytest`, `pytest-cov`, `pip-audit`) and the ruff rule set is declared explicitly in `pyproject.toml`. Unpinned floors plus an implicit rule set meant a linter release could turn a green build red with no code change.
+- `run_fill_pipeline` returns a `PipelineResult` instead of a bare tuple.
+- Setting `MODEL_PROVIDER_API_KEY` no longer implies the model path is in effect for a given request; clients should check `X-PDF-Semantic-Inference` on the response.
+
+### Fixed
+
+- Fallback mapping coerced each value twice, discarding the ambiguity flag from the first pass; it now coerces once and preserves `requires_review`.
+- Removed three backward-compatibility wrappers in `api_service.py` that existed only for tests, plus the test-only rate-limiter reset helper.
+- Removed `TextRegion.x` / `TextRegion.y`, which were declared but never populated.
+
+### Documentation
 
 - README hero images (`docs/assets/social-preview.png`, `playground-preview.png`) for discoverability
 - `scripts/apply-repo-metadata.sh` to set GitHub description and topics (run locally with admin `gh`)
 - Expanded `pyproject.toml` keywords for search
-
-### Changed
-
 - README restructured for discovery: keywords, use cases, playground screenshot, stars badge
 - GitHub Pages landing (`docs/site/`) updated with Open Graph / Twitter meta tags
 - Docs index and asset README updated

@@ -6,7 +6,7 @@ from unittest.mock import Mock
 import httpx
 import pytest
 
-from pdf_autofiller.client import PDFAutofillError, PDFAutofillerClient, fill
+from pdf_autofiller.client import PDFAutofillerClient, PDFAutofillError, fill
 
 
 def _pdf_response(content: bytes = b"%PDF-1.4 filled") -> Mock:

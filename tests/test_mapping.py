@@ -6,9 +6,9 @@ from pdf_autofiller import mapping as mapping_module
 from pdf_autofiller.mapping import (
     coerce_value,
     find_deterministic_match,
-    semantic_fallback_mapping,
     map_user_data_to_fields,
     normalize_key,
+    semantic_fallback_mapping,
 )
 from pdf_autofiller.models import (
     EnrichedFormField,
@@ -140,13 +140,13 @@ def test_coerce_value_boolean():
 def test_find_deterministic_match_direct():
     """Test deterministic matching with direct match."""
     user_data = {"first_name": "John", "lastname": "Doe"}
-    
-    matched_key, matched_value, confidence, reason, requires_review = find_deterministic_match(
+
+    matched_key, matched_value, confidence, reason, _requires_review = find_deterministic_match(
         "first_name",
         user_data,
         "string"
     )
-    
+
     assert matched_key == "first_name"
     assert matched_value == "John"
     assert confidence >= 0.90
@@ -156,13 +156,13 @@ def test_find_deterministic_match_direct():
 def test_find_deterministic_match_alias():
     """Test deterministic matching with alias match."""
     user_data = {"surname": "Smith", "email": "test@example.com"}
-    
-    matched_key, matched_value, confidence, reason, requires_review = find_deterministic_match(
+
+    matched_key, matched_value, confidence, reason, _requires_review = find_deterministic_match(
         "last_name",
         user_data,
         "string"
     )
-    
+
     assert matched_key == "surname"
     assert matched_value == "Smith"
     assert confidence >= 0.85
@@ -172,13 +172,13 @@ def test_find_deterministic_match_alias():
 def test_find_deterministic_match_no_match():
     """Test deterministic matching when no match found."""
     user_data = {"unrelated": "value"}
-    
-    matched_key, matched_value, confidence, reason, requires_review = find_deterministic_match(
+
+    matched_key, matched_value, confidence, _reason, _requires_review = find_deterministic_match(
         "first_name",
         user_data,
         "string"
     )
-    
+
     assert matched_key is None
     assert matched_value is None
     assert confidence == 0.0
@@ -192,13 +192,13 @@ def test_map_user_data_to_fields_success(sample_enriched_fields):
         "dob": "1990-05-15",
         "email": "john@example.com"
     }
-    
+
     result = map_user_data_to_fields(
         sample_enriched_fields,
         user_data,
         strict=True
     )
-    
+
     assert len(result.decisions) == 4
     assert len(result.missing_required) == 0
 
@@ -217,13 +217,13 @@ def test_map_user_data_to_fields_missing_required(sample_enriched_fields):
         "firstname": "John",
         "email": "john@example.com"
     }
-    
+
     result = map_user_data_to_fields(
         sample_enriched_fields,
         user_data,
         strict=True
     )
-    
+
     assert len(result.decisions) == 2
 
     assert len(result.missing_required) == 2
@@ -239,13 +239,13 @@ def test_map_user_data_to_fields_ambiguous_requires_review(sample_enriched_field
         "dob": "05/15/1990",
         "email": "john@example.com"
     }
-    
+
     result = map_user_data_to_fields(
         sample_enriched_fields,
         user_data,
         strict=True
     )
-    
+
     assert len(result.decisions) == 4
 
     dob_decision = next(d for d in result.decisions if d.field_name == "txtDOB")
@@ -262,13 +262,13 @@ def test_map_user_data_to_fields_unmapped_keys(sample_enriched_fields):
         "unused_key": "unused_value",
         "another_unused": "value"
     }
-    
+
     result = map_user_data_to_fields(
         sample_enriched_fields,
         user_data,
         strict=True
     )
-    
+
     assert len(result.unmapped_user_keys) == 2
     assert "unused_key" in result.unmapped_user_keys
     assert "another_unused" in result.unmapped_user_keys
@@ -282,13 +282,13 @@ def test_map_user_data_to_fields_normalized_matching(sample_enriched_fields):
         "DOB": "1990-05-15",
         "Email_Address": "john@example.com"
     }
-    
+
     result = map_user_data_to_fields(
         sample_enriched_fields,
         user_data,
         strict=True
     )
-    
+
     assert len(result.decisions) == 4
     assert len(result.missing_required) == 0
 
@@ -309,8 +309,8 @@ def test_semantic_fallback_mapping_returns_empty_on_client_error():
     ]
 
     class BrokenClient:
-        def __init__(self, api_key=None):
-            del api_key
+        def __init__(self, api_key=None, usage=None):
+            del api_key, usage
 
         @staticmethod
         def is_available():
@@ -343,8 +343,8 @@ def test_semantic_fallback_mapping_parses_markdown_and_coerces_values():
     ]
 
     class GoodClient:
-        def __init__(self, api_key=None):
-            del api_key
+        def __init__(self, api_key=None, usage=None):
+            del api_key, usage
 
         @staticmethod
         def is_available():
@@ -364,11 +364,15 @@ def test_semantic_fallback_mapping_parses_markdown_and_coerces_values():
         mapping_module.SemanticClient = original_client
 
     assert "txtConsent" in result
-    matched_key, matched_value, confidence, reason = result["txtConsent"]
+    matched_key, matched_value, confidence, reason, requires_review = result["txtConsent"]
     assert matched_key == "agree"
     assert matched_value == "true"
-    assert confidence == 0.88
+    # The model claimed 0.88; self-reported confidence is capped so it cannot
+    # clear the review gate on its own.
+    assert confidence == mapping_module.MODEL_CONFIDENCE_CEILING
+    assert confidence < mapping_module.MAPPING_REVIEW_THRESHOLD
     assert reason == "Matched consent"
+    assert requires_review is False
 
 
 def test_semantic_fallback_prompt_includes_keys_beyond_preview_limit():
@@ -385,8 +389,8 @@ def test_semantic_fallback_prompt_includes_keys_beyond_preview_limit():
     captured_prompt: dict[str, str] = {}
 
     class RecordingClient:
-        def __init__(self, api_key=None):
-            del api_key
+        def __init__(self, api_key=None, usage=None):
+            del api_key, usage
 
         @staticmethod
         def is_available():
@@ -424,8 +428,8 @@ def test_semantic_fallback_prompt_withholds_raw_user_values():
     captured_prompt: dict[str, str] = {}
 
     class RecordingClient:
-        def __init__(self, api_key=None):
-            del api_key
+        def __init__(self, api_key=None, usage=None):
+            del api_key, usage
 
         @staticmethod
         def is_available():
@@ -468,7 +472,7 @@ def test_find_deterministic_match_expanded_aliases(
     user_value: str,
 ):
     """Expanded alias vocabulary covers common intake and HR form fields."""
-    matched_key, matched_value, confidence, reason, requires_review = find_deterministic_match(
+    matched_key, matched_value, confidence, reason, _requires_review = find_deterministic_match(
         semantic_meaning,
         {user_key: user_value},
         "string",
@@ -482,7 +486,7 @@ def test_find_deterministic_match_expanded_aliases(
 
 def test_community_w9_alias_pack_loaded():
     """W-9 alias pack extends matching for tax form field names."""
-    matched_key, matched_value, confidence, reason, requires_review = find_deterministic_match(
+    matched_key, matched_value, confidence, reason, _requires_review = find_deterministic_match(
         "taxpayer_name",
         {"name_line_1": "Jane Doe"},
         "string",
@@ -492,3 +496,229 @@ def test_community_w9_alias_pack_loaded():
     assert confidence >= 0.85
     assert "Alias match" in reason
 
+
+
+def _fallback_client(payload: str):
+    """Fake SemanticClient returning a canned fallback-mapping response."""
+
+    class FakeClient:
+        def __init__(self, api_key=None, usage=None):
+            del api_key, usage
+
+        @staticmethod
+        def is_available():
+            return True
+
+        @staticmethod
+        def create_json_completion(**_kwargs):
+            return payload
+
+    return FakeClient
+
+
+def test_map_user_data_defaults_match_the_http_api(monkeypatch):
+    """The SDK must not enable the model path when the API would not.
+
+    Library and API defaults previously disagreed, so importing the function
+    turned on provider-backed mapping that an HTTP caller had to opt into.
+    """
+
+    class ForbiddenClient:
+        def __init__(self, api_key=None, usage=None):
+            raise AssertionError("fallback mapping must be opt-in")
+
+    monkeypatch.setattr(mapping_module, "SemanticClient", ForbiddenClient)
+
+    fields = [
+        EnrichedFormField(
+            field=FormField(
+                name="txtMystery", field_type="text", required=True, page_number=1
+            ),
+            semantics=FieldSemantics(
+                semantic_meaning="mystery_field",
+                expected_data_type="string",
+                confidence_score=0.95,
+            ),
+        )
+    ]
+
+    result = map_user_data_to_fields(fields, {"something": "value"})
+    assert result.missing_required == ["txtMystery"]
+
+
+def test_model_confidence_is_capped_below_the_review_threshold(monkeypatch):
+    """A model asserting near-certainty about its own guess is not evidence."""
+    monkeypatch.setattr(
+        mapping_module,
+        "SemanticClient",
+        _fallback_client(
+            '{"txtMystery":{"matched_key":"opaque_source_key","confidence":0.99,'
+            '"reason":"model says so"}}'
+        ),
+    )
+
+    fields = [
+        EnrichedFormField(
+            field=FormField(
+                name="txtMystery", field_type="text", required=False, page_number=1
+            ),
+            semantics=FieldSemantics(
+                semantic_meaning="mystery_field",
+                expected_data_type="string",
+                confidence_score=0.95,
+            ),
+        )
+    ]
+
+    # The key deliberately does not match the semantic name, so only the
+    # provider fallback can resolve this field.
+    result = map_user_data_to_fields(
+        fields,
+        {"opaque_source_key": "value"},
+        strict=False,
+        allow_fallback_mapping=True,
+    )
+
+    decision = next(d for d in result.decisions if d.field_name == "txtMystery")
+    assert decision.confidence_source == "model"
+    assert decision.confidence == mapping_module.MODEL_CONFIDENCE_CEILING
+    assert decision.requires_review is True
+
+
+def test_deterministic_decisions_record_their_confidence_source(
+    sample_enriched_fields,
+):
+    result = map_user_data_to_fields(
+        sample_enriched_fields, {"firstname": "John"}, strict=True
+    )
+    decision = next(d for d in result.decisions if d.field_name == "txtFirstName")
+    assert decision.confidence_source == "deterministic"
+    assert decision.requires_review is False
+
+
+def test_clamp_model_confidence_bounds_both_ends():
+    assert mapping_module.clamp_model_confidence(1.0) == mapping_module.MODEL_CONFIDENCE_CEILING
+    assert mapping_module.clamp_model_confidence(-5.0) == 0.0
+    assert mapping_module.clamp_model_confidence(0.1) == pytest.approx(0.1)
+
+
+def test_fallback_ignores_keys_the_caller_never_supplied(monkeypatch):
+    """A response cannot invent a source key for a field."""
+    monkeypatch.setattr(
+        mapping_module,
+        "SemanticClient",
+        _fallback_client(
+            '{"txtMystery":{"matched_key":"not_a_real_key","confidence":0.9,'
+            '"reason":"hallucinated"}}'
+        ),
+    )
+
+    fields = [
+        EnrichedFormField(
+            field=FormField(
+                name="txtMystery", field_type="text", required=False, page_number=1
+            ),
+            semantics=FieldSemantics(
+                semantic_meaning="mystery_field",
+                expected_data_type="string",
+                confidence_score=0.95,
+            ),
+        )
+    ]
+
+    result = semantic_fallback_mapping(fields, {"real_key": "value"})
+    assert result == {}
+
+
+def test_fallback_coerces_each_value_exactly_once(monkeypatch):
+    """Double coercion previously discarded the ambiguity flag on first pass."""
+    monkeypatch.setattr(
+        mapping_module,
+        "SemanticClient",
+        _fallback_client(
+            '{"txtWhen":{"matched_key":"opaque_date_key","confidence":0.9,'
+            '"reason":"date-ish"}}'
+        ),
+    )
+
+    fields = [
+        EnrichedFormField(
+            field=FormField(
+                name="txtWhen", field_type="text", required=False, page_number=1
+            ),
+            semantics=FieldSemantics(
+                semantic_meaning="when",
+                expected_data_type="date",
+                confidence_score=0.95,
+            ),
+        )
+    ]
+
+    result = map_user_data_to_fields(
+        fields,
+        {"opaque_date_key": "05/15/1990"},
+        strict=False,
+        allow_fallback_mapping=True,
+    )
+
+    decision = next(d for d in result.decisions if d.field_name == "txtWhen")
+    # The non-ISO date is preserved verbatim and flagged, not silently reshaped.
+    assert decision.selected_value == "05/15/1990"
+    assert decision.requires_review is True
+
+
+def test_fallback_records_degradation_when_provider_unavailable():
+    from pdf_autofiller.provider_config import ProviderUsage
+
+    fields = [
+        EnrichedFormField(
+            field=FormField(
+                name="txtMystery", field_type="text", required=False, page_number=1
+            ),
+            semantics=FieldSemantics(
+                semantic_meaning="mystery_field",
+                expected_data_type="string",
+                confidence_score=0.95,
+            ),
+        )
+    ]
+    usage = ProviderUsage()
+    assert semantic_fallback_mapping(fields, {"a": "b"}, usage=usage) == {}
+    assert "provider_unavailable" in usage.degraded_reasons
+
+
+def test_fallback_prompt_marks_document_text_as_untrusted(monkeypatch):
+    captured: dict[str, str] = {}
+
+    class RecordingClient:
+        def __init__(self, api_key=None, usage=None):
+            del api_key, usage
+
+        @staticmethod
+        def is_available():
+            return True
+
+        @staticmethod
+        def create_json_completion(**kwargs):
+            captured["user_prompt"] = kwargs["user_prompt"]
+            captured["system_prompt"] = kwargs["system_prompt"]
+            return "{}"
+
+    monkeypatch.setattr(mapping_module, "SemanticClient", RecordingClient)
+
+    fields = [
+        EnrichedFormField(
+            field=FormField(
+                name="txtMystery", field_type="text", required=False, page_number=1
+            ),
+            semantics=FieldSemantics(
+                semantic_meaning="mystery_field",
+                expected_data_type="string",
+                confidence_score=0.95,
+            ),
+        )
+    ]
+    semantic_fallback_mapping(fields, {"a": "b"})
+
+    assert "untrusted" in captured["user_prompt"].lower()
+    assert "UNTRUSTED DATA" in captured["system_prompt"]

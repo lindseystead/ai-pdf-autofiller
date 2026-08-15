@@ -7,8 +7,6 @@ from fastapi.testclient import TestClient
 from pypdf import PdfWriter
 
 from pdf_autofiller import api_service
-from pdf_autofiller.models import EnrichedFormField, FieldSemantics, FormField, TextRegion
-
 
 client = TestClient(api_service.app)
 
@@ -21,9 +19,23 @@ def _isolate_request_guards(monkeypatch):
     tests opt back in explicitly.
     """
     monkeypatch.setattr(api_service, "API_AUTH_ENABLED", False)
-    api_service._reset_rate_limit_state()
+    api_service._rate_limit_state.clear()
+    _wait_for_idle_workers()
     yield
-    api_service._reset_rate_limit_state()
+    api_service._rate_limit_state.clear()
+
+
+def _wait_for_idle_workers(timeout: float = 5.0) -> None:
+    """Wait until no PDF job is in flight.
+
+    A timed-out job deliberately keeps its worker slot until it truly finishes,
+    so tests that assert on capacity must start from a quiesced pool.
+    """
+    import time
+
+    deadline = time.monotonic() + timeout
+    while api_service._active_pdf_jobs > 0 and time.monotonic() < deadline:
+        time.sleep(0.01)
 
 
 def _minimal_pdf_bytes(pages: int = 1) -> bytes:
@@ -50,47 +62,6 @@ def test_version_endpoint():
     payload = response.json()
     assert payload["service"] == "pdf-autofiller"
     assert isinstance(payload["version"], str)
-
-
-def test_page_context_by_number_groups_text_by_page():
-    contexts = api_service._page_context_by_number(
-        [
-            TextRegion(text="First", page_number=1),
-            TextRegion(text="Second", page_number=1),
-            TextRegion(text="Third", page_number=2),
-        ]
-    )
-
-    assert contexts == {1: "First\nSecond", 2: "Third"}
-
-
-def test_enrich_fields_passes_page_context_to_ai(monkeypatch):
-    observed: dict[str, str | None] = {"context": None}
-
-    def fake_infer(field, context_text=None):
-        observed["context"] = context_text
-        return EnrichedFormField(
-            field=field,
-            semantics=FieldSemantics(
-                semantic_meaning="first_name",
-                expected_data_type="string",
-                confidence_score=0.95,
-            ),
-        )
-
-    from pdf_autofiller import pipeline as fill_pipeline
-
-    monkeypatch.setattr(fill_pipeline, "infer_field_semantics", fake_infer)
-
-    field = FormField(name="txtFirstName", field_type="text", required=True, page_number=1)
-    enriched_fields = api_service._enrich_fields(
-        [field],
-        use_semantic_inference=True,
-        page_context={1: "Applicant First Name"},
-    )
-
-    assert observed["context"] == "Applicant First Name"
-    assert len(enriched_fields) == 1
 
 
 def test_fill_endpoint_rejects_invalid_json():
@@ -165,8 +136,12 @@ def test_fill_endpoint_exposes_fill_report_headers():
     )
     assert response.status_code == 200
     assert "X-PDF-Fields-Written" in response.headers
+    assert "X-PDF-Fields-Failed" in response.headers
     assert "X-PDF-Fields-Skipped-Review" in response.headers
     assert "X-PDF-Fields-Skipped-Empty" in response.headers
+    # A run that never asked for the model path reports "off", not silence.
+    assert response.headers["X-PDF-Semantic-Inference"] == "off"
+    assert response.headers["X-PDF-Provider-Calls"] == "0"
 
 
 def test_fill_endpoint_emits_pii_free_audit_log(caplog):
@@ -337,3 +312,128 @@ def test_fill_endpoint_validation_error_contract_when_missing_user_data():
     assert response.status_code == 422
     payload = response.json()
     assert payload["detail"]["error"]["code"] == "request_validation_error"
+
+
+def test_fill_endpoint_reports_degraded_semantic_inference():
+    """Requesting inference without a provider must be visible, not silent."""
+    response = client.post(
+        "/fill",
+        files={"pdf_file": ("input.pdf", _minimal_pdf_bytes(), "application/pdf")},
+        data={
+            "user_data": '{"firstname":"John","lastname":"Doe"}',
+            "strict": "true",
+            "use_semantic_inference": "true",
+        },
+    )
+    assert response.status_code == 200
+    assert response.headers["X-PDF-Semantic-Inference"] == "degraded"
+
+
+def test_audit_log_records_actual_model_activity(caplog):
+    """The audit line reports what ran, not merely which flag was passed."""
+    import logging
+
+    with caplog.at_level(logging.INFO, logger="pdf_autofiller.api_service"):
+        response = client.post(
+            "/fill",
+            files={"pdf_file": ("input.pdf", _minimal_pdf_bytes(), "application/pdf")},
+            data={
+                "user_data": '{"firstname":"John"}',
+                "strict": "true",
+                "use_semantic_inference": "true",
+            },
+        )
+
+    assert response.status_code == 200
+    audit = next(r.getMessage() for r in caplog.records if "action=fill" in r.getMessage())
+    # Requested but not applied: the flag alone never implies the model ran.
+    assert "semantic_requested=True" in audit
+    assert "semantic_applied=False" in audit
+    assert "provider_calls=0" in audit
+    assert "model=none" in audit
+
+
+def test_semantic_request_gets_its_own_time_budget(monkeypatch):
+    """Model latency is not charged to the PDF parsing clock."""
+    monkeypatch.setattr(api_service, "PDF_READ_TIMEOUT_SECONDS", 20.0)
+    monkeypatch.setattr(api_service, "SEMANTIC_TIMEOUT_SECONDS", 45.0)
+
+    assert (
+        api_service._request_time_budget(
+            use_semantic_inference=False, allow_fallback_mapping=False
+        )
+        == 20.0
+    )
+    assert (
+        api_service._request_time_budget(
+            use_semantic_inference=True, allow_fallback_mapping=False
+        )
+        == 65.0
+    )
+    assert (
+        api_service._request_time_budget(
+            use_semantic_inference=False, allow_fallback_mapping=True
+        )
+        == 65.0
+    )
+
+
+def test_saturated_worker_pool_sheds_load(monkeypatch):
+    """Capacity is bounded, so excess work is refused rather than queued."""
+    monkeypatch.setattr(api_service, "PDF_WORKER_THREADS", 1)
+    monkeypatch.setattr(api_service, "PDF_QUEUE_DEPTH", 0)
+    monkeypatch.setattr(api_service, "_active_pdf_jobs", 1)
+
+    response = client.post(
+        "/fill",
+        files={"pdf_file": ("input.pdf", _minimal_pdf_bytes(), "application/pdf")},
+        data={"user_data": '{"firstname":"John"}', "strict": "true"},
+    )
+    assert response.status_code == 503
+    assert response.json()["detail"]["error"]["code"] == "server_busy"
+
+
+def test_timed_out_job_holds_its_slot_until_it_finishes(monkeypatch):
+    """A job that outlives its request keeps consuming capacity until done.
+
+    This is what stops timed-out work from silently accumulating: the 503 is
+    returned to the client, but the worker slot is not handed back early.
+    """
+    import threading
+    import time
+
+    release = threading.Event()
+    started = threading.Event()
+
+    def blocking_pipeline(*_args, **_kwargs):
+        started.set()
+        release.wait(timeout=5)
+        raise RuntimeError("job finished after its request gave up")
+
+    monkeypatch.setattr(api_service, "run_fill_pipeline", blocking_pipeline)
+    monkeypatch.setattr(api_service, "PDF_READ_TIMEOUT_SECONDS", 0.05)
+
+    baseline = api_service._active_pdf_jobs
+    response = client.post(
+        "/fill",
+        files={"pdf_file": ("input.pdf", _minimal_pdf_bytes(), "application/pdf")},
+        data={"user_data": '{"firstname":"John"}', "strict": "true"},
+    )
+
+    assert response.status_code == 503
+    assert response.json()["detail"]["error"]["code"] == "pdf_processing_timeout"
+    assert started.is_set()
+    # Still occupying a slot while the orphaned thread runs.
+    assert api_service._active_pdf_jobs == baseline + 1
+
+    release.set()
+    deadline = time.monotonic() + 5
+    while api_service._active_pdf_jobs != baseline and time.monotonic() < deadline:
+        time.sleep(0.01)
+    assert api_service._active_pdf_jobs == baseline
+
+
+def test_health_reports_model_provider_state():
+    payload = client.get("/health").json()
+    assert payload["checks"]["model_provider"] in ("configured", "not_configured")
+    assert payload["checks"]["model_name"]

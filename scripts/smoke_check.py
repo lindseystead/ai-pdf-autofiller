@@ -8,7 +8,6 @@ import sys
 import traceback
 from importlib import import_module
 
-
 RECOMMENDED_INSTALL_COMMAND = "pip install -r requirements-dev.txt"
 
 
@@ -87,7 +86,7 @@ def check_mapping_functions():
     """Check mapping utility functions."""
     print("\nTesting mapping functions...")
 
-    from pdf_autofiller.mapping import normalize_key, coerce_value, find_deterministic_match
+    from pdf_autofiller.mapping import coerce_value, find_deterministic_match, normalize_key
 
     # Test normalize_key
     assert normalize_key("First-Name!") == "first_name"
@@ -109,7 +108,9 @@ def check_mapping_functions():
 
     # Test find_deterministic_match
     user_data = {"firstname": "John", "lastname": "Doe"}
-    key, value, conf, reason, requires_review = find_deterministic_match("first_name", user_data, "string")
+    key, value, _conf, _reason, _requires_review = find_deterministic_match(
+        "first_name", user_data, "string"
+    )
     assert key == "firstname" and value == "John"
     print("  ✓ find_deterministic_match works correctly")
 
@@ -121,8 +122,11 @@ def check_models():
     print("\nTesting models...")
 
     from pdf_autofiller.models import (
-        FormField, FieldSemantics, EnrichedFormField,
-        FieldMappingDecision, MappingResult
+        EnrichedFormField,
+        FieldMappingDecision,
+        FieldSemantics,
+        FormField,
+        MappingResult,
     )
 
     # Test FormField
@@ -177,10 +181,8 @@ def check_mapping_workflow():
     """Check the complete mapping workflow."""
     print("\nTesting mapping workflow...")
 
-    from pdf_autofiller.models import (
-        FormField, FieldSemantics, EnrichedFormField
-    )
     from pdf_autofiller.mapping import map_user_data_to_fields
+    from pdf_autofiller.models import EnrichedFormField, FieldSemantics, FormField
 
     # Create test enriched fields
     enriched_fields = [
