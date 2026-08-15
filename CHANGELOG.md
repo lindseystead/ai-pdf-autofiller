@@ -4,8 +4,94 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Community alias packs no longer delete the built-in aliases they extend.**
+  `FIELD_ALIASES.update()` replaced a semantic's alias list wholesale, so a pack
+  adding one variant for `first_name` removed `firstname`, `given_name`,
+  `forename`, and `fname`. Alias maps are now merged per key.
+- **A hostile PDF can no longer permanently consume a worker.** PDF parsing ran
+  under `asyncio.wait_for` around a thread, which cancels the wait but cannot
+  interrupt the work; the endpoint returned 503 while the thread ran on forever.
+  Parsing now runs in a killable child process, which also contains parser
+  memory blowups and hard crashes.
+- **`user_data` is now bounded.** The upload was chunk-limited while the JSON
+  form field beside it was an unbounded string handed to `json.loads`. Size,
+  key count, and nesting depth are all enforced.
+- **Nested user data now maps.** Only top-level keys were ever inspected, so a
+  nested profile silently mapped nothing and reported the container key as
+  unused. Data is flattened to dotted paths and matched on both path and leaf.
+- **Mapping no longer depends on `user_data` key order.** Greedy first-match
+  meant the same data submitted twice could fill a form differently. Every
+  (field, key) pair is scored and assigned best-first.
+- **Choice and signature fields are validated.** `/Ch` values are checked
+  against the field's declared `/Opt` options and `/Sig` fields are never
+  written, since text in a signature field cannot make a valid signature and
+  destroys an existing one. Both now report under `skipped_invalid_fields`.
+- Added the `py.typed` marker. The package advertised `Typing :: Typed` without
+  it, so type checkers treated the whole SDK as untyped downstream.
+- The writer now issues one document-wide field update instead of re-sending
+  every value once per page, and passes `auto_regenerate=False` so the
+  appearance streams it generates are kept rather than handed back to the viewer
+  to rebuild (which also prompted a spurious "save changes" dialog).
+
 ### Added
 
+- **`pdf-autofiller` CLI** with `inspect`, `fill`, `validate`, `batch`,
+  `profile`, and `template` commands, all running in-process — filling one PDF
+  no longer requires starting a server.
+- **`POST /v1/inspect`** reports a form's fields and previews exactly what a
+  fill would do, without writing anything. Field discovery no longer means
+  guessing key names and reading a 422.
+- **Templates and profiles.** A template remembers the overrides that made a
+  form come out right, keyed by a fingerprint of its field structure; a profile
+  is a named, reusable set of data. Both are available over HTTP and the CLI.
+- **Batch filling** via `POST /v1/batch` and `pdf-autofiller batch`, with
+  per-item status. A failing row is recorded and the rest of the batch continues.
+- **`flatten` option** that stamps values into page content and removes the
+  interactive form, so a completed document cannot be edited downstream.
+  (pypdf's own `flatten` leaves the AcroForm and widgets in place; this removes
+  them.)
+- **Typed errors** for encrypted, XFA, malformed, and field-less PDFs. All four
+  previously surfaced as "zero fields found", pointing users at the wrong cause.
+- **Explicit `overrides`** — a `{field_name: value}` map that wins outright, for
+  the cases mapping will never get right.
+- **JSON response mode** on fill (`response_format=json` or an
+  `Accept: application/json` header) returning the full `FillReport` and mapping
+  decisions alongside the base64-encoded document. The header-based report is
+  ASCII-stripped and length-capped.
+- **Prometheus metrics** at `GET /metrics`: fill and inspect outcomes, fields
+  written and skipped by reason, and request latency histograms.
+- **Multi-key authentication** via `API_KEYS=name:secret,...`, with the key name
+  recorded in the audit line so usage is attributable and keys rotate
+  independently.
+- **Opt-in CORS** via `CORS_ALLOW_ORIGINS`. There is no wildcard default.
+- `SDK`: `inspect()` and `fill_with_report()`, plus `flatten`, `overrides`,
+  `template`, and `profile` arguments on `fill()`.
+- Adversarial-PDF and property-based test suites (213 tests total).
+
+### Changed
+
+- **Semantic inference is now a single batched call per form.** Inference ran
+  once per field, serially, inside one request budget — a 60-field form meant 60
+  round trips, which timed out and cost 60x what it should. Results are also
+  cached against the form fingerprint, so the same form filled twice infers once.
+- Inference requests a strict JSON schema where the provider supports it,
+  falling back to JSON mode automatically, with local validation either way.
+  Field names the form does not contain are discarded rather than mapped.
+- The model provider is configurable (`MODEL_PROVIDER_MODEL`) and has a timeout
+  and bounded retries; the model was previously hardcoded at two call sites with
+  no timeout inside a hard request deadline.
+- Configuration is a single validated `Settings` object built from the
+  environment, replacing module globals read at import time. A malformed numeric
+  variable now raises a readable configuration error instead of a traceback
+  during import.
+- Routes are served under `/v1`. Unversioned paths remain as aliases.
+- `/fill` accepts a request with no `user_data` when a profile or template
+  supplies the values, but rejects one where no data source is present at all —
+  that would return an unchanged document that looks like a successful fill.
+- `FormField` now carries `options` (a choice field's `/Opt` values or a
+  button's export states), so callers can see what a constrained field accepts.
 - README hero images (`docs/assets/social-preview.png`, `playground-preview.png`) for discoverability
 - `scripts/apply-repo-metadata.sh` to set GitHub description and topics (run locally with admin `gh`)
 - Expanded `pyproject.toml` keywords for search

@@ -51,6 +51,70 @@ def get_field_value(field_obj) -> Optional[str]:
     return str(value) if value else None
 
 
+def choice_options(field_obj) -> list[str]:
+    """Return the permitted values for a choice field.
+
+    ``/Opt`` entries are either a display string or a ``[export, display]`` pair;
+    the export value is what must be written, so pairs are unwrapped to their
+    first element.
+    """
+    if not hasattr(field_obj, "get"):
+        return []
+    try:
+        raw = field_obj.get("/Opt")
+        if raw is None:
+            return []
+        if hasattr(raw, "get_object"):
+            raw = raw.get_object()
+        options: list[str] = []
+        for entry in raw:
+            if hasattr(entry, "get_object"):
+                entry = entry.get_object()
+            if isinstance(entry, (list, tuple)):
+                if entry:
+                    options.append(str(entry[0]))
+            else:
+                options.append(str(entry))
+        return options
+    except Exception:
+        logger.debug("Failed to read /Opt from choice field", exc_info=True)
+        return []
+
+
+def button_states(field_obj) -> list[str]:
+    """Return the export states a checkbox or radio group accepts, minus /Off."""
+    if not hasattr(field_obj, "get"):
+        return []
+    states: list[str] = []
+    try:
+        raw = field_obj.get("/_States_")
+        if raw:
+            states = [str(state) for state in raw]
+    except Exception:
+        logger.debug("Failed to read /_States_ from button field", exc_info=True)
+
+    if not states:
+        try:
+            appearance = field_obj.get("/AP")
+            normal = appearance.get("/N") if hasattr(appearance, "get") else None
+            if normal is not None and hasattr(normal, "keys"):
+                states = [str(key) for key in normal.keys()]
+        except Exception:
+            logger.debug("Failed to read /AP states from button field", exc_info=True)
+
+    return [state for state in states if state.lstrip("/").lower() != "off"]
+
+
+def field_options(field_obj) -> list[str]:
+    """Return permitted values for whichever constrained field type this is."""
+    kind = get_field_type(field_obj)
+    if kind == "choice":
+        return choice_options(field_obj)
+    if kind == "button":
+        return button_states(field_obj)
+    return []
+
+
 def find_field_page(reader: PdfReader, field_obj) -> int:
     """Resolve the 1-based page number for a field object."""
     if not hasattr(field_obj, "get"):
@@ -138,6 +202,7 @@ def extract_form_fields(reader: PdfReader) -> list[FormField]:
                             value=get_field_value(field_obj),
                             required=is_field_required(field_obj),
                             page_number=find_field_page(reader, field_obj),
+                            options=field_options(field_obj),
                         )
                     )
                 except Exception:
@@ -179,6 +244,7 @@ def extract_form_fields(reader: PdfReader) -> list[FormField]:
                             value=get_field_value(field_obj),
                             required=is_field_required(field_obj),
                             page_number=page_num,
+                            options=field_options(field_obj),
                         )
                     )
                 except Exception:

@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from pypdf import PdfReader
 
 from pdf_autofiller import api_service
+from pdf_autofiller.settings import Settings, set_settings
 from pdf_autofiller.acroform_fields import get_field_value
 from pdf_autofiller.pipeline import run_fill_pipeline
 
@@ -49,8 +50,7 @@ def test_sample_form_round_trip_writes_required_fields(tmp_path: Path):
 @pytest.mark.skipif(not SAMPLE_PDF.exists(), reason="sample PDF not present")
 def test_fill_endpoint_round_trip_with_sample_pdf():
     client = TestClient(api_service.app)
-    original_auth = api_service.API_AUTH_ENABLED
-    api_service.API_AUTH_ENABLED = False
+    set_settings(Settings(auth_enabled=False, rate_limit_per_minute=0))
     try:
         response = client.post(
             "/fill",
@@ -61,7 +61,7 @@ def test_fill_endpoint_round_trip_with_sample_pdf():
             },
         )
     finally:
-        api_service.API_AUTH_ENABLED = original_auth
+        set_settings(None)
 
     assert response.status_code == 200
     assert response.headers["content-type"] == "application/pdf"
@@ -70,8 +70,7 @@ def test_fill_endpoint_round_trip_with_sample_pdf():
 
 def test_health_reports_alias_packs_and_auth_state(monkeypatch):
     client = TestClient(api_service.app)
-    monkeypatch.setattr(api_service, "API_AUTH_ENABLED", True)
-    monkeypatch.setattr(api_service, "API_AUTH_TOKEN", "")
+    set_settings(Settings(auth_enabled=True, api_keys={}))
 
     response = client.get("/health")
     payload = response.json()

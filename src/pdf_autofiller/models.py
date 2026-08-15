@@ -18,6 +18,14 @@ class FormField(BaseModel):
     value: Optional[str] = Field(default=None, description="Current field value if present")
     required: bool = Field(default=False, description="Whether field is required")
     page_number: int = Field(description="Page number where field appears (1-indexed)")
+    options: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Permitted values for this field: the declared /Opt entries of a choice "
+            "field, or the export states of a checkbox or radio group. Empty for "
+            "free-text fields."
+        )
+    )
 
 
 class TextRegion(BaseModel):
@@ -118,4 +126,45 @@ class FillReport(BaseModel):
     skipped_empty_fields: list[str] = Field(
         default_factory=list,
         description="Field names skipped because the mapped value was empty"
+    )
+    skipped_invalid_fields: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Field names skipped because the value was not legal for the field type "
+            "(unknown button state, value outside a choice field's options, or a "
+            "signature field, which is never written)"
+        )
+    )
+    flattened: bool = Field(
+        default=False,
+        description="Whether the output PDF had its interactive form removed"
+    )
+
+
+class InspectReport(BaseModel):
+    """Result of a dry run: what the pipeline found and what it would do.
+
+    Returned by the inspect endpoint so a caller can discover a form's fields and
+    preview the mapping without producing a document or committing to a fill.
+    """
+
+    metadata: DocumentMetadata = Field(description="Document metadata")
+    fields: list[EnrichedFormField] = Field(
+        default_factory=list,
+        description="Extracted fields with their inferred or derived semantics"
+    )
+    mapping: Optional[MappingResult] = Field(
+        default=None,
+        description="Dry-run mapping result, present when user data was supplied"
+    )
+    fingerprint: str = Field(
+        description="Stable hash of the form's field structure, used as a template key"
+    )
+    would_write: list[str] = Field(
+        default_factory=list,
+        description="Field names that a fill with this data would populate"
+    )
+    would_skip: list[str] = Field(
+        default_factory=list,
+        description="Field names a fill would skip, flagged for review or unmappable"
     )

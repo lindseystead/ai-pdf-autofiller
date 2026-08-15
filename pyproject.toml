@@ -1,6 +1,6 @@
 [project]
 name = "pdf-autofiller"
-version = "0.4.3"
+version = "0.5.0"
 description = "Fill any AcroForm PDF from JSON — open-source FastAPI API with playground, Docker image, and Python SDK"
 readme = "README.md"
 requires-python = ">=3.11,<4.0"
@@ -52,6 +52,7 @@ Issues = "https://github.com/lindseystead/ai-pdf-autofiller/issues"
 Changelog = "https://github.com/lindseystead/ai-pdf-autofiller/blob/main/CHANGELOG.md"
 
 [project.scripts]
+pdf-autofiller = "pdf_autofiller.cli:main"
 pdf-autofiller-api = "pdf_autofiller.api_service:run"
 
 [tool.poetry]

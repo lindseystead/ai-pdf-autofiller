@@ -49,17 +49,59 @@ Upload a PDF, paste JSON, download the result — no Postman required.
 ## Try it now
 
 ```bash
-# Docker (fastest local)
+# Command line — no server needed
+pip install pdf-autofiller
+
+# What does this form actually want? (writes nothing)
+pdf-autofiller inspect form.pdf --data me.json
+
+# Fill it
+pdf-autofiller fill form.pdf --data me.json --out filled.pdf --flatten
+```
+
+`inspect` is the one to start with on an unfamiliar form: it lists every field,
+what the tool thinks each one means, and exactly which of them your data would
+fill — before you commit to a fill.
+
+```
+ + txtFirstName  text  first_name [required] -> 'Jane'
+ ! txtLastName   text  last_name [required]
+   txtEmail      text  email_address
+
+would write 1, would skip 1
+missing required: txtLastName
+legend: + will fill   ? needs review   ! required and unmapped
+```
+
+```bash
+# Docker (fastest local server)
 docker run --rm -p 8000:8000 -e API_AUTH_ENABLED=false \
   ghcr.io/lindseystead/ai-pdf-autofiller:latest
 # → http://localhost:8000/playground
 
 # Or fill from curl
-curl -s -X POST http://localhost:8000/fill \
+curl -s -X POST http://localhost:8000/v1/fill \
   -F "pdf_file=@samples/sample_form.pdf;type=application/pdf" \
   -F 'user_data={"firstname":"Jane","lastname":"Doe","dob":"1990-01-01"}' \
   -F "strict=true" -o filled.pdf
 ```
+
+## Daily use
+
+The same form, over and over, is the normal case. Save the data once and the
+mapping once, then stop repeating yourself:
+
+```bash
+pdf-autofiller profile set me --data me.json          # reusable data
+pdf-autofiller template save w9 w9.pdf --flatten      # remembered mapping
+pdf-autofiller fill w9.pdf --profile me --template w9
+
+# One form, many people
+pdf-autofiller batch onboarding.pdf --items staff.json --out-dir ./packets
+```
+
+Nested profiles work as you would expect — `{"contact": {"email": "..."}}`
+fills an email field without any flattening on your side.
 
 ## Install
 
@@ -79,9 +121,15 @@ fill("form.pdf", {"firstname": "Jane", "lastname": "Doe"}, "filled.pdf")
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/playground` | Browser UI |
-| `GET` | `/health` | Health + dependency checks |
-| `POST` | `/fill` | PDF in, filled PDF out |
+| `GET` | `/v1/health` | Health + dependency checks |
+| `GET` | `/metrics` | Prometheus metrics |
+| `POST` | `/v1/inspect` | Fields and a dry-run mapping — writes nothing |
+| `POST` | `/v1/fill` | PDF in, filled PDF out |
+| `POST` | `/v1/batch` | One form, many data rows; returns a job ID |
+| `GET`/`PUT`/`DELETE` | `/v1/templates/{name}` | Remembered per-form mappings |
+| `GET`/`PUT`/`DELETE` | `/v1/profiles/{name}` | Reusable data sets |
 
+Unversioned paths (`/fill`, `/health`) still work as aliases.
 Full contract: [docs/API.md](docs/API.md)
 
 ## Why this exists
@@ -90,12 +138,18 @@ Manual PDF field mapping does not scale. AI-only fillers are hard to audit. **PD
 
 ## Features
 
-- FastAPI HTTP API with structured error codes
+- CLI (`inspect`, `fill`, `validate`, `batch`, `profile`, `template`) — no server required
+- FastAPI HTTP API with structured error codes, versioned under `/v1`
+- Dry-run inspection so you can see a mapping before producing a document
+- Templates and profiles so recurring work is referenced, not repeated
+- Batch filling with per-item status; one bad row does not sink the batch
+- Nested JSON input, explicit per-field overrides, and optional flattening
 - Browser playground at `/playground`
-- Python SDK (`fill()` + `PDFAutofillerClient`)
+- Python SDK (`fill()`, `inspect()`, `PDFAutofillerClient`)
 - W-9 and HR alias packs + [recipes](recipes/)
 - Docker on GHCR · Render blueprint · GitHub Release wheels
-- Auth, rate limits, and upload guards on by default
+- Auth (multi-key), rate limits, payload bounds, and Prometheus metrics
+- Untrusted PDFs parsed in a killable subprocess under a wall-clock budget
 
 ## Architecture
 

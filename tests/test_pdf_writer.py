@@ -460,8 +460,8 @@ def test_fill_pdf_uses_annotation_fallback_metadata(tmp_path, monkeypatch):
         def clone_reader_document_root(_reader):
             return None
 
-        def update_page_form_field_values(self, _page, values):
-            self.calls.append(values.copy())
+        def update_page_form_field_values(self, page, values, **kwargs):
+            self.calls.append((page, values.copy(), kwargs))
 
         @staticmethod
         def write(output_file):
@@ -474,4 +474,10 @@ def test_fill_pdf_uses_annotation_fallback_metadata(tmp_path, monkeypatch):
 
     assert output_pdf.exists()
     assert created_writers
-    assert created_writers[0].calls == [{"txtFallback": "value"}]
+    # One document-wide call, not one call per page, and appearances are kept
+    # rather than delegated to the viewer via /NeedAppearances.
+    assert len(created_writers[0].calls) == 1
+    page_arg, values, kwargs = created_writers[0].calls[0]
+    assert page_arg is None
+    assert values == {"txtFallback": "value"}
+    assert kwargs["auto_regenerate"] is False
