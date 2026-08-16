@@ -577,7 +577,7 @@ def test_job_context_settles_exactly_once(tmp_path):
     import tempfile as tf
 
     baseline = api_service._active_pdf_jobs
-    api_service._try_acquire_pdf_slot()
+    assert api_service._try_acquire_pdf_slot()
     assert api_service._active_pdf_jobs == baseline + 1
 
     temp_dir = tf.TemporaryDirectory(prefix="pdf-autofiller-test-")
@@ -595,7 +595,9 @@ def test_cancelled_queued_job_releases_its_slot(tmp_path):
     import tempfile as tf
 
     baseline = api_service._active_pdf_jobs
-    api_service._try_acquire_pdf_slot()
+    # A refused acquisition would make the settle() below release a slot this
+    # test never took, understating capacity for every later test.
+    assert api_service._try_acquire_pdf_slot()
 
     temp_dir = tf.TemporaryDirectory(prefix="pdf-autofiller-test-")
     context = api_service._JobContext(temp_dir)
@@ -611,7 +613,7 @@ def test_abandoned_job_cleans_up_when_it_finishes_last(tmp_path):
     """The request gave up first; the worker performs the cleanup."""
     import tempfile as tf
 
-    api_service._try_acquire_pdf_slot()
+    assert api_service._try_acquire_pdf_slot()
     temp_dir = tf.TemporaryDirectory(prefix="pdf-autofiller-test-")
     directory = Path(temp_dir.name)
     assert directory.exists()
@@ -628,7 +630,7 @@ def test_abandoned_job_cleans_up_when_the_request_finishes_last(tmp_path):
     """The worker ended first; the request performs the cleanup."""
     import tempfile as tf
 
-    api_service._try_acquire_pdf_slot()
+    assert api_service._try_acquire_pdf_slot()
     temp_dir = tf.TemporaryDirectory(prefix="pdf-autofiller-test-")
     directory = Path(temp_dir.name)
 
