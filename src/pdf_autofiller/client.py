@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import json
+from contextlib import AbstractContextManager
 from pathlib import Path
-from typing import Any, ContextManager
+from typing import Any
 
 import httpx
 
@@ -27,7 +28,13 @@ class _BorrowedClient:
 class PDFAutofillError(Exception):
     """Raised when the API returns an error response."""
 
-    def __init__(self, status_code: int, code: str, message: str, details: dict[str, Any] | None = None):
+    def __init__(
+        self,
+        status_code: int,
+        code: str,
+        message: str,
+        details: dict[str, Any] | None = None,
+    ):
         self.status_code = status_code
         self.code = code
         self.message = message
@@ -66,7 +73,9 @@ class PDFAutofillerClient:
             response.raise_for_status()
             payload = response.json()
             if not isinstance(payload, dict):
-                raise PDFAutofillError(500, "invalid_response", "Health endpoint returned non-object JSON")
+                raise PDFAutofillError(
+                    500, "invalid_response", "Health endpoint returned non-object JSON"
+                )
             return payload
 
     def fill(
@@ -122,7 +131,7 @@ class PDFAutofillerClient:
 
         return response.content, dict(response.headers)
 
-    def _client(self) -> ContextManager[httpx.Client]:
+    def _client(self) -> AbstractContextManager[httpx.Client]:
         if self._http_client is not None:
             return _BorrowedClient(self._http_client)
         return httpx.Client(timeout=self.timeout_seconds)

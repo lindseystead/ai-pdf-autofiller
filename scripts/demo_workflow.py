@@ -6,10 +6,11 @@ import json
 import sys
 from pathlib import Path
 
+from pdf_autofiller.mapping import map_user_data_to_fields
 from pdf_autofiller.pdf_reader import read_pdf
-from pdf_autofiller.field_semantics import infer_field_semantics
-from pdf_autofiller.mapping import map_user_data_to_fields, normalize_key
 from pdf_autofiller.pdf_writer import UnresolvedRequiredFieldsError, fill_pdf
+from pdf_autofiller.pipeline import enrich_fields, page_context_by_number
+from pdf_autofiller.provider_config import ProviderUsage
 
 
 def run_demo_workflow(pdf_path: Path, user_data: dict[str, object]) -> bool:
@@ -48,36 +49,22 @@ def run_demo_workflow(pdf_path: Path, user_data: dict[str, object]) -> bool:
 
     # Step 2: Infer semantics (if provider credentials are available)
     print("\nStep 2: Inferring field semantics...")
-    enriched_fields = []
-    semantics_available = False
+    usage = ProviderUsage()
+    enriched_fields = enrich_fields(
+        structure.form_fields,
+        use_semantic_inference=True,
+        page_context=page_context_by_number(structure.text_regions),
+        usage=usage,
+    )
 
-    for field in structure.form_fields:
-        try:
-            enriched = infer_field_semantics(field)
-            enriched_fields.append(enriched)
-            semantics_available = True
-        except RuntimeError:
-            # Provider client not available, skip semantic inference
-            print("  ⚠ Provider API key not configured, skipping semantic inference")
-            print("  (Set MODEL_PROVIDER_API_KEY environment variable to enable)")
-            break
-        except Exception as e:
-            print(f"  ⚠ Error inferring semantics for {field.name}: {e}")
-            break
-
-    if not semantics_available:
-        print("  ⚠ Semantic inference skipped - using field names directly")
-        # Create mock enriched fields for testing
-        from pdf_autofiller.models import EnrichedFormField, FieldSemantics
-        for field in structure.form_fields:
-            enriched_fields.append(EnrichedFormField(
-                field=field,
-                semantics=FieldSemantics(
-                    semantic_meaning=normalize_field_name(field.name),
-                    expected_data_type="string",
-                    confidence_score=0.5
-                )
-            ))
+    if usage.fields_inferred:
+        print(f"✓ Provider resolved {usage.fields_inferred} field(s) "
+              f"in {usage.calls} call(s), {usage.total_tokens} tokens")
+    else:
+        print("  ⚠ Semantic inference not applied - using field names directly")
+        print("  (Set MODEL_PROVIDER_API_KEY environment variable to enable)")
+    if usage.degraded_reasons:
+        print(f"  ⚠ Degraded: {', '.join(usage.degraded_reasons)}")
 
     print(f"✓ Processed {len(enriched_fields)} fields")
 
@@ -121,9 +108,12 @@ def run_demo_workflow(pdf_path: Path, user_data: dict[str, object]) -> bool:
     output_path = pdf_path.parent / f"{pdf_path.stem}_filled.pdf"
 
     try:
-        fill_pdf(pdf_path, output_path, mapping_result)
+        report = fill_pdf(pdf_path, output_path, mapping_result)
         print("✓ PDF filled successfully")
         print(f"  Output: {output_path}")
+        print(f"  Fields verified in output: {len(report.written_fields)}")
+        if report.failed_fields:
+            print(f"  ⚠ Written but unverified: {', '.join(report.failed_fields)}")
         return True
     except UnresolvedRequiredFieldsError as e:
         print(f"✗ Error filling PDF: {e}")
@@ -134,18 +124,13 @@ def run_demo_workflow(pdf_path: Path, user_data: dict[str, object]) -> bool:
         return False
 
 
-def normalize_field_name(name: str) -> str:
-    """Mirror the API fallback semantics for local demo runs."""
-    normalized = normalize_key(name)
-    normalized = normalized.removeprefix("txt_")
-    normalized = normalized.removeprefix("txt")
-    return normalized or "unknown_field"
-
-
 def main() -> int:
     """CLI entrypoint for the demo workflow."""
     if len(sys.argv) < 2:
-        print("Usage: PYTHONPATH=src python -m scripts.demo_workflow <path_to_pdf> [user_data_json]")
+        print(
+            "Usage: PYTHONPATH=src python -m scripts.demo_workflow "
+            "<path_to_pdf> [user_data_json]"
+        )
         print("\nExample:")
         print(
             '  PYTHONPATH=src python -m scripts.demo_workflow form.pdf '

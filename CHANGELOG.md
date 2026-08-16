@@ -4,14 +4,58 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Security
+
+- `_safe_header_value` stripped non-ASCII bytes but kept ASCII control characters. A crafted PDF field name containing CR/LF could break response header framing on `X-PDF-Fields-Failed` and the skip headers — a 500 on a strict ASGI server, response splitting on a permissive one. Output is now restricted to printable ASCII.
+- Documented and mitigated **prompt injection via uploaded PDFs**. Page text and field names are attacker-controlled and, when the optional model path is enabled, reach a model prompt. Model output is now constrained to a strict identifier pattern, model confidence is capped below the review threshold, fallback mapping may only select caller-supplied keys, batched responses are keyed by position, and untrusted text is sanitized and fenced. See `SECURITY.md` for what this does and does not solve.
+- Bounded PDF processing with a dedicated worker pool (`PDF_WORKER_THREADS`, `PDF_QUEUE_DEPTH`). A worker thread cannot be cancelled, so a timed-out job now keeps its slot until it genuinely finishes and excess requests are shed with `503 server_busy`. Previously a timed-out request returned 503 while its thread kept running unaccounted, so hostile uploads could exhaust the shared executor.
+- Fixed a race where a timed-out request deleted the temporary directory while its worker was still reading and writing files. Ownership is now handed to whichever side finishes last.
+
 ### Added
+
+- `provider_config.py`: all model settings are configurable and pinned by default — `MODEL_NAME`, `MODEL_TEMPERATURE` (now `0.0`), `MODEL_TIMEOUT_SECONDS`, `MODEL_MAX_RETRIES`, `MODEL_RETRY_BACKOFF_SECONDS`, `MODEL_SEMANTIC_BATCH_SIZE`, `MODEL_CONTEXT_CHAR_LIMIT`, `MODEL_CONFIDENCE_CEILING`, `MAPPING_REVIEW_THRESHOLD`.
+- Bounded retries with exponential backoff, and an explicit per-call timeout, on every provider request.
+- `PipelineTelemetry`: provider calls, retries, failures, token counts, fields inferred, and degradation reasons, surfaced via response headers and the audit log.
+- New response headers: `X-PDF-Fields-Failed`, `X-PDF-Semantic-Inference`, `X-PDF-Provider-Calls`, `X-PDF-Provider-Tokens`.
+- `FieldMappingDecision.confidence_source` (`deterministic` | `model`) records where a confidence came from.
+- `SEMANTIC_TIMEOUT_SECONDS`: provider-backed requests get their own time budget on top of the PDF parsing budget.
+- `server_busy` error code.
+
+### Changed
+
+- **Semantic inference is now batched.** It previously constructed a client and issued one provider call *per field*; a 25-field form cost 25 calls. It now issues one call per `MODEL_SEMANTIC_BATCH_SIZE` fields. Combined with the separate time budget, `use_semantic_inference=true` no longer reliably times out on forms with more than ~15 fields.
+- **Model self-reported confidence no longer clears the review gate.** It is clamped to `MODEL_CONFIDENCE_CEILING` (0.75), below `MAPPING_REVIEW_THRESHOLD` (0.80), so model-derived mappings are flagged for review by default. Operators can raise the ceiling to restore the previous behavior.
+- **`fill_pdf` verifies its writes.** `FillReport.written_fields` now lists fields confirmed present in the output document; anything the PDF library declined to persist appears in the new `failed_fields`. Verification fails closed: if the output cannot be re-read or exposes no fields, nothing is claimed as written. A required field that cannot be verified raises `UnresolvedRequiredFieldsError` **where the input document exposed enough structure for the writer to know the field is required**; when the writer's form introspection returns nothing, required-ness is unknowable at that point and those fields are reported in `failed_fields` instead. Required fields that could not be *mapped* are still rejected before any write. Previously a field was recorded as written before the write was attempted, and write failures were swallowed at debug level.
+- **A degraded model path is now visible.** Inference failures were silently swallowed; they are now logged, recorded in telemetry, and reported via `X-PDF-Semantic-Inference` and the audit line, which distinguishes *requested* from *applied*.
+- `map_user_data_to_fields` defaults now match the HTTP API (`strict=True`, `allow_fallback_mapping=False`). The library previously enabled the provider path by default while the API did not.
+- The provider SDK is referenced directly instead of via a runtime-assembled attribute name, restoring static analysis over the provider call site.
+- Dev tooling is **pinned** (`ruff`, `mypy`, `black`, `pytest`, `pytest-cov`, `pip-audit`) and the ruff rule set is declared explicitly in `pyproject.toml`. Unpinned floors plus an implicit rule set meant a linter release could turn a green build red with no code change.
+- `run_fill_pipeline` returns a `PipelineResult` instead of a bare tuple.
+- Setting `MODEL_PROVIDER_API_KEY` no longer implies the model path is in effect for a given request; clients should check `X-PDF-Semantic-Inference` on the response.
+
+### Fixed
+
+- `_completion_with_retry` evaluated the shared deadline **before** sleeping for retry backoff, so a retry whose backoff spent the remaining budget still started, with a timeout computed for a budget that had already expired. The backoff now happens first and the deadline is consulted immediately before each call.
+- A client disconnect mid-request deleted the temporary directory while the worker was still reading and writing it. `asyncio.CancelledError` is a `BaseException`, so it bypassed the existing handlers and reached the cleanup path. It is now caught and hands ownership to the running job, the same as a timeout.
+- A job whose future was cancelled before the worker started (pool shutdown) never released its worker slot. Slot release and cleanup now run through a single idempotent `_JobContext.settle`, reachable from both the worker and the future's completion callback.
+- Field names containing a comma broke the field-name headers' own format: `billing,city` rendered as two apparent entries while the `*-Count` header reported one. Names are now percent-encoded (`%` first, so the escaping is reversible).
+- Uploads were accumulated in memory and then joined, holding the payload twice at peak. They now stream straight to disk, with the `%PDF-` signature checked as soon as enough bytes arrive so a non-PDF is rejected without reading the rest of the body.
+- Rendered field-name headers were unbounded. Combined with fail-closed verification, a form with many fields could push `X-PDF-Fields-Failed` past the ~8 KB most servers and proxies accept, turning a successful fill into a failed response. The lists are now capped at 1024 characters, and new `X-PDF-Fields-Failed-Count`, `X-PDF-Fields-Skipped-Review-Count`, and `X-PDF-Fields-Skipped-Empty-Count` headers carry the untruncated totals.
+- An exhausted inference budget was reported as a provider failure. Hitting the deadline before any attempt fell through to `RuntimeError("Semantic inference failed: None")`, which the batch loop counted as `semantic_batch_failed` — telemetry showed a provider outage that never happened. A distinct `SemanticBudgetExhaustedError` (a `RuntimeError` subclass, so existing callers are unaffected) now records it as degradation instead.
+- Provider-backed fallback mapping sent **sanitized** field names to the model but looked responses up by the **raw** name. Any name changed by NFKC normalization, control-character stripping, whitespace collapsing, or truncation silently missed, so the field was dropped and the paid call wasted. Responses are now keyed by a synthetic per-field id, which also removes the collision risk when two raw names sanitize to the same string.
+- Write verification failed **open**: when the output could not be re-read or exposed no fields, every intended field was reported as written. `written_fields` therefore claimed a confirmation the service never obtained. It now fails closed and reports those fields as unverified.
+- A single failing batch in `infer_semantics_batch` discarded the fields every earlier batch had already resolved. Batches are now isolated; the call only raises if every batch failed.
+- A non-numeric `confidence` in a fallback-mapping response raised out of the per-field loop and discarded every field already resolved from that call. Malformed confidences are now coerced to `0.0` per field.
+- Worst-case provider wall time scaled with batch count — each batch could spend `MODEL_TIMEOUT_SECONDS * (MODEL_MAX_RETRIES + 1)` plus backoff — so a many-batch document could hold its worker slot far longer than the request budget implied. A single deadline now covers the whole batch loop and trims each call's timeout; fields resolved before the budget runs out are kept.
+- Fallback mapping coerced each value twice, discarding the ambiguity flag from the first pass; it now coerces once and preserves `requires_review`.
+- Removed three backward-compatibility wrappers in `api_service.py` that existed only for tests, plus the test-only rate-limiter reset helper.
+- Removed `TextRegion.x` / `TextRegion.y`, which were declared but never populated.
+
+### Documentation
 
 - README hero images (`docs/assets/social-preview.png`, `playground-preview.png`) for discoverability
 - `scripts/apply-repo-metadata.sh` to set GitHub description and topics (run locally with admin `gh`)
 - Expanded `pyproject.toml` keywords for search
-
-### Changed
-
 - README restructured for discovery: keywords, use cases, playground screenshot, stars badge
 - GitHub Pages landing (`docs/site/`) updated with Open Graph / Twitter meta tags
 - Docs index and asset README updated

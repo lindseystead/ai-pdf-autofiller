@@ -23,7 +23,7 @@ def test_sample_form_round_trip_writes_required_fields(tmp_path: Path):
     }
     output_path = tmp_path / "filled.pdf"
 
-    report, mapping_result, field_count = run_fill_pipeline(
+    result = run_fill_pipeline(
         SAMPLE_PDF,
         output_path,
         user_data,
@@ -31,13 +31,18 @@ def test_sample_form_round_trip_writes_required_fields(tmp_path: Path):
         allow_fallback_mapping=False,
         use_semantic_inference=False,
     )
+    report = result.fill_report
 
-    assert field_count >= 3
+    assert result.fields_total >= 3
     assert output_path.exists()
     assert "txtFirstName" in report.written_fields
     assert "txtLastName" in report.written_fields
     assert "txtDOB" in report.written_fields
-    assert not mapping_result.missing_required
+    assert not report.failed_fields
+    assert not result.mapping_result.missing_required
+    # The default path must not contact a provider at all.
+    assert result.telemetry.provider_calls == 0
+    assert result.telemetry.semantic_inference_requested is False
 
     reader = PdfReader(str(output_path))
     fields = reader.get_fields() or {}

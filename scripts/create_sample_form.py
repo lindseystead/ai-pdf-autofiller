@@ -18,8 +18,14 @@ def create_sample_form_pypdf(output_path: Path):
     This creates a simple form with text fields that can be filled.
     """
     from pypdf import PdfWriter
-    from pypdf.generic import ArrayObject, BooleanObject, DictionaryObject, NameObject
-    from pypdf.generic import NumberObject, TextStringObject
+    from pypdf.generic import (
+        ArrayObject,
+        BooleanObject,
+        DictionaryObject,
+        NameObject,
+        NumberObject,
+        TextStringObject,
+    )
 
     writer = PdfWriter()
     page = writer.add_blank_page(width=612, height=792)
@@ -98,7 +104,7 @@ def create_sample_form_pypdf(output_path: Path):
     # Create annotations/widgets for each field
     annotations = ArrayObject()
 
-    for i, field_def in enumerate(fields):
+    for field_def in fields:
         # Create field dictionary
         field = DictionaryObject({
             NameObject("/Type"): NameObject("/Annot"),
@@ -140,8 +146,8 @@ def create_simple_form_with_text(output_path: Path):
     if REPORTLAB_AVAILABLE:
         try:
             from reportlab.lib import colors
-            from reportlab.pdfgen import canvas
             from reportlab.lib.pagesizes import letter
+            from reportlab.pdfgen import canvas
 
             c = canvas.Canvas(str(output_path), pagesize=letter)
             _, height = letter

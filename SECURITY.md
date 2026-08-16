@@ -31,13 +31,61 @@ If you discover a security issue, please do not open a public issue.
   ingress/proxy layer.
 - **Upload validation:** content-type, `%PDF-` signature, byte-size cap
   (`MAX_UPLOAD_BYTES`), and page-count cap (`MAX_PDF_PAGES`).
-- **DoS bounds:** PDF parsing runs off the event loop under a wall-clock timeout
-  (`PDF_READ_TIMEOUT_SECONDS`); retained/forwarded text is capped
+- **DoS bounds:** PDF parsing runs off the event loop on a **bounded worker
+  pool** (`PDF_WORKER_THREADS`, `PDF_QUEUE_DEPTH`) under a wall-clock timeout
+  (`PDF_READ_TIMEOUT_SECONDS`, plus `SEMANTIC_TIMEOUT_SECONDS` when a request
+  opts into provider features); retained/forwarded text is capped
   (`MAX_PDF_TEXT_CHARS`). Set a container memory limit as an additional backstop.
+
+  A Python worker thread cannot be cancelled, so a request that exceeds its
+  budget returns 503 while its job keeps running. The job therefore **keeps
+  holding its worker slot until it genuinely finishes**, and requests arriving
+  against a saturated pool are shed with `server_busy` rather than queued. This
+  is what bounds resource consumption; the timeout alone only bounds how long a
+  client waits.
 - **Temporary files** are removed on every code path, including errors, timeouts,
   and client cancellations.
 - **Audit trail:** a structured, PII-free log line is emitted per fill. Shipping
   and retaining these logs is a deployment responsibility.
+
+## Untrusted Document Content and Prompt Injection
+
+When the optional model path is enabled, text extracted from an uploaded PDF is
+forwarded to a model provider. **That text is attacker-controlled**: anyone who
+can submit a document controls the field names and page text the model sees. A
+crafted form can therefore attempt prompt injection — embedding instructions
+that try to make the model mislabel a field so the mapping stage writes a value
+into the wrong box (for example, steering an SSN into a field that is printed or
+exported elsewhere).
+
+This risk exists only when `use_semantic_inference` or `allow_fallback_mapping`
+is enabled **and** `MODEL_PROVIDER_API_KEY` is set. The default deterministic
+path never sends document content anywhere.
+
+Controls, in order of how much they actually bound the damage:
+
+1. **Constrained output.** A model-supplied `semantic_meaning` must match
+   `^[a-z][a-z0-9_]{0,63}$`. Anything else — prose, markup, path-like values —
+   is discarded and the field falls back to deterministic semantics.
+2. **Capped model confidence.** Model self-reported confidence is clamped to
+   `MODEL_CONFIDENCE_CEILING` (default `0.75`), below
+   `MAPPING_REVIEW_THRESHOLD` (default `0.80`). An injected label therefore
+   cannot clear the review gate on its own: the mapping is flagged
+   `requires_review` and is not written without a human decision.
+3. **Closed key set.** The fallback mapper may only select from the user data
+   keys the caller supplied; a response cannot invent a source key.
+4. **Batch-index keying.** Batched responses are matched back to fields by
+   position, so a response cannot introduce field names that were not asked
+   about.
+5. **Fenced, sanitized input.** Untrusted text is stripped of control and
+   zero-width characters, wrapped in a per-request unguessable delimiter, and
+   labelled as data the model must not obey. This raises the cost of an attack;
+   it does not eliminate it.
+
+Controls 1–4 are load-bearing. Control 5 is defense in depth — **treat prompt
+injection as mitigated, not solved.** Operators handling high-sensitivity forms
+should keep the model path off, or review every decision where
+`confidence_source` is `model`.
 
 ## Dependency Advisories
 

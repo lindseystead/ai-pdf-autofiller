@@ -95,7 +95,8 @@ Manual PDF field mapping does not scale. AI-only fillers are hard to audit. **PD
 - Python SDK (`fill()` + `PDFAutofillerClient`)
 - W-9 and HR alias packs + [recipes](recipes/)
 - Docker on GHCR · Render blueprint · GitHub Release wheels
-- Auth, rate limits, and upload guards on by default
+- Auth, rate limits, bounded worker pool, and upload guards on by default
+- Verified writes, provider telemetry, and prompt-injection controls on the optional AI path
 
 ## Architecture
 
@@ -104,10 +105,17 @@ flowchart LR
     A[PDF + JSON] --> B[pipeline]
     B --> C[pdf_reader]
     C --> D{AI?}
-    D -->|optional| E[field_semantics]
-    D -->|skip| F[mapping]
-    E --> F --> G[pdf_writer] --> H[Filled PDF]
+    D -->|optional, batched| E[field_semantics]
+    D -->|default: no network| F[mapping]
+    E --> F --> G[pdf_writer] --> H[Verify writes] --> I[Filled PDF]
 ```
+
+The default path makes no network calls. When AI is enabled, the semantics stage
+issues **one batched call per group of fields**, model-derived mappings are
+flagged for review rather than written unattended, and the writer confirms each
+value landed in the output before reporting it as written. If the model path is
+requested but unavailable, the fill still succeeds deterministically and says so
+via `X-PDF-Semantic-Inference: degraded`.
 
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
