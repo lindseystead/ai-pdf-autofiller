@@ -133,6 +133,16 @@ def _api_error(
 MAX_HEADER_VALUE_CHARS = 1024
 
 
+def _encode_header_field_name(name: str) -> str:
+    """Percent-encode the characters that would confuse the header's own format.
+
+    PDF field names may legitimately contain commas. Joining them raw would make
+    ``billing,city`` read as two entries while the matching ``*-Count`` header
+    reported one. ``%`` is encoded first so the escaping stays reversible.
+    """
+    return name.replace("%", "%25").replace(",", "%2C")
+
+
 def _safe_header_value(field_names: list[str]) -> str:
     """Render field names as a header-safe, comma-separated value.
 
@@ -148,7 +158,8 @@ def _safe_header_value(field_names: list[str]) -> str:
       The value is truncated; the companion ``*-Count`` header still reports the
       true total.
     """
-    ascii_only = ",".join(field_names).encode("ascii", "ignore").decode("ascii")
+    encoded = ",".join(_encode_header_field_name(name) for name in field_names)
+    ascii_only = encoded.encode("ascii", "ignore").decode("ascii")
     printable = "".join(char for char in ascii_only if 32 <= ord(char) < 127)
     if len(printable) <= MAX_HEADER_VALUE_CHARS:
         return printable
@@ -266,24 +277,31 @@ def _release_pdf_slot() -> None:
 
 
 class _JobContext:
-    """Coordinates temp-directory ownership between a request and its job.
+    """Owns slot release and temp-directory cleanup for one job, exactly once.
 
-    A request that times out must not delete files a still-running worker is
-    reading, and a worker that finishes after the request gave up must not leave
-    the directory behind. Whichever side arrives last performs the cleanup.
+    Three things can end a job: it runs to completion, the request gives up on
+    it (timeout or client cancellation), or its future is cancelled before the
+    worker ever starts. All three route through here so a slot is never leaked
+    and a directory is never deleted out from under a thread still using it.
+
+    ``settle`` is idempotent because it can legitimately be reached twice — once
+    from the worker and once from the future's completion callback.
     """
 
     def __init__(self, temp_dir: tempfile.TemporaryDirectory):
         self._lock = threading.Lock()
         self._temp_dir = temp_dir
-        self._finished = False
+        self._settled = False
         self._abandoned = False
 
-    def finish(self) -> None:
-        """Mark the job complete, cleaning up if the request already gave up."""
+    def settle(self) -> None:
+        """Mark the job ended, releasing its slot and cleaning up if abandoned."""
         with self._lock:
-            self._finished = True
+            if self._settled:
+                return
+            self._settled = True
             should_clean = self._abandoned
+        _release_pdf_slot()
         if should_clean:
             self._temp_dir.cleanup()
 
@@ -291,18 +309,23 @@ class _JobContext:
         """Hand cleanup to the job, or do it now if the job already ended."""
         with self._lock:
             self._abandoned = True
-            should_clean = self._finished
+            should_clean = self._settled
         if should_clean:
             self._temp_dir.cleanup()
 
 
 def _run_pipeline_job(job_callable, context: _JobContext):
-    """Run one pipeline job, always releasing its slot and settling cleanup."""
+    """Run one pipeline job, always settling its slot and cleanup."""
     try:
         return job_callable()
     finally:
-        _release_pdf_slot()
-        context.finish()
+        context.settle()
+
+
+def _settle_job(context: _JobContext, future) -> None:
+    """Settle a job from its future, covering cancellation before it ever ran."""
+    del future
+    context.settle()
 
 
 def _log_abandoned_job(future) -> None:
@@ -400,24 +423,57 @@ def _purge_stale_rate_limit_clients(now: float) -> None:
         _rate_limit_state.pop(client_id, None)
 
 
-async def _read_bounded_upload(upload: UploadFile, max_bytes: int) -> bytes:
-    """Read an upload in chunks and reject payloads before they fully buffer."""
-    chunks: list[bytes] = []
+async def _stream_bounded_upload(
+    upload: UploadFile, max_bytes: int, destination: Path
+) -> None:
+    """Stream an upload to disk, bounded by size and validated by signature.
+
+    Chunks go straight to ``destination`` rather than being accumulated and then
+    joined, which previously held the whole payload twice at peak. The ``%PDF-``
+    signature is checked as soon as enough bytes have arrived, so a non-PDF is
+    rejected without reading the rest of the body.
+
+    Raises:
+        HTTPException: 413 if the payload exceeds ``max_bytes``; 415 if the
+            content is not a PDF (including an empty or truncated upload)
+    """
     total = 0
-    while True:
-        chunk = await upload.read(UPLOAD_CHUNK_BYTES)
-        if not chunk:
-            break
-        total += len(chunk)
-        if total > max_bytes:
-            raise _api_error(
-                status_code=413,
-                code="payload_too_large",
-                message="PDF exceeds MAX_UPLOAD_BYTES limit",
-                details={"max_upload_bytes": max_bytes},
-            )
-        chunks.append(chunk)
-    return b"".join(chunks)
+    header = b""
+    signature_checked = False
+
+    with destination.open("wb") as handle:
+        while True:
+            chunk = await upload.read(UPLOAD_CHUNK_BYTES)
+            if not chunk:
+                break
+            total += len(chunk)
+            if total > max_bytes:
+                raise _api_error(
+                    status_code=413,
+                    code="payload_too_large",
+                    message="PDF exceeds MAX_UPLOAD_BYTES limit",
+                    details={"max_upload_bytes": max_bytes},
+                )
+            if not signature_checked:
+                # A first chunk shorter than the signature is possible for tiny
+                # uploads, so accumulate until there is enough to decide.
+                header += chunk
+                if len(header) >= 5:
+                    if not header.startswith(b"%PDF-"):
+                        raise _api_error(
+                            status_code=415,
+                            code="invalid_pdf_signature",
+                            message="Uploaded file is not a valid PDF",
+                        )
+                    signature_checked = True
+            handle.write(chunk)
+
+    if not signature_checked:
+        raise _api_error(
+            status_code=415,
+            code="invalid_pdf_signature",
+            message="Uploaded file is not a valid PDF",
+        )
 
 
 def _enforce_rate_limit(request: Request) -> None:
@@ -538,6 +594,7 @@ async def fill(
     # every other path we clean up here, so track who owns the directory.
     temp_dir_owner_assigned = False
     slot_held = False
+    job_context: _JobContext | None = None
 
     try:
         _enforce_rate_limit(request)
@@ -572,14 +629,7 @@ async def fill(
         input_path = temp_path / "input.pdf"
         output_path = temp_path / "output_filled.pdf"
 
-        content = await _read_bounded_upload(pdf_file, MAX_UPLOAD_BYTES)
-        if not content.startswith(b"%PDF-"):
-            raise _api_error(
-                status_code=415,
-                code="invalid_pdf_signature",
-                message="Uploaded file is not a valid PDF",
-            )
-        input_path.write_bytes(content)
+        await _stream_bounded_upload(pdf_file, MAX_UPLOAD_BYTES, input_path)
 
         job_context = _JobContext(temp_dir)
         loop = asyncio.get_running_loop()
@@ -600,8 +650,11 @@ async def fill(
                 job_context,
             ),
         )
-        # The worker now owns slot release, so work that outlived its timeout
-        # still counts against capacity until it genuinely finishes.
+        # The job owns slot release from here. The completion callback covers the
+        # case where the future is cancelled before the worker ever runs (pool
+        # shutdown), which would otherwise strand the slot; _JobContext.settle is
+        # idempotent, so both paths arriving is harmless.
+        job.add_done_callback(functools.partial(_settle_job, job_context))
         slot_held = False
 
         budget = _request_time_budget(
@@ -668,6 +721,14 @@ async def fill(
             },
         ) from exc
     except HTTPException:
+        raise
+    except asyncio.CancelledError:
+        # The client went away while the worker runs. CancelledError is a
+        # BaseException, so without this the finally block below would delete the
+        # temp directory out from under a thread still reading and writing it.
+        if job_context is not None:
+            job_context.abandon()
+            temp_dir_owner_assigned = True
         raise
     except Exception as exc:
         logger.exception("PDF fill request failed")

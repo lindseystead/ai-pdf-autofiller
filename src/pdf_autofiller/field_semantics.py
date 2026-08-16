@@ -181,6 +181,14 @@ class SemanticClient:
         last_error: Exception | None = None
 
         for attempt in range(MODEL_MAX_RETRIES + 1):
+            # Back off *before* consulting the deadline. Checking first would
+            # leave the decision stale by the length of the sleep, so an attempt
+            # whose backoff crosses the deadline would still start, with a
+            # timeout computed for a budget that had already expired.
+            if attempt:
+                self.usage.record_retry()
+                time.sleep(MODEL_RETRY_BACKOFF_SECONDS * (2 ** (attempt - 1)))
+
             call_timeout = MODEL_TIMEOUT_SECONDS
             if deadline is not None:
                 remaining = deadline - time.monotonic()
@@ -193,9 +201,6 @@ class SemanticClient:
                         )
                     break
                 call_timeout = min(call_timeout, remaining)
-            if attempt:
-                self.usage.record_retry()
-                time.sleep(MODEL_RETRY_BACKOFF_SECONDS * (2 ** (attempt - 1)))
             try:
                 response = self._client.chat.completions.create(
                     model=model,

@@ -482,3 +482,33 @@ def test_budget_exhaustion_raises_a_distinct_error():
 def test_budget_error_still_caught_as_runtime_error():
     """Subclassing RuntimeError keeps existing callers working unchanged."""
     assert issubclass(field_semantics.SemanticBudgetExhaustedError, RuntimeError)
+
+
+def test_deadline_is_rechecked_after_retry_backoff(monkeypatch):
+    """Backoff that crosses the deadline must stop the next attempt.
+
+    The deadline was previously evaluated before the sleep, so a retry whose
+    backoff spent the remaining budget still started, with a timeout computed
+    for a budget that had already expired.
+    """
+    import time as time_module
+
+    monkeypatch.setattr(field_semantics, "MODEL_MAX_RETRIES", 3)
+    # Backoff long enough to consume the whole remaining budget.
+    monkeypatch.setattr(field_semantics, "MODEL_RETRY_BACKOFF_SECONDS", 0.15)
+
+    usage = ProviderUsage()
+    client = _client_with([ConnectionError("first attempt fails")] * 4, usage=usage)
+
+    deadline = time_module.monotonic() + 0.05
+    with pytest.raises(RuntimeError):
+        client._completion_with_retry(
+            system_prompt="s",
+            user_prompt="u",
+            model="m",
+            temperature=0.0,
+            deadline=deadline,
+        )
+
+    # Only the first attempt ran; the backoff crossed the deadline.
+    assert len(client._client.calls) == 1

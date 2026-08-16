@@ -1,6 +1,7 @@
 """Tests for FastAPI service wrapper."""
 
 import io
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -482,3 +483,158 @@ def test_counts_survive_header_truncation():
     assert len(headers["X-PDF-Fields-Failed"]) <= api_service.MAX_HEADER_VALUE_CHARS
     # The exact total is still reported even though the names were cut short.
     assert headers["X-PDF-Fields-Failed-Count"] == "2000"
+
+
+def test_header_encodes_commas_inside_field_names():
+    """A comma in a field name must not read as a delimiter.
+
+    Otherwise ["billing,city"] renders as two apparent entries while
+    X-PDF-Fields-Failed-Count reports one.
+    """
+    rendered = api_service._safe_header_value(["billing,city", "plain"])
+
+    assert rendered == "billing%2Ccity,plain"
+    # One real delimiter, so two entries — matching the count.
+    assert len(rendered.split(",")) == 2
+
+
+def test_header_encoding_is_reversible():
+    """Encoding % first keeps the escaping unambiguous."""
+    from urllib.parse import unquote
+
+    names = ["already%2Cencoded", "real,comma", "plain"]
+    rendered = api_service._safe_header_value(names)
+
+    assert [unquote(part) for part in rendered.split(",")] == names
+
+
+def test_upload_is_streamed_without_double_buffering(tmp_path):
+    """Chunks go straight to disk rather than being accumulated then joined."""
+    import asyncio as aio
+
+    pdf_bytes = _minimal_pdf_bytes()
+    destination = tmp_path / "input.pdf"
+
+    class _Upload:
+        def __init__(self, data):
+            self._buffer = io.BytesIO(data)
+
+        async def read(self, size):
+            return self._buffer.read(size)
+
+    aio.run(
+        api_service._stream_bounded_upload(
+            _Upload(pdf_bytes), api_service.MAX_UPLOAD_BYTES, destination
+        )
+    )
+
+    assert destination.read_bytes() == pdf_bytes
+
+
+def test_streamed_upload_rejects_short_non_pdf(tmp_path):
+    """A first chunk shorter than the signature must still be validated."""
+    import asyncio as aio
+
+    class _TinyUpload:
+        def __init__(self):
+            self._chunks = [b"%P", b"DX-oops"]
+
+        async def read(self, size):
+            del size
+            return self._chunks.pop(0) if self._chunks else b""
+
+    with pytest.raises(api_service.HTTPException) as excinfo:
+        aio.run(
+            api_service._stream_bounded_upload(
+                _TinyUpload(), api_service.MAX_UPLOAD_BYTES, tmp_path / "out.pdf"
+            )
+        )
+
+    assert excinfo.value.detail["error"]["code"] == "invalid_pdf_signature"
+
+
+def test_streamed_upload_rejects_empty_body(tmp_path):
+    """An empty upload never satisfies the signature check."""
+    import asyncio as aio
+
+    class _EmptyUpload:
+        async def read(self, size):
+            del size
+            return b""
+
+    with pytest.raises(api_service.HTTPException) as excinfo:
+        aio.run(
+            api_service._stream_bounded_upload(
+                _EmptyUpload(), api_service.MAX_UPLOAD_BYTES, tmp_path / "out.pdf"
+            )
+        )
+
+    assert excinfo.value.detail["error"]["code"] == "invalid_pdf_signature"
+
+
+def test_job_context_settles_exactly_once(tmp_path):
+    """settle() is reachable from both the worker and the future callback."""
+    import tempfile as tf
+
+    baseline = api_service._active_pdf_jobs
+    api_service._try_acquire_pdf_slot()
+    assert api_service._active_pdf_jobs == baseline + 1
+
+    temp_dir = tf.TemporaryDirectory(prefix="pdf-autofiller-test-")
+    context = api_service._JobContext(temp_dir)
+
+    context.settle()
+    context.settle()  # idempotent: must not double-release the slot
+
+    assert api_service._active_pdf_jobs == baseline
+    temp_dir.cleanup()
+
+
+def test_cancelled_queued_job_releases_its_slot(tmp_path):
+    """A future cancelled before the worker runs must not strand its slot."""
+    import tempfile as tf
+
+    baseline = api_service._active_pdf_jobs
+    api_service._try_acquire_pdf_slot()
+
+    temp_dir = tf.TemporaryDirectory(prefix="pdf-autofiller-test-")
+    context = api_service._JobContext(temp_dir)
+
+    # _run_pipeline_job never ran; only the completion callback fires.
+    api_service._settle_job(context, None)
+
+    assert api_service._active_pdf_jobs == baseline
+    temp_dir.cleanup()
+
+
+def test_abandoned_job_cleans_up_when_it_finishes_last(tmp_path):
+    """The request gave up first; the worker performs the cleanup."""
+    import tempfile as tf
+
+    api_service._try_acquire_pdf_slot()
+    temp_dir = tf.TemporaryDirectory(prefix="pdf-autofiller-test-")
+    directory = Path(temp_dir.name)
+    assert directory.exists()
+
+    context = api_service._JobContext(temp_dir)
+    context.abandon()          # request times out / is cancelled
+    assert directory.exists()  # still owned by the running job
+    context.settle()           # job finishes
+
+    assert not directory.exists()
+
+
+def test_abandoned_job_cleans_up_when_the_request_finishes_last(tmp_path):
+    """The worker ended first; the request performs the cleanup."""
+    import tempfile as tf
+
+    api_service._try_acquire_pdf_slot()
+    temp_dir = tf.TemporaryDirectory(prefix="pdf-autofiller-test-")
+    directory = Path(temp_dir.name)
+
+    context = api_service._JobContext(temp_dir)
+    context.settle()   # job finishes first
+    assert directory.exists()
+    context.abandon()  # request gives up afterwards
+
+    assert not directory.exists()
