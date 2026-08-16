@@ -347,6 +347,11 @@ def fill_pdf(
     written_fields, failed_fields = _verify_written_values(output_pdf_path, field_values)
 
     # A required field that did not survive the write is not a complete document.
+    # Boundary of this guarantee: required-ness is read from the input document's
+    # form structure. When that introspection returned nothing, the writer wrote
+    # blind and cannot tell which fields were required, so unverified fields are
+    # reported in failed_fields rather than raising a claim it cannot support.
+    # Required fields that could not be *mapped* were already rejected above.
     unverified_required = [
         field_name
         for field_name in failed_fields
