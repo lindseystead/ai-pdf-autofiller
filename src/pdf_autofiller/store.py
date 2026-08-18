@@ -63,14 +63,7 @@ class Template(BaseModel):
         default_factory=dict,
         description="Explicit field_name -> value assignments applied on every fill",
     )
-    key_aliases: dict[str, str] = Field(
-        default_factory=dict,
-        description="Remembered corrections: field_name -> user_data key to read from",
-    )
     flatten: bool = False
-    strict: bool = True
-    allow_fallback_mapping: bool = False
-    use_semantic_inference: bool = False
     created_at: str = Field(default_factory=_utcnow)
     updated_at: str = Field(default_factory=_utcnow)
 
@@ -181,11 +174,6 @@ def resolve_fill_inputs(
     if template_name:
         template = template_store().get(template_name)
         resolved_overrides.update(template.overrides)
-        # key_aliases remember "this field should read that key", which only
-        # resolves once the actual data is in hand.
-        for field_name, source_key in template.key_aliases.items():
-            if source_key in resolved_data:
-                resolved_overrides[field_name] = resolved_data[source_key]
     if overrides:
         resolved_overrides.update(overrides)
 

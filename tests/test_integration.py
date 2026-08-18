@@ -70,7 +70,7 @@ def test_fill_endpoint_round_trip_with_sample_pdf():
 
 def test_health_reports_alias_packs_and_auth_state(monkeypatch):
     client = TestClient(api_service.app)
-    set_settings(Settings(auth_enabled=True, api_keys={}))
+    set_settings(Settings(auth_enabled=True, api_token=""))
 
     response = client.get("/health")
     payload = response.json()

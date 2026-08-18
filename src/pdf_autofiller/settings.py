@@ -15,6 +15,7 @@ surface; ``Settings.from_env`` does the small amount of parsing that buys.
 from __future__ import annotations
 
 import os
+import secrets
 from pathlib import Path
 from typing import Any, Optional
 
@@ -64,9 +65,7 @@ class Settings(BaseModel):
 
     # --- auth -------------------------------------------------------------
     auth_enabled: bool = True
-    # Multiple keys let an operator rotate credentials and attribute usage per
-    # caller without a shared secret everyone knows.
-    api_keys: dict[str, str] = Field(default_factory=dict)
+    api_token: str = ""
     api_key_header: str = "X-API-Key"
 
     # --- limits -----------------------------------------------------------
@@ -77,7 +76,6 @@ class Settings(BaseModel):
     max_pdf_pages: int = Field(default=200, gt=0)
     max_pdf_text_chars: int = Field(default=2_000_000, gt=0)
     pdf_read_timeout_seconds: float = Field(default=20.0, gt=0)
-    max_batch_items: int = Field(default=50, gt=0)
 
     # --- rate limiting ----------------------------------------------------
     rate_limit_per_minute: int = Field(default=60, ge=0)
@@ -98,7 +96,6 @@ class Settings(BaseModel):
     # --- http -------------------------------------------------------------
     cors_allow_origins: list[str] = Field(default_factory=list)
     log_level: str = "INFO"
-    metrics_enabled: bool = True
 
     @field_validator("log_level")
     @classmethod
@@ -114,45 +111,24 @@ class Settings(BaseModel):
         return self.state_dir / "profiles"
 
     def auth_configured(self) -> bool:
-        """True when auth is enabled and at least one key is usable."""
-        return bool(self.api_keys)
+        """True when a usable token is configured."""
+        return bool(self.api_token)
 
-    def resolve_key(self, presented: Optional[str]) -> Optional[str]:
-        """Return the key *name* matching a presented secret, or None.
-
-        Comparison is constant-time against every configured secret so a
-        timing signal cannot reveal which key prefix was correct.
-        """
-        import secrets
-
-        if not presented:
-            return None
-        matched: Optional[str] = None
-        for name, secret in self.api_keys.items():
-            if secrets.compare_digest(presented, secret):
-                matched = name
-        return matched
+    def token_matches(self, presented: Optional[str]) -> bool:
+        """Constant-time comparison of a presented token against the configured one."""
+        if not presented or not self.api_token:
+            return False
+        return secrets.compare_digest(presented, self.api_token)
 
     @classmethod
     def from_env(cls) -> "Settings":
         """Build settings from environment variables, raising on bad input."""
-        api_keys: dict[str, str] = {}
-        # Single-token form, kept for backward compatibility.
-        legacy = os.getenv("API_AUTH_TOKEN", "").strip()
-        if legacy:
-            api_keys["default"] = legacy
-        # Multi-key form: API_KEYS="ops:secret1,ci:secret2"
-        for entry in _env_list("API_KEYS"):
-            name, _, secret = entry.partition(":")
-            if name and secret:
-                api_keys[name.strip()] = secret.strip()
-
         aliases_env = os.getenv("FORM_ALIASES_DIR", "").strip()
         state_env = os.getenv("PDF_AUTOFILLER_STATE_DIR", "").strip()
 
         raw: dict[str, Any] = {
             "auth_enabled": _env_bool("API_AUTH_ENABLED", True),
-            "api_keys": api_keys,
+            "api_token": os.getenv("API_AUTH_TOKEN", "").strip(),
             "api_key_header": os.getenv("API_KEY_HEADER", "X-API-Key"),
             "max_upload_bytes": _env_int("MAX_UPLOAD_BYTES", 5 * 1024 * 1024),
             "max_user_data_bytes": _env_int("MAX_USER_DATA_BYTES", 256 * 1024),
@@ -161,7 +137,6 @@ class Settings(BaseModel):
             "max_pdf_pages": _env_int("MAX_PDF_PAGES", 200),
             "max_pdf_text_chars": _env_int("MAX_PDF_TEXT_CHARS", 2_000_000),
             "pdf_read_timeout_seconds": _env_float("PDF_READ_TIMEOUT_SECONDS", 20.0),
-            "max_batch_items": _env_int("MAX_BATCH_ITEMS", 50),
             "rate_limit_per_minute": _env_int("RATE_LIMIT_PER_MINUTE", 60),
             "trust_proxy_headers": _env_bool("TRUST_PROXY_HEADERS", False),
             "provider_api_key": os.getenv("MODEL_PROVIDER_API_KEY") or None,
@@ -172,7 +147,6 @@ class Settings(BaseModel):
             "semantics_cache_size": _env_int("SEMANTICS_CACHE_SIZE", 128),
             "cors_allow_origins": _env_list("CORS_ALLOW_ORIGINS"),
             "log_level": os.getenv("LOG_LEVEL", "INFO"),
-            "metrics_enabled": _env_bool("METRICS_ENABLED", True),
         }
         if aliases_env:
             raw["aliases_dir"] = Path(aliases_env).expanduser()

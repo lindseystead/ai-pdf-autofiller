@@ -46,8 +46,8 @@ All notable changes to this project will be documented in this file.
 - **Templates and profiles.** A template remembers the overrides that made a
   form come out right, keyed by a fingerprint of its field structure; a profile
   is a named, reusable set of data. Both are available over HTTP and the CLI.
-- **Batch filling** via `POST /v1/batch` and `pdf-autofiller batch`, with
-  per-item status. A failing row is recorded and the rest of the batch continues.
+- **Batch filling** via `pdf-autofiller batch`. A failing row is recorded and
+  the rest of the batch continues.
 - **`flatten` option** that stamps values into page content and removes the
   interactive form, so a completed document cannot be edited downstream.
   (pypdf's own `flatten` leaves the AcroForm and widgets in place; this removes
@@ -60,15 +60,13 @@ All notable changes to this project will be documented in this file.
   `Accept: application/json` header) returning the full `FillReport` and mapping
   decisions alongside the base64-encoded document. The header-based report is
   ASCII-stripped and length-capped.
-- **Prometheus metrics** at `GET /metrics`: fill and inspect outcomes, fields
-  written and skipped by reason, and request latency histograms.
-- **Multi-key authentication** via `API_KEYS=name:secret,...`, with the key name
-  recorded in the audit line so usage is attributable and keys rotate
-  independently.
 - **Opt-in CORS** via `CORS_ALLOW_ORIGINS`. There is no wildcard default.
 - `SDK`: `inspect()` and `fill_with_report()`, plus `flatten`, `overrides`,
   `template`, and `profile` arguments on `fill()`.
-- Adversarial-PDF and property-based test suites (213 tests total).
+- Adversarial-PDF and property-based test suites (202 tests total).
+- README hero images (`docs/assets/social-preview.png`, `playground-preview.png`) for discoverability
+- `scripts/apply-repo-metadata.sh` to set GitHub description and topics (run locally with admin `gh`)
+- Expanded `pyproject.toml` keywords for search
 
 ### Changed
 
@@ -92,12 +90,9 @@ All notable changes to this project will be documented in this file.
   that would return an unchanged document that looks like a successful fill.
 - `FormField` now carries `options` (a choice field's `/Opt` values or a
   button's export states), so callers can see what a constrained field accepts.
-- README hero images (`docs/assets/social-preview.png`, `playground-preview.png`) for discoverability
-- `scripts/apply-repo-metadata.sh` to set GitHub description and topics (run locally with admin `gh`)
-- Expanded `pyproject.toml` keywords for search
-
-### Changed
-
+- HTTP plumbing (auth, rate limiting, payload bounds, upload staging, the error
+  contract) moved to `http_support.py`, leaving `api_service.py` as a readable
+  list of what the service exposes.
 - README restructured for discovery: keywords, use cases, playground screenshot, stars badge
 - GitHub Pages landing (`docs/site/`) updated with Open Graph / Twitter meta tags
 - Docs index and asset README updated

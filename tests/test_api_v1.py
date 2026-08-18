@@ -1,4 +1,4 @@
-"""Tests for the v1 API surface: inspect, bounds, templates, metrics, CORS."""
+"""Tests for the v1 API surface: inspect, fill, bounds, templates, auth, CORS."""
 
 from __future__ import annotations
 
@@ -8,7 +8,8 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from pdf_autofiller import api_service, metrics
+from pdf_autofiller import api_service
+from pdf_autofiller.http_support import reset_rate_limit_state
 from pdf_autofiller.settings import Settings, set_settings
 
 SAMPLE = Path(__file__).resolve().parents[1] / "samples" / "sample_form.pdf"
@@ -28,10 +29,9 @@ def _settings(tmp_path):
     set_settings(
         Settings(auth_enabled=False, rate_limit_per_minute=0, state_dir=tmp_path / "state")
     )
-    api_service._reset_rate_limit_state()
-    metrics.reset()
+    reset_rate_limit_state()
     yield
-    api_service._reset_rate_limit_state()
+    reset_rate_limit_state()
     set_settings(None)
 
 
@@ -212,51 +212,29 @@ def test_unknown_template_returns_404():
     assert response.json()["detail"]["error"]["code"] == "template_not_found"
 
 
-# --- metrics ---------------------------------------------------------------
-
-
-def test_metrics_endpoint_exposes_fill_counters():
-    client.post("/v1/fill", files=_upload(), data={"user_data": json.dumps(COMPLETE)})
-    body = client.get("/metrics").text
-    assert 'pdf_autofiller_fills_total{outcome="success"} 1' in body
-    assert "pdf_autofiller_fields_written_total" in body
-    assert "pdf_autofiller_request_duration_seconds_count" in body
-
-
-def test_metrics_can_be_disabled():
-    set_settings(Settings(auth_enabled=False, metrics_enabled=False))
-    assert client.get("/metrics").status_code == 404
-
-
 # --- auth ------------------------------------------------------------------
 
 
-def test_multiple_api_keys_are_accepted_and_attributed(caplog):
-    import logging
-
-    set_settings(
-        Settings(
-            auth_enabled=True,
-            rate_limit_per_minute=0,
-            api_keys={"ops": "key-ops", "ci": "key-ci"},
-        )
-    )
-    with caplog.at_level(logging.INFO, logger="pdf_autofiller.api_service"):
-        response = client.post(
+def test_api_token_is_required_when_auth_is_on():
+    set_settings(Settings(auth_enabled=True, rate_limit_per_minute=0, api_token="secret-token"))
+    assert (
+        client.post(
             "/v1/fill",
             files=_upload(),
             data={"user_data": json.dumps(COMPLETE)},
-            headers={"X-API-Key": "key-ci"},
-        )
-    assert response.status_code == 200
-    assert "key=ci" in caplog.text
-
-    assert client.post(
-        "/v1/fill",
-        files=_upload(),
-        data={"user_data": json.dumps(COMPLETE)},
-        headers={"X-API-Key": "wrong"},
-    ).status_code == 401
+            headers={"X-API-Key": "secret-token"},
+        ).status_code
+        == 200
+    )
+    assert (
+        client.post(
+            "/v1/fill",
+            files=_upload(),
+            data={"user_data": json.dumps(COMPLETE)},
+            headers={"X-API-Key": "wrong"},
+        ).status_code
+        == 401
+    )
 
 
 # --- CORS ------------------------------------------------------------------

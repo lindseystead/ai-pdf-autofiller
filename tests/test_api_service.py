@@ -8,6 +8,7 @@ from pypdf import PdfWriter
 
 from pdf_autofiller import api_service
 from pdf_autofiller.models import FieldSemantics, FormField, TextRegion
+from pdf_autofiller.http_support import reset_rate_limit_state
 from pdf_autofiller.settings import Settings, set_settings
 
 
@@ -20,7 +21,7 @@ def configure(**overrides):
     Configuration is a validated object rather than module globals, so tests
     build the exact settings they need instead of poking attributes.
     """
-    base = {"auth_enabled": False, "rate_limit_per_minute": 0, "metrics_enabled": True}
+    base = {"auth_enabled": False, "rate_limit_per_minute": 0}
     base.update(overrides)
     settings = Settings(**base)
     set_settings(settings)
@@ -35,9 +36,9 @@ def _isolate_request_guards():
     tests opt back in explicitly.
     """
     configure()
-    api_service._reset_rate_limit_state()
+    reset_rate_limit_state()
     yield
-    api_service._reset_rate_limit_state()
+    reset_rate_limit_state()
     set_settings(None)
 
 
@@ -261,7 +262,7 @@ def test_fill_endpoint_times_out_on_slow_read(monkeypatch):
 
 
 def test_fill_endpoint_requires_api_key_when_enabled(monkeypatch):
-    configure(auth_enabled=True, api_keys={"default": "secret-token"}, api_key_header="X-API-Key")
+    configure(auth_enabled=True, api_token="secret-token", api_key_header="X-API-Key")
 
     response = client.post(
         "/fill",
@@ -274,7 +275,7 @@ def test_fill_endpoint_requires_api_key_when_enabled(monkeypatch):
 
 
 def test_fill_endpoint_returns_server_auth_config_error(monkeypatch):
-    configure(auth_enabled=True, api_keys={}, api_key_header="X-API-Key")
+    configure(auth_enabled=True, api_token="", api_key_header="X-API-Key")
 
     response = client.post(
         "/fill",
@@ -288,7 +289,7 @@ def test_fill_endpoint_returns_server_auth_config_error(monkeypatch):
 
 
 def test_fill_endpoint_accepts_api_key_when_enabled(monkeypatch):
-    configure(auth_enabled=True, api_keys={"default": "secret-token"}, api_key_header="X-API-Key")
+    configure(auth_enabled=True, api_token="secret-token", api_key_header="X-API-Key")
 
     response = client.post(
         "/fill",

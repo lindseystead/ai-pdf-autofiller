@@ -122,10 +122,8 @@ fill("form.pdf", {"firstname": "Jane", "lastname": "Doe"}, "filled.pdf")
 |--------|------|-------------|
 | `GET` | `/playground` | Browser UI |
 | `GET` | `/v1/health` | Health + dependency checks |
-| `GET` | `/metrics` | Prometheus metrics |
 | `POST` | `/v1/inspect` | Fields and a dry-run mapping — writes nothing |
 | `POST` | `/v1/fill` | PDF in, filled PDF out |
-| `POST` | `/v1/batch` | One form, many data rows; returns a job ID |
 | `GET`/`PUT`/`DELETE` | `/v1/templates/{name}` | Remembered per-form mappings |
 | `GET`/`PUT`/`DELETE` | `/v1/profiles/{name}` | Reusable data sets |
 
@@ -142,13 +140,13 @@ Manual PDF field mapping does not scale. AI-only fillers are hard to audit. **PD
 - FastAPI HTTP API with structured error codes, versioned under `/v1`
 - Dry-run inspection so you can see a mapping before producing a document
 - Templates and profiles so recurring work is referenced, not repeated
-- Batch filling with per-item status; one bad row does not sink the batch
+- Batch filling from the CLI; one bad row does not sink the run
 - Nested JSON input, explicit per-field overrides, and optional flattening
 - Browser playground at `/playground`
 - Python SDK (`fill()`, `inspect()`, `PDFAutofillerClient`)
 - W-9 and HR alias packs + [recipes](recipes/)
 - Docker on GHCR · Render blueprint · GitHub Release wheels
-- Auth (multi-key), rate limits, payload bounds, and Prometheus metrics
+- Token auth, rate limits, and payload bounds on by default
 - Untrusted PDFs parsed in a killable subprocess under a wall-clock budget
 
 ## Architecture
@@ -190,7 +188,7 @@ flowchart LR
 make test && make lint && make smoke-check
 ```
 
-105 tests · 85%+ coverage · Python 3.11 & 3.12
+202 tests · 85%+ coverage · Python 3.11 & 3.12
 
 ## License
 
