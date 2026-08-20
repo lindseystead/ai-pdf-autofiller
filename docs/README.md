@@ -6,6 +6,7 @@ Supporting documentation for the PDF Autofiller service.
 
 | Doc | Description |
 |-----|-------------|
+| [CLI.md](CLI.md) | Command line reference — the primary interface |
 | [API.md](API.md) | Endpoint contracts, errors, and response headers |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Module boundaries, data flow, extension points |
 | [OPERATIONS.md](OPERATIONS.md) | Runtime configuration and deployment |

@@ -30,7 +30,7 @@ Use the **HTTP Request** node to call `POST /fill` with multipart form data.
 3. **HTTP Request** fills the PDF via `/fill`
 4. **Google Drive** uploads the filled PDF
 
-Import starter workflow JSON: save the curl from [recipes/sample-form.sh](../recipes/sample-form.sh) as an HTTP Request node and wire profile JSON from the trigger.
+Import starter workflow JSON: save the curl from [recipes/sample-form.sh](../../recipes/sample-form.sh) as an HTTP Request node and wire profile JSON from the trigger.
 
 ## Zapier
 

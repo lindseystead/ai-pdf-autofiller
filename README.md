@@ -16,7 +16,7 @@ Open-source FastAPI service · browser playground · Python SDK · Docker image
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Docker](https://img.shields.io/badge/docker-ghcr.io-blue)](https://github.com/lindseystead/ai-pdf-autofiller/pkgs/container/ai-pdf-autofiller)
 
-[Try in Codespaces](#try-it-now) · [Install](#install) · [API](#api) · [Recipes](recipes/) · [Docs](docs/)
+[Try in Codespaces](#try-it-now) · [Install](#install) · [CLI](docs/CLI.md) · [API](#api) · [Recipes](recipes/) · [Docs](docs/)
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/lindseystead/ai-pdf-autofiller)
 
@@ -175,6 +175,7 @@ flowchart LR
 
 | Doc | Contents |
 |-----|----------|
+| [docs/CLI.md](docs/CLI.md) | Command line reference |
 | [docs/API.md](docs/API.md) | Endpoints and errors |
 | [docs/OPERATIONS.md](docs/OPERATIONS.md) | Config and deployment |
 | [docs/TESTING.md](docs/TESTING.md) | Tests and CI |

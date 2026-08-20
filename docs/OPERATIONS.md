@@ -1,5 +1,8 @@
 # Operations
 
+This page covers running the HTTP service. For local, single-user work the
+[CLI](CLI.md) needs none of this — no server, no token, no configuration.
+
 ## Runtime Configuration
 
 - `MODEL_PROVIDER_API_KEY`: enables semantic inference and fallback mapping
@@ -14,14 +17,30 @@
 - `TRUST_PROXY_HEADERS`: when `true`, rate limiting uses `X-Forwarded-For` / `X-Real-IP` from a trusted reverse proxy (default `false`)
 - `FORM_ALIASES_DIR`: optional directory of JSON alias packs for deterministic field mapping; must exist and be readable when set
 - `LOG_LEVEL`: process log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`)
+- `MAX_USER_DATA_BYTES`: maximum accepted `user_data` JSON size in bytes (default `262144`)
+- `MAX_USER_DATA_KEYS`: maximum total keys across nested `user_data` (default `500`)
+- `MAX_USER_DATA_DEPTH`: maximum nesting depth in `user_data` (default `8`)
+- `PDF_AUTOFILLER_STATE_DIR`: where templates and profiles are stored (default `~/.pdf-autofiller`)
+- `CORS_ALLOW_ORIGINS`: comma-separated origins allowed to call the API from a browser; empty disables CORS entirely (default empty — there is deliberately no wildcard)
+- `SEMANTICS_CACHE_SIZE`: how many forms' inferred semantics to keep in memory; `0` disables (default `128`)
+- `MODEL_PROVIDER_MODEL`: model used for semantic inference (default `gpt-4o-mini`)
+- `MODEL_PROVIDER_TIMEOUT_SECONDS`: per-call provider timeout (default `30`)
+- `MODEL_PROVIDER_MAX_RETRIES`: retries on transient provider failure (default `2`)
+- `MODEL_PROVIDER_BATCH_SIZE`: fields per inference request; larger forms are split across calls (default `40`)
+
+A malformed value (for example a non-numeric `MAX_UPLOAD_BYTES`) raises a
+readable configuration error at startup rather than a traceback mid-import.
 
 ## Service Behavior
 
 - Authentication is **enabled by default** and fails closed: if `API_AUTH_ENABLED` is true but `API_AUTH_TOKEN` is unset, `POST /fill` returns `500 server_auth_config_error` rather than serving openly.
 - `GET /health` and `GET /version` are always unauthenticated.
-- `POST /fill` is rate limited per client and rejects PDFs over the page limit or that exceed the processing time budget.
+- `POST /v1/fill` and `POST /v1/inspect` are rate limited per client and reject PDFs over the page limit or that exceed the processing time budget.
+- PDF parsing runs in a **killable child process** under a wall-clock timeout. A thread cannot be interrupted in CPython, so a hostile document under a thread-based timeout would return `503` while continuing to consume a worker forever. The child process also contains parser memory blowups and hard crashes.
+- The JSON accompanying an upload is bounded in bytes, key count, and nesting depth, not just the PDF itself.
 - Uploads are read in bounded chunks so oversized files are rejected before the full body is buffered in memory.
-- `GET /health` reports dependency checks (`auth`, alias packs) and returns `degraded` when auth is misconfigured.
+- `GET /v1/health` reports dependency checks (`auth`, alias pack count and directory, semantics cache occupancy) and returns `degraded` when auth is misconfigured.
+- CORS is **off unless configured**. A wildcard default would let any page on the internet drive a deployment a browser has already authenticated.
 - `POST /fill` writes uploads to a temporary working directory and returns the generated PDF directly.
 - Temporary files are cleaned up after request completion or failure, including error and timeout paths.
 - Privacy: provider-backed features send field metadata and nearby page text to an external service, but **never the raw user-data values or a field's current value** — only key names and value type names are shared. Disable these features by leaving `MODEL_PROVIDER_API_KEY` unset and the semantic/fallback flags off.
@@ -29,7 +48,7 @@
 
 ## Audit Logging
 
-- Each successful fill emits one structured, PII-free `audit action=fill` log line containing the request ID, whether auth was enabled, the optional features used, and field counts (total/written/review-skipped/empty-skipped/missing). No field names or user values are logged.
+- Each successful fill emits one structured, PII-free `audit action=fill` log line containing the request ID, whether auth was enabled, the optional features used, whether the output was flattened, and field counts (total / written / review-skipped / empty-skipped / invalid-skipped / missing-required). No field names or user values are logged.
 - These lines are the application-level audit trail. Shipping them to a durable, access-controlled store and setting a retention policy are deployment responsibilities.
 
 ## Container Usage
