@@ -52,11 +52,21 @@ Upload a PDF, paste JSON, download the result — no Postman required.
 # Command line — no server needed
 pip install pdf-autofiller
 
-# What does this form actually want? (writes nothing)
+# 1. Get a data file with the keys this form actually wants
+pdf-autofiller init form.pdf > me.json
+
+# 2. Check what would happen (writes nothing)
 pdf-autofiller inspect form.pdf --data me.json
 
-# Fill it
+# 3. Fill it
 pdf-autofiller fill form.pdf --data me.json --out filled.pdf --flatten
+```
+
+Already have a form someone filled in by hand? Read it back out and keep it:
+
+```bash
+pdf-autofiller extract completed.pdf --save-profile jane
+pdf-autofiller fill next-form.pdf --profile jane
 ```
 
 `inspect` is the one to start with on an unfamiliar form: it lists every field,
@@ -96,8 +106,8 @@ pdf-autofiller profile set me --data me.json          # reusable data
 pdf-autofiller template save w9 w9.pdf --flatten      # remembered mapping
 pdf-autofiller fill w9.pdf --profile me --template w9
 
-# One form, many people
-pdf-autofiller batch onboarding.pdf --items staff.json --out-dir ./packets
+# One form, many people — straight from a spreadsheet
+pdf-autofiller batch onboarding.pdf --csv staff.csv --out-dir ./packets
 ```
 
 Nested profiles work as you would expect — `{"contact": {"email": "..."}}`
@@ -136,11 +146,12 @@ Manual PDF field mapping does not scale. AI-only fillers are hard to audit. **PD
 
 ## Features
 
-- CLI (`inspect`, `fill`, `validate`, `batch`, `profile`, `template`) — no server required
+- CLI (`init`, `inspect`, `fill`, `extract`, `validate`, `batch`, `profile`, `template`) — no server required
 - FastAPI HTTP API with structured error codes, versioned under `/v1`
 - Dry-run inspection so you can see a mapping before producing a document
+- Read values back out of a filled PDF and reuse them as a profile
 - Templates and profiles so recurring work is referenced, not repeated
-- Batch filling from the CLI; one bad row does not sink the run
+- Batch filling from CSV or JSON; one bad row does not sink the run
 - Nested JSON input, explicit per-field overrides, and optional flattening
 - Browser playground at `/playground`
 - Python SDK (`fill()`, `inspect()`, `PDFAutofillerClient`)

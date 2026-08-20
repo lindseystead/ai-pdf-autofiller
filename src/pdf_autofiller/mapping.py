@@ -188,6 +188,11 @@ def flatten_user_data(
     the leaf are made available to the matcher by :func:`candidate_keys`.
 
     Lists are indexed (``phones.0``) so repeated groups stay addressable.
+
+    Top-level keys beginning with an underscore are dropped. ``init --annotate``
+    emits a ``_fields`` block describing each key, because JSON has no comments;
+    without this the annotations would come back as dozens of unmapped keys and
+    bury the ones that actually matter.
     """
     flat: dict[str, Any] = {}
     if _depth >= max_depth:
@@ -197,6 +202,8 @@ def flatten_user_data(
 
     if isinstance(data, dict):
         for key, value in data.items():
+            if _depth == 0 and isinstance(key, str) and key.startswith("_"):
+                continue
             path = f"{prefix}{separator}{key}" if prefix else str(key)
             if isinstance(value, (dict, list)):
                 flat.update(

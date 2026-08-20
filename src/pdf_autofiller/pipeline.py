@@ -14,6 +14,7 @@ process (see :mod:`pdf_autofiller.execution`).
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Any, Optional
 
@@ -31,6 +32,8 @@ from .models import (
 from .pdf_reader import form_fingerprint, read_pdf
 from .pdf_writer import fill_pdf
 from .semantics_cache import get_cached_semantics, store_cached_semantics
+
+logger = logging.getLogger(__name__)
 
 
 def fallback_semantics(field: FormField) -> EnrichedFormField:
@@ -216,3 +219,92 @@ def run_fill_pipeline(
     )
     fill_report = fill_pdf(input_pdf_path, output_pdf_path, mapping_result, flatten=flatten)
     return fill_report, mapping_result, len(enriched_fields)
+
+
+def extract_form_values(
+    input_pdf_path: Path,
+    *,
+    raw: bool = False,
+    include_empty: bool = False,
+    max_pages: int | None = None,
+    max_text_chars: int | None = None,
+) -> dict[str, Any]:
+    """
+    Read the values already present in a filled PDF.
+
+    Completing a form by hand and then re-keying the same data into JSON is the
+    kind of work this tool exists to remove. Reading the values back out turns a
+    document someone already filled into reusable data.
+
+    Keys are semantic meanings by default (``first_name``), which is the shape
+    that feeds ``--data`` or a profile. ``raw=True`` keys by exact PDF field name
+    (``txtFirstName``), which is the shape that feeds ``overrides``.
+
+    Empty fields are omitted unless ``include_empty`` is set: a blank field means
+    "not answered", and carrying it forward as ``""`` would later overwrite a
+    real value with nothing.
+
+    Semantic keys can collide when a form has two fields that mean the same
+    thing. The first value wins and the collision is logged, because silently
+    keeping the last one would depend on field order.
+    """
+    structure = read_pdf(
+        input_pdf_path, max_pages=max_pages, max_text_chars=max_text_chars
+    )
+
+    values: dict[str, Any] = {}
+    for field in structure.form_fields:
+        if field.value is None or (not include_empty and not str(field.value).strip()):
+            continue
+        key = field.name if raw else fallback_semantics(field).semantics.semantic_meaning
+        if key in values and values[key] != field.value:
+            logger.info(
+                "Two fields resolve to %r with different values; keeping the first. "
+                "Use raw=True to keep both.",
+                key,
+            )
+            continue
+        values[key] = field.value
+
+    return values
+
+
+def data_skeleton(
+    input_pdf_path: Path,
+    *,
+    max_pages: int | None = None,
+    max_text_chars: int | None = None,
+) -> tuple[dict[str, str], dict[str, dict[str, Any]]]:
+    """
+    Build a starter data file carrying the keys this form actually wants.
+
+    ``inspect`` reports what is missing; this produces the file to fill in, so a
+    first encounter with a form does not start by guessing key names.
+
+    Returns the skeleton (required keys first, so the important ones are at the
+    top of the file) and a per-key annotation map describing which field each key
+    feeds and whether it is required.
+    """
+    structure = read_pdf(
+        input_pdf_path, max_pages=max_pages, max_text_chars=max_text_chars
+    )
+    enriched = [fallback_semantics(field) for field in structure.form_fields]
+    # Required first, then original document order within each group.
+    ordered = sorted(enriched, key=lambda e: not e.field.required)
+
+    skeleton: dict[str, str] = {}
+    annotations: dict[str, dict[str, Any]] = {}
+    for item in ordered:
+        key = item.semantics.semantic_meaning
+        if key in skeleton:
+            annotations[key]["fields"].append(item.field.name)
+            continue
+        skeleton[key] = ""
+        annotations[key] = {
+            "fields": [item.field.name],
+            "required": item.field.required,
+            "type": item.field.field_type,
+            "options": item.field.options,
+        }
+
+    return skeleton, annotations

@@ -18,12 +18,14 @@ human summary — useful in scripts and CI.
 Working with a form you have not seen before goes like this:
 
 ```bash
-pdf-autofiller inspect form.pdf --data me.json   # 1. see what the form wants
-pdf-autofiller fill form.pdf --data me.json --out filled.pdf   # 2. produce it
+pdf-autofiller init form.pdf > me.json                          # 1. get a data file
+$EDITOR me.json                                                # 2. fill it in
+pdf-autofiller inspect form.pdf --data me.json                 # 3. check first
+pdf-autofiller fill form.pdf --data me.json --out filled.pdf   # 4. produce it
 ```
 
-`inspect` writes nothing. You never have to guess a key name or read an error to
-find out what a form wants.
+Steps 1 and 3 write nothing. You never have to guess a key name or read an error
+to find out what a form wants.
 
 ---
 
@@ -89,6 +91,73 @@ form that looks complete but is not is worse than no form at all.
 
 ---
 
+## `init`
+
+Emit a starter data file carrying the keys this form actually wants.
+
+```bash
+pdf-autofiller init form.pdf > me.json
+```
+
+```json
+{
+  "first_name": "",
+  "last_name": "",
+  "date_of_birth": "",
+  "email_address": ""
+}
+```
+
+Required fields come first, so the keys you must supply are at the top of the
+file. `--annotate` adds a `_fields` block describing which PDF field each key
+feeds, whether it is required, and any permitted values:
+
+```json
+{
+  "_fields": {
+    "first_name": { "fields": ["txtFirstName"], "required": true, "type": "text", "options": [] }
+  },
+  "first_name": ""
+}
+```
+
+JSON has no comments, so the annotations travel as data. Keys beginning with an
+underscore are ignored when the file is used as input, so an annotated skeleton
+can be filled in and passed straight to `fill` without stripping anything.
+
+---
+
+## `extract`
+
+Read the values back out of a PDF that is already filled.
+
+```bash
+pdf-autofiller extract filled.pdf
+```
+
+```json
+{
+  "first_name": "Jane",
+  "last_name": "Doe"
+}
+```
+
+Keys are semantic meanings by default, which is the shape `--data` and profiles
+expect, so the output round-trips straight back into a fill. `--raw` keys by
+exact PDF field name instead — the shape `--overrides` expects.
+
+Empty fields are omitted: a blank field means "not answered", and carrying it
+forward as `""` would later overwrite a real value with nothing. `--include-empty`
+keeps them.
+
+```bash
+pdf-autofiller extract filled.pdf --save-profile jane
+```
+
+Turns a form someone completed by hand into a reusable profile in one step.
+
+---
+
 ## `validate`
 
 Check that a PDF is a fillable AcroForm this tool can handle. Exits non-zero if
@@ -108,10 +177,23 @@ encrypted documents, XFA forms, and files with no fillable fields.
 Fill one form once per row of data.
 
 ```bash
+pdf-autofiller batch onboarding.pdf --csv staff.csv --out-dir ./packets
 pdf-autofiller batch onboarding.pdf --items rows.json --out-dir ./packets
 ```
 
-The file is a JSON array of `{"name": ..., "user_data": {...}}`.
+With `--csv`, each column header is a data key and each row is one document. A
+`name` column, if present, names the output file; otherwise rows are numbered.
+Empty cells are treated as "not supplied" rather than "set this to empty", so a
+sparse spreadsheet does not blank out values coming from a profile.
+
+```csv
+name,firstname,lastname,dob
+alice,Alice,Ng,1988-02-03
+bob,Bob,Ray,1991-07-09
+```
+
+With `--items`, the file is a JSON array of `{"name": ..., "user_data": {...}}`.
+Exactly one of the two is required.
 
 A row that fails is reported and skipped; the rest of the batch still runs. The
 exit code is non-zero if any row failed, so CI notices.

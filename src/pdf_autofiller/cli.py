@@ -9,16 +9,19 @@ JSON file.
 Every command runs the pipeline in-process. There is no server, no port, and no
 auth token in the loop for local use.
 
+    pdf-autofiller init form.pdf > me.json
     pdf-autofiller inspect form.pdf --data me.json
     pdf-autofiller fill form.pdf --data me.json --out filled.pdf --flatten
+    pdf-autofiller extract filled.pdf --save-profile jane
     pdf-autofiller validate form.pdf
     pdf-autofiller profile set me --data me.json
-    pdf-autofiller batch form.pdf --items rows.json --out-dir ./filled
+    pdf-autofiller batch form.pdf --csv staff.csv --out-dir ./filled
 """
 
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import sys
 from pathlib import Path
@@ -26,9 +29,21 @@ from typing import Any, Optional, Sequence
 
 from . import __version__
 from .errors import PdfAutofillerError
-from .pipeline import run_fill_pipeline, run_inspect_pipeline
+from .pipeline import (
+    data_skeleton,
+    extract_form_values,
+    run_fill_pipeline,
+    run_inspect_pipeline,
+)
 from .settings import get_settings
-from .store import Profile, Template, profile_store, resolve_fill_inputs, template_store
+from .store import (
+    Profile,
+    Template,
+    profile_store,
+    resolve_fill_inputs,
+    sanitize_name,
+    template_store,
+)
 
 
 def _load_json(path: Optional[str], label: str) -> dict[str, Any]:
@@ -172,6 +187,54 @@ def cmd_fill(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_extract(args: argparse.Namespace) -> int:
+    """Read the values back out of an already-filled PDF."""
+    settings = get_settings()
+    values = extract_form_values(
+        Path(args.pdf),
+        raw=args.raw,
+        include_empty=args.include_empty,
+        max_pages=settings.max_pdf_pages,
+        max_text_chars=settings.max_pdf_text_chars,
+    )
+
+    if args.save_profile:
+        saved = profile_store().save(
+            Profile(name=args.save_profile, description=f"Extracted from {args.pdf}", data=values)
+        )
+        _emit(
+            saved.model_dump(),
+            args.json,
+            f"saved profile {saved.name} ({len(values)} values from {args.pdf})",
+        )
+        return 0
+
+    # Default output is the data itself, so it can be piped straight to a file.
+    print(json.dumps(values, indent=2))
+    return 0
+
+
+def cmd_init(args: argparse.Namespace) -> int:
+    """Emit a starter data file carrying the keys this form wants."""
+    settings = get_settings()
+    skeleton, annotations = data_skeleton(
+        Path(args.pdf),
+        max_pages=settings.max_pdf_pages,
+        max_text_chars=settings.max_pdf_text_chars,
+    )
+    if not skeleton:
+        print(f"error: {args.pdf} has no fillable form fields", file=sys.stderr)
+        return 1
+
+    if args.annotate:
+        # JSON has no comments, so annotations ride alongside under a key the
+        # mapper ignores rather than being emitted as invalid JSON.
+        print(json.dumps({"_fields": annotations, **skeleton}, indent=2))
+    else:
+        print(json.dumps(skeleton, indent=2))
+    return 0
+
+
 def cmd_validate(args: argparse.Namespace) -> int:
     """Check that a PDF is a fillable AcroForm this tool can handle."""
     settings = get_settings()
@@ -199,16 +262,43 @@ def cmd_validate(args: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_batch(args: argparse.Namespace) -> int:
-    """Fill one form once per row of an items file."""
+def _read_batch_items(args: argparse.Namespace) -> list[dict[str, Any]]:
+    """Load batch rows from either a JSON array or a CSV file.
+
+    CSV exists because the people doing this work have spreadsheets, not JSON
+    arrays; requiring a conversion step first is a tax on the most repetitive
+    workflow the tool has. Each column header is a data key, and an optional
+    ``name`` column names the output file.
+    """
+    if args.csv:
+        rows: list[dict[str, Any]] = []
+        with Path(args.csv).open(newline="", encoding="utf-8-sig") as handle:
+            reader = csv.DictReader(handle)
+            if not reader.fieldnames:
+                raise SystemExit(f"error: {args.csv} has no header row")
+            for index, row in enumerate(reader):
+                # Drop empty cells: a blank means "not supplied", and carrying it
+                # through as "" would overwrite a profile value with nothing.
+                data = {k: v for k, v in row.items() if k and v not in (None, "")}
+                name = str(data.pop("name", f"row-{index + 1}"))
+                rows.append({"name": name, "user_data": data})
+        if not rows:
+            raise SystemExit(f"error: {args.csv} contains no data rows")
+        return rows
+
     raw = json.loads(Path(args.items).read_text(encoding="utf-8"))
     if not isinstance(raw, list):
         raise SystemExit("error: --items must be a JSON array")
+    return raw
+
+
+def cmd_batch(args: argparse.Namespace) -> int:
+    """Fill one form once per row of data."""
+    raw = _read_batch_items(args)
 
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     settings = get_settings()
-    from .store import sanitize_name
 
     results = []
     failures = 0
@@ -340,13 +430,31 @@ def build_parser() -> argparse.ArgumentParser:
     _add_data_args(p_fill)
     p_fill.set_defaults(func=cmd_fill)
 
+    p_init = sub.add_parser("init", help="Emit a starter data file for a form")
+    p_init.add_argument("pdf")
+    p_init.add_argument("--annotate", action="store_true",
+                        help="Include a _fields block describing each key")
+    p_init.set_defaults(func=cmd_init)
+
+    p_extract = sub.add_parser("extract", help="Read values out of a filled PDF")
+    p_extract.add_argument("pdf")
+    p_extract.add_argument("--raw", action="store_true",
+                           help="Key by exact PDF field name instead of semantic meaning")
+    p_extract.add_argument("--include-empty", action="store_true",
+                           help="Include fields that have no value")
+    p_extract.add_argument("--save-profile", metavar="NAME",
+                           help="Save the extracted values as a named profile")
+    p_extract.set_defaults(func=cmd_extract)
+
     p_validate = sub.add_parser("validate", help="Check a PDF is a fillable AcroForm")
     p_validate.add_argument("pdf")
     p_validate.set_defaults(func=cmd_validate)
 
-    p_batch = sub.add_parser("batch", help="Fill one form once per row of an items file")
+    p_batch = sub.add_parser("batch", help="Fill one form once per row of data")
     p_batch.add_argument("pdf")
-    p_batch.add_argument("--items", required=True, help="JSON array of {name, user_data}")
+    batch_source = p_batch.add_mutually_exclusive_group(required=True)
+    batch_source.add_argument("--items", help="JSON array of {name, user_data}")
+    batch_source.add_argument("--csv", help="CSV file; each column is a data key")
     p_batch.add_argument("--out-dir", default="./filled")
     p_batch.add_argument("--flatten", action="store_true")
     p_batch.add_argument("--infer", action="store_true")
