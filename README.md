@@ -155,7 +155,7 @@ Manual PDF field mapping does not scale. AI-only fillers are hard to audit. **PD
 - Nested JSON input, explicit per-field overrides, and optional flattening
 - Browser playground at `/playground`
 - Python SDK (`fill()`, `inspect()`, `PDFAutofillerClient`)
-- W-9 and HR alias packs + [recipes](recipes/)
+- W-9, I-9, W-4, and HR onboarding alias packs + [recipes](recipes/)
 - Docker on GHCR · Render blueprint · GitHub Release wheels
 - Token auth, rate limits, and payload bounds on by default
 - Untrusted PDFs parsed in a killable subprocess under a wall-clock budget

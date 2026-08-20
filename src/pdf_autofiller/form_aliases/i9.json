@@ -1,0 +1,75 @@
+{
+  "other_last_names_used": [
+    "other_names_used",
+    "maiden_name",
+    "former_last_name",
+    "aka"
+  ],
+  "apartment_number": [
+    "apt_number",
+    "apartment",
+    "unit_number"
+  ],
+  "employee_email_address": [
+    "employee_email",
+    "work_email"
+  ],
+  "employee_telephone_number": [
+    "employee_phone",
+    "employee_telephone"
+  ],
+  "citizenship_attestation": [
+    "citizenship_status",
+    "attestation",
+    "work_authorization_status"
+  ],
+  "alien_registration_number": [
+    "uscis_number",
+    "a_number",
+    "alien_number",
+    "uscis_a_number"
+  ],
+  "form_i94_admission_number": [
+    "i94_number",
+    "admission_number",
+    "i_94"
+  ],
+  "foreign_passport_number": [
+    "passport_number",
+    "passport"
+  ],
+  "country_of_issuance": [
+    "passport_country",
+    "issuing_country"
+  ],
+  "work_authorization_expiration": [
+    "work_authorization_expires",
+    "employment_authorization_expiration"
+  ],
+  "preparer_translator_name": [
+    "preparer_name",
+    "translator_name"
+  ],
+  "document_title": [
+    "doc_title",
+    "identity_document"
+  ],
+  "issuing_authority": [
+    "document_issuer",
+    "issuer"
+  ],
+  "document_number": [
+    "doc_number",
+    "identity_document_number"
+  ],
+  "expiration_date": [
+    "document_expiration",
+    "expires",
+    "expiry_date"
+  ],
+  "first_day_of_employment": [
+    "employment_start_date",
+    "first_day",
+    "hire_date"
+  ]
+}

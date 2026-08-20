@@ -1,0 +1,13 @@
+{
+  "filing_status": ["tax_filing_status", "marital_filing_status", "withholding_status"],
+  "multiple_jobs_or_spouse_works": ["two_jobs", "multiple_jobs", "spouse_works"],
+  "qualifying_children_credit": ["child_tax_credit", "qualifying_children", "dependents_under_17"],
+  "other_dependents_credit": ["other_dependents", "credit_other_dependents"],
+  "dependents_total_credit": ["total_dependent_credit", "dependents_total"],
+  "other_income": ["other_income_not_from_jobs", "additional_income"],
+  "deductions": ["itemized_deductions", "deduction_amount"],
+  "extra_withholding": ["additional_withholding", "extra_amount_withheld"],
+  "exempt_from_withholding": ["claim_exempt", "withholding_exempt"],
+  "employer_name_and_address": ["employer_address", "employer_name_address"],
+  "first_date_of_employment": ["employment_start_date", "first_day_of_work"]
+}

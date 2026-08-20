@@ -47,7 +47,7 @@ first-match, so the result does not depend on the order of keys in `user_data`.
 
 ## Extension Points
 
-- Add semantic aliases to `BUILTIN_FIELD_ALIASES`, or ship a JSON pack in `form_aliases/`. Packs are merged into the built-ins per key — they extend an alias list, never replace it.
+- Add semantic aliases to `BUILTIN_FIELD_ALIASES`, or ship a JSON pack in `form_aliases/`. Packs are merged into the built-ins per key — they extend an alias list, never replace it. `tests/test_alias_packs.py` validates every shipped pack: a pack may not weaken a built-in, claim one variant for two semantics within itself, or re-declare a concept the built-ins already own.
 - Add a new CLI command as one function in `cli.py` plus a subparser; commands call the pipeline directly and hold no logic of their own.
 - Add a new failure mode as a class in `errors.py`; it surfaces over HTTP with no change to the route layer.
 - Extend `coerce_value` when additional normalized data types become necessary.
