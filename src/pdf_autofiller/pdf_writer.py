@@ -22,16 +22,17 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from dataclasses import dataclass, field
 from typing import Optional
 
 from pypdf import PdfReader, PdfWriter
 from pypdf.generic import ArrayObject, NameObject
 
-from .acroform_fields import choice_options, collect_field_objects
+from .acroform_fields import button_states, choice_options, collect_field_objects
 from .acroform_fields import get_field_type as acroform_field_type
 from .errors import UnresolvedRequiredFieldsError
 from .field_utils import is_field_required
-from .models import FillReport, MappingResult
+from .models import FieldMappingDecision, FillReport, MappingResult
 
 logger = logging.getLogger(__name__)
 
@@ -67,33 +68,6 @@ def _field_type(field_obj) -> Optional[str]:
         return None
 
 
-def _button_states(field_obj) -> list[str]:
-    """
-    Return the valid state names for an AcroForm button field.
-
-    Checkboxes and radio buttons accept a fixed set of state names (for example
-    ``/Yes`` and ``/Off``). pypdf exposes these via ``/_States_`` when fields are
-    read through ``get_fields()``; otherwise they can be recovered from the
-    widget's normal-appearance (``/AP`` -> ``/N``) dictionary.
-    """
-    try:
-        states = field_obj.get("/_States_")
-        if states:
-            return [str(state) for state in states]
-    except Exception:
-        logger.debug("Failed to read /_States_ from button field", exc_info=True)
-
-    try:
-        appearance = field_obj.get("/AP")
-        normal = appearance.get("/N") if hasattr(appearance, "get") else None
-        if normal is not None and hasattr(normal, "keys"):
-            return [str(key) for key in normal.keys()]
-    except Exception:
-        logger.debug("Failed to read /AP states from button field", exc_info=True)
-
-    return []
-
-
 def _resolve_button_value(field_obj, value: str) -> Optional[str]:
     """
     Translate a mapped value into a valid AcroForm button state name.
@@ -109,7 +83,7 @@ def _resolve_button_value(field_obj, value: str) -> Optional[str]:
     """
     raw = value.strip()
     state_lookup = {
-        state.lstrip("/").lower(): "/" + state.lstrip("/") for state in _button_states(field_obj)
+        state.lstrip("/").lower(): "/" + state.lstrip("/") for state in button_states(field_obj, include_off=True)
     }
     on_states = [state for key, state in state_lookup.items() if key != "off"]
     normalized = raw.lstrip("/").lower()
@@ -182,6 +156,137 @@ def _strip_form_structures(writer: PdfWriter) -> None:
         del root[NameObject("/AcroForm")]
 
 
+@dataclass
+class _WritePlan:
+    """What each mapping decision resolved to, before anything is written.
+
+    Separating the decision from the writing is what keeps both readable: this
+    half is pure and easy to reason about, and the half that touches pypdf does
+    one thing.
+    """
+
+    values: dict[str, str] = field(default_factory=dict)
+    skipped_review: list[str] = field(default_factory=list)
+    skipped_empty: list[str] = field(default_factory=list)
+    skipped_invalid: list[str] = field(default_factory=list)
+    skipped_required: list[str] = field(default_factory=list)
+
+
+def _resolve_for_field_type(field_obj, value: str) -> Optional[str]:
+    """Translate a value into the representation its field type accepts.
+
+    Returns ``None`` when the value cannot legally go in this field, which the
+    caller records as skipped rather than writing something a viewer may reject.
+    """
+    field_type = _field_type(field_obj)
+    if field_type == "/Sig":
+        # Text in a signature field cannot make a valid signature, and writing
+        # it destroys any existing one.
+        return None
+    if field_type == "/Btn":
+        return _resolve_button_value(field_obj, value)
+    if field_type == "/Ch":
+        return _resolve_choice_value(field_obj, value)
+    return value
+
+
+def _plan_writes(
+    decisions: list[FieldMappingDecision], pdf_fields: dict[str, object]
+) -> _WritePlan:
+    """Sort mapping decisions into values to write and reasons for skipping."""
+    plan = _WritePlan()
+
+    for decision in decisions:
+        name = decision.field_name
+        field_obj = pdf_fields.get(name) if pdf_fields else None
+
+        if decision.requires_review:
+            plan.skipped_review.append(name)
+            if field_obj is not None and is_field_required(field_obj):
+                plan.skipped_required.append(name)
+            continue
+
+        if decision.selected_value is None:
+            plan.skipped_empty.append(name)
+            continue
+
+        if not pdf_fields:
+            # Field introspection failed entirely; let pypdf attempt the write.
+            plan.values[name] = decision.selected_value
+            continue
+
+        if field_obj is None:
+            # A decision for a field this document does not have.
+            continue
+
+        resolved = _resolve_for_field_type(field_obj, decision.selected_value)
+        if resolved is None:
+            plan.skipped_invalid.append(name)
+            continue
+
+        plan.values[name] = resolved
+
+    return plan
+
+
+def _apply_writes(writer: PdfWriter, values: dict[str, str], *, flatten: bool) -> None:
+    """Write field values across the whole document in a single pass.
+
+    Passing ``None`` lets pypdf route each value to the page its widget lives on.
+    A per-page loop would re-send every value for every page — O(pages x fields)
+    — and warn for each page owning none of them. ``auto_regenerate=False`` keeps
+    the appearance streams pypdf just generated instead of setting
+    ``/NeedAppearances`` and asking the viewer to rebuild them.
+    """
+    if not values:
+        return
+
+    try:
+        writer.update_page_form_field_values(
+            None, values, auto_regenerate=False, flatten=flatten
+        )
+        return
+    except Exception:
+        logger.debug("Document-wide field update failed; retrying per page", exc_info=True)
+
+    for page in writer.pages:
+        for name, value in values.items():
+            try:
+                writer.update_page_form_field_values(
+                    page, {name: value}, auto_regenerate=False, flatten=flatten
+                )
+            except Exception:
+                logger.debug("Failed to update field %r on a page", name, exc_info=True)
+
+
+def _unresolved_required_fields(
+    pdf_fields: dict[str, object],
+    mapping_result: MappingResult,
+    *,
+    written: set[str],
+) -> tuple[list[str], list[str]]:
+    """Find required fields the fill did not satisfy.
+
+    Checks the document itself rather than trusting the mapping result, because a
+    form can require a field the mapper never saw a candidate for.
+    """
+    missing = list(mapping_result.missing_required)
+    skipped: list[str] = []
+    flagged = {d.field_name for d in mapping_result.decisions if d.requires_review}
+
+    for name, field_obj in (pdf_fields or {}).items():
+        if not is_field_required(field_obj):
+            continue
+        if name in written or name in missing:
+            continue
+        if name in flagged:
+            skipped.append(name)
+        else:
+            missing.append(name)
+
+    return missing, skipped
+
+
 def fill_pdf(
     input_pdf_path: Path,
     output_pdf_path: Path,
@@ -240,137 +345,34 @@ def fill_pdf(
 
     reader = PdfReader(str(input_pdf_path))
     writer = PdfWriter()
-
-    # Clone document structure to preserve formatting
+    # Clone document structure to preserve formatting.
     writer.clone_reader_document_root(reader)
 
     pdf_fields = _collect_pdf_fields(reader)
+    plan = _plan_writes(mapping_result.decisions, pdf_fields)
 
-    written_fields: set[str] = set()
-    skipped_required_fields: list[str] = []
-    skipped_review_fields: list[str] = []
-    skipped_empty_fields: list[str] = []
-    skipped_invalid_fields: list[str] = []
-    field_values: dict[str, str] = {}
+    _apply_writes(writer, plan.values, flatten=flatten)
 
-    # Process mapping decisions.
-    # Skip fields marked for review or with no value, and translate button
-    # (checkbox/radio) and choice values into valid PDF representations.
-    for decision in mapping_result.decisions:
-        field_name = decision.field_name
-
-        if decision.requires_review:
-            skipped_review_fields.append(field_name)
-            # Track required fields that were skipped
-            if pdf_fields and field_name in pdf_fields:
-                field_obj = pdf_fields[field_name]
-                if field_obj and is_field_required(field_obj):
-                    skipped_required_fields.append(field_name)
-            continue
-
-        if decision.selected_value is None:
-            skipped_empty_fields.append(field_name)
-            continue
-
-        if pdf_fields:
-            if field_name not in pdf_fields:
-                continue
-            field_obj = pdf_fields[field_name]
-            value = decision.selected_value
-            field_type = _field_type(field_obj)
-
-            if field_type == "/Sig":
-                # Writing to a signature field cannot produce a valid signature
-                # and destroys any existing one.
-                skipped_invalid_fields.append(field_name)
-                continue
-            if field_type == "/Btn":
-                resolved = _resolve_button_value(field_obj, value)
-                if resolved is None:
-                    skipped_invalid_fields.append(field_name)
-                    continue
-                value = resolved
-            elif field_type == "/Ch":
-                resolved_choice = _resolve_choice_value(field_obj, value)
-                if resolved_choice is None:
-                    skipped_invalid_fields.append(field_name)
-                    continue
-                value = resolved_choice
-
-            written_fields.add(field_name)
-            field_values[field_name] = value
-            continue
-
-        # If field introspection failed entirely, still let pypdf attempt the write.
-        written_fields.add(field_name)
-        field_values[field_name] = decision.selected_value
-
-    # Write field values across the whole document in a single pass.
-    #
-    # Passing ``None`` lets pypdf route each value to the page its widget lives
-    # on. The previous per-page loop re-sent every value for every page, which
-    # was O(pages x fields) and logged a warning for each page that owned none
-    # of them. auto_regenerate=False keeps the appearance streams pypdf just
-    # generated instead of asking the viewer to rebuild them.
-    if field_values:
-        try:
-            writer.update_page_form_field_values(
-                None, field_values, auto_regenerate=False, flatten=flatten
-            )
-        except Exception:
-            logger.debug(
-                "Document-wide field update failed; retrying per page", exc_info=True
-            )
-            for page in writer.pages:
-                for field_name, value in field_values.items():
-                    try:
-                        writer.update_page_form_field_values(
-                            page, {field_name: value}, auto_regenerate=False, flatten=flatten
-                        )
-                    except Exception:
-                        logger.debug(
-                            "Failed to update individual field '%s' on a page",
-                            field_name,
-                            exc_info=True,
-                        )
-
-    # Validate that all required fields were filled
-    missing_required = mapping_result.missing_required.copy()
-
-    # Check PDF form fields for any required fields we missed
-    for field_name, field_obj in (pdf_fields or {}).items():
-        if is_field_required(field_obj):
-            if field_name not in written_fields and field_name not in missing_required:
-                # Check if it was skipped due to review flag
-                skipped_decisions = [
-                    d
-                    for d in mapping_result.decisions
-                    if d.field_name == field_name and d.requires_review
-                ]
-                if skipped_decisions:
-                    if field_name not in skipped_required_fields:
-                        skipped_required_fields.append(field_name)
-                else:
-                    missing_required.append(field_name)
-
-    # Fail if required fields unresolved
-    if missing_required or skipped_required_fields:
+    missing_required, skipped_required = _unresolved_required_fields(
+        pdf_fields, mapping_result, written=set(plan.values)
+    )
+    skipped_required = sorted(set(plan.skipped_required) | set(skipped_required))
+    if missing_required or skipped_required:
         raise UnresolvedRequiredFieldsError(
-            missing_fields=missing_required, skipped_fields=skipped_required_fields
+            missing_fields=missing_required, skipped_fields=skipped_required
         )
 
     if flatten:
         _strip_form_structures(writer)
 
-    # Write output PDF
     output_pdf_path.parent.mkdir(parents=True, exist_ok=True)
     with output_pdf_path.open("wb") as output_file:
         writer.write(output_file)
 
     return FillReport(
-        written_fields=sorted(written_fields),
-        skipped_review_fields=skipped_review_fields,
-        skipped_empty_fields=skipped_empty_fields,
-        skipped_invalid_fields=skipped_invalid_fields,
+        written_fields=sorted(plan.values),
+        skipped_review_fields=plan.skipped_review,
+        skipped_empty_fields=plan.skipped_empty,
+        skipped_invalid_fields=plan.skipped_invalid,
         flattened=flatten,
     )

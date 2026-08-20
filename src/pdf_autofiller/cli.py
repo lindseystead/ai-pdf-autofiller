@@ -90,6 +90,56 @@ def _resolve(args: argparse.Namespace) -> tuple[dict[str, Any], dict[str, Any]]:
     return data, resolved_overrides
 
 
+def _field_marker(field, decision) -> str:
+    """One character summarising what will happen to a field.
+
+    A marker column reads faster than a sentence per field, and on a long form
+    the eye only needs to find the `!` rows.
+    """
+    if decision and not decision.requires_review and decision.selected_value is not None:
+        return "+"
+    if decision and decision.requires_review:
+        return "?"
+    if field.required:
+        return "!"
+    return " "
+
+
+def _render_inspect(pdf_path: str, report) -> str:
+    """Render an inspect report for a human reader."""
+    decisions = {d.field_name: d for d in (report.mapping.decisions if report.mapping else [])}
+    width = max((len(f.field.name) for f in report.fields), default=10)
+
+    lines = [
+        f"{pdf_path}: {len(report.fields)} fields, {report.metadata.num_pages} pages",
+        f"fingerprint: {report.fingerprint}",
+        "",
+    ]
+    for enriched in report.fields:
+        field = enriched.field
+        decision = decisions.get(field.name)
+        flags = []
+        if field.required:
+            flags.append("required")
+        if field.options:
+            flags.append(f"options={len(field.options)}")
+        suffix = f" [{', '.join(flags)}]" if flags else ""
+        value = f" -> {decision.selected_value!r}" if decision else ""
+        lines.append(
+            f" {_field_marker(field, decision)} {field.name:<{width}}  "
+            f"{field.field_type:<9} {enriched.semantics.semantic_meaning}{suffix}{value}"
+        )
+
+    lines.append("")
+    lines.append(f"would write {len(report.would_write)}, would skip {len(report.would_skip)}")
+    if report.mapping and report.mapping.missing_required:
+        lines.append(f"missing required: {', '.join(report.mapping.missing_required)}")
+    if report.mapping and report.mapping.unmapped_user_keys:
+        lines.append(f"unused data keys: {', '.join(report.mapping.unmapped_user_keys)}")
+    lines.append("legend: + will fill   ? needs review   ! required and unmapped")
+    return "\n".join(lines)
+
+
 def cmd_inspect(args: argparse.Namespace) -> int:
     """Show a form's fields and what a fill would do."""
     data, overrides = _resolve(args)
@@ -109,41 +159,9 @@ def cmd_inspect(args: argparse.Namespace) -> int:
         print(json.dumps(report.model_dump(), indent=2, default=str))
         return 0
 
-    print(f"{args.pdf}: {len(report.fields)} fields, {report.metadata.num_pages} pages")
-    print(f"fingerprint: {report.fingerprint}")
-    print()
-    decisions = {d.field_name: d for d in (report.mapping.decisions if report.mapping else [])}
-    width = max((len(f.field.name) for f in report.fields), default=10)
-    for enriched in report.fields:
-        field = enriched.field
-        decision = decisions.get(field.name)
-        flags = []
-        if field.required:
-            flags.append("required")
-        if field.options:
-            flags.append(f"options={len(field.options)}")
-        marker = " "
-        if decision and not decision.requires_review and decision.selected_value is not None:
-            marker = "+"
-        elif decision and decision.requires_review:
-            marker = "?"
-        elif field.required:
-            marker = "!"
-        value = f" -> {decision.selected_value!r}" if decision else ""
-        suffix = f" [{', '.join(flags)}]" if flags else ""
-        print(
-            f" {marker} {field.name:<{width}}  {field.field_type:<9} "
-            f"{enriched.semantics.semantic_meaning}{suffix}{value}"
-        )
-
-    print()
-    print(f"would write {len(report.would_write)}, would skip {len(report.would_skip)}")
-    if report.mapping and report.mapping.missing_required:
-        print(f"missing required: {', '.join(report.mapping.missing_required)}")
-    if report.mapping and report.mapping.unmapped_user_keys:
-        print(f"unused data keys: {', '.join(report.mapping.unmapped_user_keys)}")
-    print("legend: + will fill   ? needs review   ! required and unmapped")
+    print(_render_inspect(args.pdf, report))
     return 0
+
 
 
 def cmd_fill(args: argparse.Namespace) -> int:
@@ -199,6 +217,12 @@ def cmd_extract(args: argparse.Namespace) -> int:
     )
 
     if args.save_profile:
+        if not values:
+            print(
+                f"error: {args.pdf} has no filled values; refusing to save an empty profile",
+                file=sys.stderr,
+            )
+            return 1
         saved = profile_store().save(
             Profile(name=args.save_profile, description=f"Extracted from {args.pdf}", data=values)
         )
@@ -222,10 +246,6 @@ def cmd_init(args: argparse.Namespace) -> int:
         max_pages=settings.max_pdf_pages,
         max_text_chars=settings.max_pdf_text_chars,
     )
-    if not skeleton:
-        print(f"error: {args.pdf} has no fillable form fields", file=sys.stderr)
-        return 1
-
     if args.annotate:
         # JSON has no comments, so annotations ride alongside under a key the
         # mapper ignores rather than being emitted as invalid JSON.
@@ -354,7 +374,8 @@ def cmd_profile(args: argparse.Namespace) -> int:
         saved = store.save(profile)
         _emit(saved.model_dump(), args.json, f"saved profile {saved.name}")
     elif args.profile_action == "show":
-        _emit(store.get(args.name).model_dump(), args.json, json.dumps(store.get(args.name).data, indent=2))
+        profile = store.get(args.name)
+        _emit(profile.model_dump(), args.json, json.dumps(profile.data, indent=2))
     elif args.profile_action == "delete":
         store.delete(args.name)
         _emit({"deleted": args.name}, args.json, f"deleted profile {args.name}")

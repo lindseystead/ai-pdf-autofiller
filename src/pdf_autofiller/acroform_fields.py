@@ -81,8 +81,17 @@ def choice_options(field_obj) -> list[str]:
         return []
 
 
-def button_states(field_obj) -> list[str]:
-    """Return the export states a checkbox or radio group accepts, minus /Off."""
+def button_states(field_obj, *, include_off: bool = False) -> list[str]:
+    """Return the state names a checkbox or radio group accepts.
+
+    Checkboxes and radio buttons only toggle when written with an exact state
+    name (``/Yes``, ``/Off``, or a radio group's export value). pypdf exposes
+    these via ``/_States_`` when fields come from ``get_fields()``; otherwise
+    they are recoverable from the widget's normal-appearance dictionary.
+
+    ``include_off`` keeps ``/Off`` in the result. The writer needs it to resolve
+    a falsy value; a caller listing what a user may *choose* does not.
+    """
     if not hasattr(field_obj, "get"):
         return []
     states: list[str] = []
@@ -102,6 +111,8 @@ def button_states(field_obj) -> list[str]:
         except Exception:
             logger.debug("Failed to read /AP states from button field", exc_info=True)
 
+    if include_off:
+        return states
     return [state for state in states if state.lstrip("/").lower() != "off"]
 
 

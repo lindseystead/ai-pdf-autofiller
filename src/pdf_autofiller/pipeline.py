@@ -29,6 +29,7 @@ from .models import (
     MappingResult,
     TextRegion,
 )
+from .errors import NoFormFieldsError
 from .pdf_reader import form_fingerprint, read_pdf
 from .pdf_writer import fill_pdf
 from .semantics_cache import get_cached_semantics, store_cached_semantics
@@ -251,6 +252,10 @@ def extract_form_values(
     structure = read_pdf(
         input_pdf_path, max_pages=max_pages, max_text_chars=max_text_chars
     )
+    if not structure.form_fields:
+        # A flattened or scanned document has nothing to read. Returning {} here
+        # would let a caller save an empty profile and only notice much later.
+        raise NoFormFieldsError()
 
     values: dict[str, Any] = {}
     for field in structure.form_fields:
@@ -288,6 +293,8 @@ def data_skeleton(
     structure = read_pdf(
         input_pdf_path, max_pages=max_pages, max_text_chars=max_text_chars
     )
+    if not structure.form_fields:
+        raise NoFormFieldsError()
     enriched = [fallback_semantics(field) for field in structure.form_fields]
     # Required first, then original document order within each group.
     ordered = sorted(enriched, key=lambda e: not e.field.required)

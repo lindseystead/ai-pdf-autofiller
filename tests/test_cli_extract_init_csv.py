@@ -94,7 +94,7 @@ def test_annotation_block_is_ignored_when_used_as_data():
     assert flat == {"firstname": "Jane"}
 
 
-def test_init_on_a_form_with_no_fields_fails(tmp_path, capsys):
+def _blank_pdf(tmp_path: Path) -> Path:
     from pypdf import PdfWriter
 
     blank = tmp_path / "blank.pdf"
@@ -102,9 +102,38 @@ def test_init_on_a_form_with_no_fields_fails(tmp_path, capsys):
     writer.add_blank_page(width=200, height=200)
     with blank.open("wb") as handle:
         writer.write(handle)
+    return blank
 
-    assert main(["init", str(blank)]) == 1
-    assert "no fillable form fields" in capsys.readouterr().err
+
+def test_init_on_a_form_with_no_fields_reports_the_named_error(tmp_path, capsys):
+    """Same typed error the API returns, rather than a bespoke CLI message."""
+    assert main(["init", str(_blank_pdf(tmp_path))]) == 2
+    assert "pdf_no_form_fields" in capsys.readouterr().err
+
+
+def test_extract_on_a_document_with_no_fields_is_an_error(tmp_path, capsys):
+    """A flattened or scanned PDF has nothing to read.
+
+    Returning {} here let a caller save an empty profile and only discover it
+    much later — found by running the real CLI against a --flatten output.
+    """
+    assert main(["extract", str(_blank_pdf(tmp_path))]) == 2
+    assert "pdf_no_form_fields" in capsys.readouterr().err
+
+
+def test_extract_from_a_flattened_pdf_does_not_save_an_empty_profile(tmp_path, capsys):
+    flat = tmp_path / "flat.pdf"
+    data = tmp_path / "d.json"
+    data.write_text(json.dumps(COMPLETE), encoding="utf-8")
+    main(["fill", str(SAMPLE), "--data", str(data), "--out", str(flat), "--flatten"])
+    capsys.readouterr()
+
+    assert main(["extract", str(flat), "--save-profile", "ghost"]) == 2
+    from pdf_autofiller.errors import ProfileNotFoundError
+    from pdf_autofiller.store import profile_store
+
+    with pytest.raises(ProfileNotFoundError):
+        profile_store().get("ghost")
 
 
 # --- extract ---------------------------------------------------------------

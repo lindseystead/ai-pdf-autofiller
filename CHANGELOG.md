@@ -6,6 +6,10 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- **`extract` on a flattened or scanned PDF no longer returns an empty result.**
+  A document with no form fields now raises `pdf_no_form_fields`, and
+  `--save-profile` refuses to save an empty profile. Previously this silently
+  wrote a profile containing nothing, which only surfaced at the next fill.
 - **Community alias packs no longer delete the built-in aliases they extend.**
   `FIELD_ALIASES.update()` replaced a semantic's alias list wholesale, so a pack
   adding one variant for `first_name` removed `firstname`, `given_name`,
@@ -63,7 +67,20 @@ All notable changes to this project will be documented in this file.
 - **Opt-in CORS** via `CORS_ALLOW_ORIGINS`. There is no wildcard default.
 - `SDK`: `inspect()` and `fill_with_report()`, plus `flatten`, `overrides`,
   `template`, and `profile` arguments on `fill()`.
-- Adversarial-PDF and property-based test suites (202 tests total).
+- **`init`** emits a starter data file carrying the keys a form actually wants,
+  required ones first, with an optional `_fields` annotation block.
+- **`extract`** reads values back out of a completed PDF, keyed by semantic
+  meaning (feeds `--data` and profiles) or `--raw` field name (feeds
+  `overrides`). `--save-profile` turns a hand-filled form into reusable data.
+- **`batch --csv`** takes a spreadsheet directly; column headers are data keys.
+- I-9 and W-4 alias packs, and tests validating every shipped pack.
+- `docs/CLI.md`, plus a test suite that fails when documentation drifts from the
+  code — undocumented CLI commands, endpoints that do not exist, settings
+  nothing reads, or dead relative links.
+- A cyclomatic-complexity budget enforced in CI and in tests, so the hot spots
+  cannot grow back.
+- Adversarial-PDF, property-based, and characterization test suites
+  (272 tests total).
 - README hero images (`docs/assets/social-preview.png`, `playground-preview.png`) for discoverability
 - `scripts/apply-repo-metadata.sh` to set GitHub description and topics (run locally with admin `gh`)
 - Expanded `pyproject.toml` keywords for search
@@ -93,6 +110,13 @@ All notable changes to this project will be documented in this file.
 - HTTP plumbing (auth, rate limiting, payload bounds, upload staging, the error
   contract) moved to `http_support.py`, leaving `api_service.py` as a readable
   list of what the service exposes.
+- `fill_pdf` split into plan / write / verify (cyclomatic complexity 34 to 5),
+  `map_user_data_to_fields` into assignment and provider fallback (29 to 13),
+  and `cmd_inspect` into computation and rendering (20 to 2). No function in the
+  package now exceeds C-grade; the average is A.
+- `button_states` had two near-identical implementations, in `acroform_fields`
+  and `pdf_writer`, differing only in whether `/Off` was filtered. Now one
+  function with an `include_off` flag.
 - README restructured for discovery: keywords, use cases, playground screenshot, stars badge
 - GitHub Pages landing (`docs/site/`) updated with Open Graph / Twitter meta tags
 - Docs index and asset README updated

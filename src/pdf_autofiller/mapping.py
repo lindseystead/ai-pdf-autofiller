@@ -541,6 +541,106 @@ def _apply_overrides(
     return decisions, consumed
 
 
+def _assign_best_first(
+    fields: list[EnrichedFormField],
+    flat_data: dict[str, Any],
+    allow_key_reuse: bool,
+) -> tuple[dict[str, FieldMappingDecision], set[str]]:
+    """Score every (field, key) pair, then take the best pairings in order.
+
+    Greedy first-match made the outcome depend on ``user_data`` insertion order,
+    so the same data submitted twice could fill a form differently. Scoring
+    everything up front and assigning best-first removes that.
+    """
+    scored: list[tuple[float, int, str, EnrichedFormField, _Candidate]] = []
+    for enriched_field in fields:
+        for candidate in _score_candidates(
+            enriched_field.semantics.semantic_meaning,
+            flat_data,
+            enriched_field.semantics.expected_data_type,
+        ):
+            scored.append(
+                (
+                    -candidate.confidence,
+                    candidate.rank,
+                    enriched_field.field.name,
+                    enriched_field,
+                    candidate,
+                )
+            )
+    scored.sort(key=lambda item: (item[0], item[1], item[2]))
+
+    assigned: dict[str, FieldMappingDecision] = {}
+    used_user_keys: set[str] = set()
+    for _, _, field_name, enriched_field, candidate in scored:
+        if field_name in assigned:
+            continue
+        if not allow_key_reuse and candidate.key in used_user_keys:
+            continue
+
+        used_user_keys.add(candidate.key)
+        assigned[field_name] = FieldMappingDecision(
+            field_name=field_name,
+            semantic_meaning=enriched_field.semantics.semantic_meaning,
+            selected_value=candidate.value,
+            confidence=candidate.confidence,
+            reason=candidate.reason,
+            requires_review=candidate.requires_review or candidate.confidence < 0.80,
+        )
+
+    return assigned, used_user_keys
+
+
+def _apply_provider_fallback(
+    unmapped_fields: list[EnrichedFormField],
+    flat_data: dict[str, Any],
+    used_user_keys: set[str],
+    decisions: list[FieldMappingDecision],
+    api_key: Optional[str],
+) -> list[EnrichedFormField]:
+    """Ask the provider about fields deterministic matching could not resolve.
+
+    Restricted to high-value fields — required, or confidently understood —
+    because the provider costs money and latency, and a field nobody needs is
+    not worth either. Appends to ``decisions`` and returns what remains unmapped.
+    """
+    high_value = [
+        f for f in unmapped_fields if f.field.required or f.semantics.confidence_score > 0.8
+    ]
+    if not high_value:
+        return unmapped_fields
+
+    fallback_mappings = semantic_fallback_mapping(high_value, flat_data, api_key)
+    still_unmapped = list(unmapped_fields)
+
+    for enriched_field in high_value:
+        field_name = enriched_field.field.name
+        if field_name not in fallback_mappings:
+            continue
+
+        matched_key, matched_value, confidence, reason = fallback_mappings[field_name]
+        if not matched_key or matched_key in used_user_keys:
+            continue
+
+        used_user_keys.add(matched_key)
+        coerced_value, requires_review = coerce_value(
+            matched_value, enriched_field.semantics.expected_data_type
+        )
+        decisions.append(
+            FieldMappingDecision(
+                field_name=field_name,
+                semantic_meaning=enriched_field.semantics.semantic_meaning,
+                selected_value=coerced_value,
+                confidence=confidence,
+                reason=reason,
+                requires_review=requires_review or confidence < 0.80,
+            )
+        )
+        still_unmapped.remove(enriched_field)
+
+    return still_unmapped
+
+
 def map_user_data_to_fields(
     enriched_fields: list[EnrichedFormField],
     user_data: dict[str, Any],
@@ -589,81 +689,16 @@ def map_user_data_to_fields(
     decisions, overridden = _apply_overrides(enriched_fields, overrides or {})
     pending = [f for f in enriched_fields if f.field.name not in overridden]
 
-    # Score every (field, key) pair up front, then assign best-first. This makes
-    # the outcome independent of user_data ordering, which greedy matching was not.
-    scored: list[tuple[float, int, str, EnrichedFormField, _Candidate]] = []
-    for enriched_field in pending:
-        for candidate in _score_candidates(
-            enriched_field.semantics.semantic_meaning,
-            flat_data,
-            enriched_field.semantics.expected_data_type,
-        ):
-            scored.append(
-                (-candidate.confidence, candidate.rank, enriched_field.field.name, enriched_field, candidate)
-            )
+    assigned, used_user_keys = _assign_best_first(pending, flat_data, allow_key_reuse)
+    decisions.extend(assigned.values())
 
-    scored.sort(key=lambda item: (item[0], item[1], item[2]))
-
-    used_user_keys: set[str] = set()
-    assigned_fields: set[str] = set()
-    for _, _, field_name, enriched_field, candidate in scored:
-        if field_name in assigned_fields:
-            continue
-        if not allow_key_reuse and candidate.key in used_user_keys:
-            continue
-
-        assigned_fields.add(field_name)
-        used_user_keys.add(candidate.key)
-        decisions.append(
-            FieldMappingDecision(
-                field_name=field_name,
-                semantic_meaning=enriched_field.semantics.semantic_meaning,
-                selected_value=candidate.value,
-                confidence=candidate.confidence,
-                reason=candidate.reason,
-                requires_review=candidate.requires_review or candidate.confidence < 0.80,
-            )
+    unmapped_fields = [f for f in pending if f.field.name not in assigned]
+    if not strict and allow_fallback_mapping and unmapped_fields:
+        unmapped_fields = _apply_provider_fallback(
+            unmapped_fields, flat_data, used_user_keys, decisions, api_key
         )
 
-    unmapped_fields = [f for f in pending if f.field.name not in assigned_fields]
-
-    # Provider-backed fallback is constrained to unresolved fields with high value
-    # (required or high-confidence semantics).
-    if not strict and allow_fallback_mapping and unmapped_fields:
-        high_value_fields = [
-            f for f in unmapped_fields if f.field.required or f.semantics.confidence_score > 0.8
-        ]
-
-        if high_value_fields:
-            fallback_mappings = semantic_fallback_mapping(high_value_fields, flat_data, api_key)
-
-            for enriched_field in list(high_value_fields):
-                field_name = enriched_field.field.name
-
-                if field_name in fallback_mappings:
-                    matched_key, matched_value, confidence, reason = fallback_mappings[field_name]
-
-                    if matched_key and matched_key not in used_user_keys:
-                        used_user_keys.add(matched_key)
-                        coerced_value, requires_review = coerce_value(
-                            matched_value, enriched_field.semantics.expected_data_type
-                        )
-
-                        decisions.append(
-                            FieldMappingDecision(
-                                field_name=field_name,
-                                semantic_meaning=enriched_field.semantics.semantic_meaning,
-                                selected_value=coerced_value,
-                                confidence=confidence,
-                                reason=reason,
-                                requires_review=requires_review or confidence < 0.80,
-                            )
-                        )
-
-                        unmapped_fields.remove(enriched_field)
-
     missing_required = [f.field.name for f in unmapped_fields if f.field.required]
-
     unmapped_user_keys = [key for key in flat_data if key not in used_user_keys]
 
     return MappingResult(

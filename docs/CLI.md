@@ -156,6 +156,10 @@ pdf-autofiller extract filled.pdf --save-profile jane
 
 Turns a form someone completed by hand into a reusable profile in one step.
 
+A flattened or scanned PDF has no form fields to read, so `extract` reports
+`pdf_no_form_fields` rather than returning an empty result — and refuses to save
+an empty profile.
+
 ---
 
 ## `validate`

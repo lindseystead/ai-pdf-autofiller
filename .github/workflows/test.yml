@@ -29,6 +29,12 @@ jobs:
       - name: Type check
         run: |
           mypy src/
+      # A complexity ceiling, enforced. fill_pdf reached 34 by accretion because
+      # nothing failed when it got worse; tests/test_complexity_budget.py is the
+      # thing that now fails.
+      - name: Complexity budget
+        run: |
+          radon cc src/ -s -n D --total-average
       # Audit the runtime surface (what ships in the Docker image via requirements.txt),
       # not dev/build tooling. No advisories are ignored: the surface must be clean.
       - name: Security audit (runtime dependencies)

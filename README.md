@@ -200,7 +200,7 @@ flowchart LR
 make test && make lint && make smoke-check
 ```
 
-202 tests · 85%+ coverage · Python 3.11 & 3.12
+272 tests · 85%+ coverage · Python 3.11 & 3.12
 
 ## License
 
