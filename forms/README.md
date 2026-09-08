@@ -18,13 +18,15 @@ These JSON files extend deterministic field matching for common form families. T
 
 ## Custom alias directory
 
-Set `FORM_ALIASES_DIR` to load additional packs from your deployment:
+Set `FORM_ALIASES_DIR` to load packs from your deployment. **This replaces the packaged `form_aliases` directory** (it does not merge with the shipped packs). Built-in `FIELD_ALIASES` in code still apply; only the JSON packs come from the chosen directory.
 
 ```bash
 export FORM_ALIASES_DIR=/etc/pdf-autofiller/aliases
 ```
 
-Each `*.json` file in that directory is merged the same way.
+Each `*.json` file in that directory is merged into `FIELD_ALIASES` the same way as the packaged packs.
+
+**Load once at import:** alias packs are loaded when `mapping.py` is imported. Changing `FORM_ALIASES_DIR` or the JSON files requires a **process restart** (or re-import) to take effect — there is no hot reload.
 
 ## Example user data for W-9
 

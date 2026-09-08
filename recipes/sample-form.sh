@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Fill the bundled sample form in one command.
+# Local demo without a token: API_AUTH_ENABLED=false make run-api
 set -euo pipefail
 
 API_URL="${API_URL:-http://localhost:8000}"

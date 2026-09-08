@@ -4,7 +4,8 @@ Shared Pydantic models for the PDF autofill pipeline.
 These models define contracts between extraction, semantics, mapping, and write steps.
 """
 
-from typing import Literal, Optional
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -15,7 +16,7 @@ class FormField(BaseModel):
     field_type: Literal["text", "button", "choice", "signature", "unknown"] = Field(
         description="Type of form field"
     )
-    value: Optional[str] = Field(default=None, description="Current field value if present")
+    value: str | None = Field(default=None, description="Current field value if present")
     required: bool = Field(default=False, description="Whether field is required")
     page_number: int = Field(description="Page number where field appears (1-indexed)")
 
@@ -25,19 +26,19 @@ class TextRegion(BaseModel):
     
     text: str = Field(description="Extracted text content")
     page_number: int = Field(description="Page number where text appears (1-indexed)")
-    x: Optional[float] = Field(default=None, description="X coordinate of text region")
-    y: Optional[float] = Field(default=None, description="Y coordinate of text region")
+    x: float | None = Field(default=None, description="X coordinate of text region")
+    y: float | None = Field(default=None, description="Y coordinate of text region")
 
 
 class DocumentMetadata(BaseModel):
     """Metadata about the PDF document."""
     
     num_pages: int = Field(description="Total number of pages")
-    title: Optional[str] = Field(default=None, description="Document title")
-    author: Optional[str] = Field(default=None, description="Document author")
-    subject: Optional[str] = Field(default=None, description="Document subject")
-    creator: Optional[str] = Field(default=None, description="Application that created the PDF")
-    producer: Optional[str] = Field(default=None, description="Application that produced the PDF")
+    title: str | None = Field(default=None, description="Document title")
+    author: str | None = Field(default=None, description="Document author")
+    subject: str | None = Field(default=None, description="Document subject")
+    creator: str | None = Field(default=None, description="Application that created the PDF")
+    producer: str | None = Field(default=None, description="Application that produced the PDF")
 
 
 class FieldSemantics(BaseModel):
@@ -76,7 +77,7 @@ class FieldMappingDecision(BaseModel):
     
     field_name: str = Field(description="PDF form field name")
     semantic_meaning: str = Field(description="Semantic meaning of the field")
-    selected_value: Optional[str] = Field(default=None, description="Value selected from user data")
+    selected_value: str | None = Field(default=None, description="Value selected from user data")
     confidence: float = Field(ge=0.0, le=1.0, description="Confidence in the mapping decision")
     reason: str = Field(description="Explanation of how the mapping was determined")
     requires_review: bool = Field(default=False, description="Whether this mapping requires human review")

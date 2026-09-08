@@ -27,9 +27,10 @@ Generic recipe for employee intake packets (I-9 supplements, benefits enrollment
 
 ## curl
 
+Start the API without a token for local demos (`API_AUTH_ENABLED=false make run-api`), then:
+
 ```bash
 curl -s -X POST http://localhost:8000/fill \
-  -H "X-API-Key: ${API_AUTH_TOKEN:-}" \
   -F "pdf_file=@onboarding.pdf;type=application/pdf" \
   -F 'user_data={
     "firstname": "Jane",
@@ -42,6 +43,8 @@ curl -s -X POST http://localhost:8000/fill \
   -F "strict=true" \
   -o onboarding-filled.pdf
 ```
+
+When auth is enabled, add `-H "X-API-Key: ${API_AUTH_TOKEN}"`.
 
 ## Python SDK
 
@@ -59,3 +62,7 @@ client.fill_to_file("onboarding.pdf", {
 ## Alias pack
 
 HR-specific aliases ship in `src/pdf_autofiller/form_aliases/hr_onboarding.json`.
+
+## Synthetic fixture
+
+A CI/demo HR intake PDF lives at `samples/hr_intake_sample.pdf` (fields: `txtEmployeeName`, `txtSSN`, `txtEmployer`, `txtJobTitle`, `txtStartDate`, `chkConsent`). Expected maps are in `tests/fixtures/corpus/cases.json`. Regenerate with `python3 scripts/create_corpus_forms.py`.

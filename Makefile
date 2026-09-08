@@ -1,6 +1,6 @@
 # Makefile for PDF Autofiller
 
-.PHONY: help install install-runtime test test-cov smoke-check lint format clean run-sample create-sample run-api playground demo-output install-release
+.PHONY: help install install-runtime test test-cov smoke-check corpus-check lint format clean run-sample create-sample run-api playground demo-output install-release
 
 help:
 	@echo "Available commands:"
@@ -9,6 +9,7 @@ help:
 	@echo "  make test            - Run tests"
 	@echo "  make test-cov        - Run tests with coverage reporting"
 	@echo "  make smoke-check     - Run the local smoke-check script"
+	@echo "  make corpus-check    - Run golden corpus hit-rate report"
 	@echo "  make lint            - Run linters"
 	@echo "  make format          - Format code"
 	@echo "  make clean           - Clean build artifacts"
@@ -25,20 +26,23 @@ install-runtime:
 	pip install -r requirements.txt
 
 test:
-	PYTHONPATH=src pytest tests/ -v
+	PYTHONPATH=src python3 -m pytest tests/ -v
 
 test-cov:
-	PYTHONPATH=src pytest tests/ --cov=src --cov-report=html --cov-report=term --cov-fail-under=85
+	PYTHONPATH=src python3 -m pytest tests/ --cov=src --cov-report=html --cov-report=term --cov-fail-under=85
 
 smoke-check:
-	PYTHONPATH=src python -m scripts.smoke_check
+	PYTHONPATH=src python3 -m scripts.smoke_check
+
+corpus-check:
+	PYTHONPATH=src python3 -m scripts.corpus_report
 
 lint:
 	ruff check src/ tests/ scripts/
 	mypy src/
 
 format:
-	black src/ tests/ scripts/
+	ruff format src/ tests/ scripts/
 	ruff check --fix src/ tests/ scripts/
 
 clean:
@@ -47,16 +51,16 @@ clean:
 	find . -type f -name "*.pyc" -delete
 
 run-sample:
-	PYTHONPATH=src python -m scripts.demo_workflow samples/sample_form.pdf
+	PYTHONPATH=src python3 -m scripts.demo_workflow samples/sample_form.pdf
 
 create-sample:
-	python scripts/create_sample_form.py
+	python3 scripts/create_sample_form.py
 
 run-api:
-	PYTHONPATH=src python -m uvicorn pdf_autofiller.api_service:app --host 0.0.0.0 --port 8000
+	PYTHONPATH=src python3 -m uvicorn pdf_autofiller.api_service:app --host 0.0.0.0 --port 8000
 
 playground:
-	@echo "Playground: http://localhost:8000/playground (run 'make run-api' first)"
+	@echo "Playground: http://localhost:8000/playground (run 'API_AUTH_ENABLED=false make run-api' first)"
 
 install-release:
 	bash scripts/install-from-release.sh

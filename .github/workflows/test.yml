@@ -38,6 +38,29 @@ jobs:
         run: |
           PYTHONPATH=src pytest tests/ -v --cov=src --cov-report=term --cov-fail-under=85
 
+  docker-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t pdf-autofiller:ci .
+      - name: Run container and hit /health
+        run: |
+          docker run -d --name pdf-autofiller-ci -p 8000:8000 \
+            -e API_AUTH_ENABLED=false \
+            pdf-autofiller:ci
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            if curl -sf http://127.0.0.1:8000/health; then
+              echo
+              docker stop pdf-autofiller-ci
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs pdf-autofiller-ci || true
+          docker stop pdf-autofiller-ci || true
+          exit 1
+
   lockfile:
     runs-on: ubuntu-latest
     steps:

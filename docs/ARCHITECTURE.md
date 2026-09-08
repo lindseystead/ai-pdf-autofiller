@@ -7,15 +7,31 @@
 - `src/pdf_autofiller/field_semantics.py`: wraps provider calls and normalizes model responses
 - `src/pdf_autofiller/mapping.py`: performs deterministic matching first and uses fallback mapping only for unresolved high-value fields
 - `src/pdf_autofiller/pdf_writer.py`: writes validated field values and enforces required-field completion
-- `src/pdf_autofiller/pipeline.py`: orchestrates extract → enrich → map → write for API, SDK, and tests
-- `src/pdf_autofiller/api_service.py`: owns the HTTP contract, auth, request validation, and temporary file lifecycle
+- `src/pdf_autofiller/pipeline.py`: orchestrates extract → enrich → map → write; exports local `fill()`
+- `src/pdf_autofiller/client.py`: optional HTTP client for remote `/fill`
+- `src/pdf_autofiller/api_service.py`: owns the HTTP contract, auth, and temp files
+- `src/pdf_autofiller/playground.py` + `static/`: browser playground UI
+- `src/pdf_autofiller/form_aliases/`: community alias packs (W-9, HR)
 - `src/pdf_autofiller/models.py`: defines the shared data contracts between each stage
+
+## HTTP endpoints
+
+| Method | Path | Notes |
+|--------|------|-------|
+| `GET` | `/` | Redirect to `/playground` |
+| `GET` | `/playground` | Browser UI |
+| `GET` | `/health` | Health + dependency checks |
+| `GET` | `/version` | Service identity and version |
+| `GET` | `/samples/sample_form.pdf` | Bundled demo form (unauthenticated) |
+| `POST` | `/inspect` | AcroForm field inventory JSON |
+| `POST` | `/preview` | Mapping decisions without writing a PDF |
+| `POST` | `/fill` | Fill and return PDF |
 
 ## Data Flow
 
 1. The API accepts a PDF upload and `user_data`.
 2. The PDF reader extracts fields, metadata, and visible text.
-3. The semantics stage infers field meaning from field metadata and optional page-level text context.
+3. The semantics stage is **optional** (off by default); when enabled it infers field meaning from field metadata and optional page-level text context.
 4. The mapping stage resolves user data keys to form fields using deterministic rules first.
 5. The writer applies approved values and rejects outputs with unresolved required fields.
 

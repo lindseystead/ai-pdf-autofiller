@@ -51,9 +51,14 @@
       <a class="btn secondary" href="https://github.com/lindseystead/ai-pdf-autofiller/stargazers">Star on GitHub</a>
     </div>
 
-    <p><strong>No install, no credit card.</strong> Codespaces opens the playground at <code>/playground</code> automatically.</p>
+    <p><strong>No install, no credit card.</strong> Codespaces opens the playground at <code>/playground</code> automatically. Local: <code>docker compose up --build</code> → <code>http://localhost:8000/playground</code>.</p>
 
     <div class="grid">
+      <div class="card">
+        <h2>Docker Compose</h2>
+        <pre><code>docker compose up --build
+# playground + /inspect + sample PDF</code></pre>
+      </div>
       <div class="card">
         <h2>Docker (one command)</h2>
         <pre><code>docker run -p 8000:8000 \
@@ -61,26 +66,26 @@
   ghcr.io/lindseystead/ai-pdf-autofiller:latest</code></pre>
       </div>
       <div class="card">
-        <h2>Install from Release</h2>
-        <pre><code>curl -fsSL https://raw.githubusercontent.com/lindseystead/ai-pdf-autofiller/main/scripts/install-from-release.sh | bash</code></pre>
-      </div>
-      <div class="card">
         <h2>Python SDK</h2>
         <pre><code>from pdf_autofiller import fill
 fill("form.pdf", {"firstname": "Jane"}, "filled.pdf")</code></pre>
       </div>
       <div class="card">
-        <h2>W-9 recipe</h2>
-        <pre><code>curl -X POST localhost:8000/fill \
-  -F pdf_file=@w9.pdf \
-  -F 'user_data={"name_line_1":"Jane"}' \
+        <h2>Inspect → fill</h2>
+        <pre><code>curl -X POST localhost:8000/inspect \
+  -F pdf_file=@form.pdf
+curl -X POST localhost:8000/fill \
+  -F pdf_file=@form.pdf \
+  -F 'user_data={"firstname":"Jane"}' \
   -o filled.pdf</code></pre>
       </div>
     </div>
 
     <footer>
-      <a href="https://github.com/lindseystead/ai-pdf-autofiller/blob/main/recipes/">Recipes</a> ·
+      <a href="https://github.com/lindseystead/ai-pdf-autofiller/blob/main/docs/ROADMAP.md">Roadmap</a> ·
+      <a href="https://github.com/lindseystead/ai-pdf-autofiller/blob/main/docs/FAQ.md">FAQ</a> ·
       <a href="https://github.com/lindseystead/ai-pdf-autofiller/blob/main/docs/API.md">API reference</a> ·
+      <a href="https://github.com/lindseystead/ai-pdf-autofiller/blob/main/recipes/">Recipes</a> ·
       <a href="https://github.com/lindseystead/ai-pdf-autofiller/pkgs/container/ai-pdf-autofiller">Docker image</a>
     </footer>
   </div>

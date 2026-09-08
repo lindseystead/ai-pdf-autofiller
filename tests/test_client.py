@@ -1,12 +1,16 @@
-"""Tests for the HTTP client SDK."""
+"""Tests for the HTTP client SDK and local fill helper."""
 
 import json
+from pathlib import Path
 from unittest.mock import Mock
 
 import httpx
 import pytest
 
-from pdf_autofiller.client import PDFAutofillError, PDFAutofillerClient, fill
+from pdf_autofiller import fill
+from pdf_autofiller.client import PDFAutofillerClient, PDFAutofillError
+
+SAMPLE_PDF = Path("samples/sample_form.pdf")
 
 
 def _pdf_response(content: bytes = b"%PDF-1.4 filled") -> Mock:
@@ -40,6 +44,19 @@ def test_client_fill_bytes():
     assert filled.startswith(b"%PDF-")
     assert headers["x-pdf-fields-written"] == "2"
     http.post.assert_called_once()
+    call_kwargs = http.post.call_args.kwargs
+    assert call_kwargs["data"]["flatten"] == "false"
+    assert call_kwargs["data"]["strict"] == "true"
+
+
+def test_client_fill_sends_flatten_flag():
+    http = Mock(spec=httpx.Client)
+    http.post.return_value = _pdf_response()
+
+    sdk = PDFAutofillerClient("http://testserver", http_client=http)
+    sdk.fill(b"%PDF-1.4", {"firstname": "Jane"}, flatten=True, filename="demo.pdf")
+    call_kwargs = http.post.call_args.kwargs
+    assert call_kwargs["data"]["flatten"] == "true"
 
 
 def test_client_fill_to_file(tmp_path):
@@ -92,20 +109,15 @@ def test_client_raises_on_non_json_error():
     assert exc.value.code == "invalid_response"
 
 
-def test_fill_convenience_helper(tmp_path, monkeypatch):
+@pytest.mark.skipif(not SAMPLE_PDF.exists(), reason="sample PDF not present")
+def test_fill_local_convenience_helper(tmp_path):
+    """Local fill() writes a PDF without contacting an HTTP server."""
     output_path = tmp_path / "filled.pdf"
-    captured: dict[str, object] = {}
-
-    class FakeClient:
-        def fill_to_file(self, pdf, user_data, output, **kwargs):
-            captured["pdf"] = pdf
-            captured["user_data"] = user_data
-            Path = __import__("pathlib").Path
-            Path(output).write_bytes(b"%PDF-filled")
-            return {"X-PDF-Fields-Written": "1"}
-
-    monkeypatch.setattr("pdf_autofiller.client.PDFAutofillerClient", lambda **kwargs: FakeClient())
-    headers = fill("form.pdf", {"firstname": "Jane"}, str(output_path), api_key="secret")
+    report = fill(
+        SAMPLE_PDF,
+        {"firstname": "Jane", "lastname": "Doe", "dob": "1990-01-01"},
+        output_path,
+    )
     assert output_path.exists()
-    assert captured["user_data"] == {"firstname": "Jane"}
-    assert headers["X-PDF-Fields-Written"] == "1"
+    assert output_path.read_bytes()[:5] == b"%PDF-"
+    assert "txtFirstName" in report.written_fields
