@@ -195,6 +195,34 @@ def coerce_value(value: Any, expected_type: str) -> tuple[Optional[str], bool]:
     return str_value, False
 
 
+def alias_equivalence_set(key: str) -> set[str]:
+    """
+    Return every normalized key that shares an alias pack with ``key``.
+
+    Alias packs are keyed by canonical semantics (``first_name``), but
+    field-name fallback often produces a synonym (``firstname`` after
+    stripping ``txt``). Matching must treat the whole cluster as equivalent
+    so ``given_name`` still maps when the derived semantic is ``firstname``.
+    """
+    normalized = normalize_key(key)
+    cluster: set[str] = {normalized}
+    for canon, aliases in FIELD_ALIASES.items():
+        members = {normalize_key(canon)} | {normalize_key(alias) for alias in aliases}
+        if normalized in members:
+            cluster |= members
+    return cluster
+
+
+def canonicalize_semantic(key: str) -> str:
+    """Map a synonym onto its canonical alias-pack key when one exists."""
+    normalized = normalize_key(key)
+    for canon, aliases in FIELD_ALIASES.items():
+        members = {normalize_key(canon)} | {normalize_key(alias) for alias in aliases}
+        if normalized in members:
+            return canon
+    return normalized
+
+
 def find_deterministic_match(
     semantic_meaning: str,
     user_data: dict[str, Any],
@@ -203,9 +231,9 @@ def find_deterministic_match(
     """
     Find a deterministic match for a semantic meaning.
     
-    Tries direct normalized matching first, then falls back to alias matching.
-    Returns None if no match found. All matching is case-insensitive and
-    handles key normalization.
+    Tries direct normalized matching first, then falls back to alias-cluster
+    matching (canonical key + all pack synonyms). Returns None if no match
+    found. All matching is case-insensitive and handles key normalization.
     
     Args:
         semantic_meaning: Semantic meaning to match (e.g., "first_name")
@@ -216,6 +244,7 @@ def find_deterministic_match(
         Tuple of (matched_key, matched_value, confidence, reason, requires_review)
     """
     normalized_semantic = normalize_key(semantic_meaning)
+    equivalence = alias_equivalence_set(semantic_meaning)
     
     # Direct normalized match
     for user_key, user_value in user_data.items():
@@ -227,19 +256,17 @@ def find_deterministic_match(
             reason = f"Direct match: '{user_key}' matches semantic '{semantic_meaning}'"
             return user_key, coerced_value, confidence, reason, requires_review
     
-    # Alias match
-    if semantic_meaning in FIELD_ALIASES:
-        normalized_aliases = {
-            normalize_key(alias) for alias in FIELD_ALIASES[semantic_meaning]
-        }
-        for user_key, user_value in user_data.items():
-            normalized_key = normalize_key(user_key)
-            
-            if normalized_key in normalized_aliases:
-                coerced_value, requires_review = coerce_value(user_value, expected_type)
-                confidence = 0.90 if not requires_review else 0.65
-                reason = f"Alias match: '{user_key}' matches semantic '{semantic_meaning}' via alias"
-                return user_key, coerced_value, confidence, reason, requires_review
+    # Alias-cluster match: any synonym in the same pack as the semantic meaning.
+    for user_key, user_value in user_data.items():
+        normalized_key = normalize_key(user_key)
+        if normalized_key in equivalence:
+            coerced_value, requires_review = coerce_value(user_value, expected_type)
+            confidence = 0.90 if not requires_review else 0.65
+            reason = (
+                f"Alias match: '{user_key}' matches semantic "
+                f"'{semantic_meaning}' via alias cluster"
+            )
+            return user_key, coerced_value, confidence, reason, requires_review
     
     return None, None, 0.0, "No deterministic match found", False
 

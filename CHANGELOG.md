@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- Deterministic mapping now matches the full alias-pack synonym cluster, so
+  field-name fallbacks like `txtFirstName` → `firstname` still resolve
+  profile keys such as `given_name` / `birthdate` without AI
+- Health API docs now document the real `alias_directory` /
+  `alias_pack_count` checks instead of a non-existent `alias_packs` key
+
 ### Added
 
 - README hero images (`docs/assets/social-preview.png`, `playground-preview.png`) for discoverability
@@ -15,6 +23,7 @@ All notable changes to this project will be documented in this file.
 - README restructured for discovery: keywords, use cases, playground screenshot, stars badge
 - GitHub Pages landing (`docs/site/`) updated with Open Graph / Twitter meta tags
 - Docs index and asset README updated
+- Field-name fallback semantics canonicalize onto alias-pack keys when possible
 
 ## [0.4.3]
 

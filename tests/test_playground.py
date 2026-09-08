@@ -19,3 +19,20 @@ def test_playground_page_renders_html():
     assert "text/html" in response.headers["content-type"]
     assert "Fill any PDF from JSON" in response.text
     assert 'id="fillBtn"' in response.text
+
+
+def test_playground_default_json_is_valid():
+    """Default textarea content must parse as a JSON object without edits."""
+    import json
+    import re
+
+    response = client.get("/playground")
+    match = re.search(
+        r'<textarea id="userData"[^>]*>(.*?)</textarea>',
+        response.text,
+        flags=re.DOTALL,
+    )
+    assert match is not None
+    payload = json.loads(match.group(1))
+    assert isinstance(payload, dict)
+    assert "firstname" in payload

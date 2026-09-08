@@ -6,8 +6,15 @@ from pathlib import Path
 from typing import Any
 
 from .field_semantics import infer_field_semantics
-from .mapping import map_user_data_to_fields, normalize_key
-from .models import EnrichedFormField, FieldSemantics, FillReport, FormField, MappingResult, TextRegion
+from .mapping import canonicalize_semantic, map_user_data_to_fields, normalize_key
+from .models import (
+    EnrichedFormField,
+    FieldSemantics,
+    FillReport,
+    FormField,
+    MappingResult,
+    TextRegion,
+)
 from .pdf_reader import read_pdf
 from .pdf_writer import fill_pdf
 
@@ -15,9 +22,13 @@ from .pdf_writer import fill_pdf
 def fallback_semantics(field: FormField) -> EnrichedFormField:
     """Build deterministic semantics from a field name when inference is disabled."""
     normalized = normalize_key(field.name)
-    normalized = normalized.removeprefix("txt_")
-    normalized = normalized.removeprefix("txt")
-    semantic = normalized if normalized else "unknown_field"
+    for prefix in ("txt_", "txt", "fld_", "fld"):
+        if normalized.startswith(prefix) and len(normalized) > len(prefix):
+            normalized = normalized[len(prefix) :]
+            break
+    # Prefer the canonical alias-pack key (first_name) over a stripped synonym
+    # (firstname) so alias clusters and recipes stay consistent.
+    semantic = canonicalize_semantic(normalized) if normalized else "unknown_field"
 
     return EnrichedFormField(
         field=field,
