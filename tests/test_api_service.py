@@ -190,6 +190,7 @@ def test_fill_endpoint_exposes_fill_report_headers():
     assert "X-PDF-Fields-Written" in response.headers
     assert "X-PDF-Fields-Skipped-Review" in response.headers
     assert "X-PDF-Fields-Skipped-Empty" in response.headers
+    assert "X-PDF-Fields-Skipped-Unwritable" in response.headers
 
 
 def test_fill_endpoint_json_accept_returns_report_with_pdf_base64():

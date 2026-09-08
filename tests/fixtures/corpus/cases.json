@@ -103,5 +103,24 @@
       "dept": "txtDepartment",
       "badge_number": "txtEmployeeId"
     }
+  },
+  {
+    "name": "vendor_opaque",
+    "pdf": "samples/vendor_opaque_sample.pdf",
+    "notes": "Field names preserved from an anonymized vendor inspect dump; blank synthetic page (not the vendor PDF). JSON keys are the widget names — no alias pack invented for this case.",
+    "user_data": {
+      "EmployeeFirstName_AF_text": "Pat",
+      "EmployeeLastName_AF_text": "Nguyen",
+      "DateOfBirth_AF_date": "1990-01-01",
+      "EmailAddress_AF_text": "pat@example.com",
+      "PrimaryPhone_AF_text": "555-0199"
+    },
+    "expected": {
+      "EmployeeFirstName_AF_text": "EmployeeFirstName_AF_text",
+      "EmployeeLastName_AF_text": "EmployeeLastName_AF_text",
+      "DateOfBirth_AF_date": "DateOfBirth_AF_date",
+      "EmailAddress_AF_text": "EmailAddress_AF_text",
+      "PrimaryPhone_AF_text": "PrimaryPhone_AF_text"
+    }
   }
 ]

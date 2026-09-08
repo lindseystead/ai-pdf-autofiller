@@ -34,7 +34,7 @@
 2. Reader extracts fields, metadata, and visible text.
 3. Enrichment is deterministic by default (field-name → semantic via `AliasRegistry`). Optional provider inference logs failures and falls back — never silent.
 4. Mapping resolves user keys via normalization and alias clusters first.
-5. Writer applies approved values and rejects unresolved required fields.
+5. Writer applies approved values and rejects unresolved required fields. Mapped values that cannot be written (missing widget, `/Sig`, unresolved button state) are listed on `FillReport.skipped_unwritable_fields` — never silent.
 
 ## Design Principles
 

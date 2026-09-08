@@ -239,7 +239,12 @@ def fill_pdf(
     skipped_required_fields: list[str] = []
     skipped_review_fields: list[str] = []
     skipped_empty_fields: list[str] = []
+    skipped_unwritable_fields: list[str] = []
     field_values: dict[str, str] = {}
+
+    def _mark_unwritable(name: str, reason: str) -> None:
+        skipped_unwritable_fields.append(f"{name} ({reason})")
+        logger.warning("Unwritable mapped field %s: %s", name, reason)
 
     # Process mapping decisions.
     # Skip fields marked for review or with no value, and translate button
@@ -262,17 +267,19 @@ def fill_pdf(
 
         if pdf_fields:
             if field_name not in pdf_fields:
+                _mark_unwritable(field_name, "missing_widget")
                 continue
             field_obj = pdf_fields[field_name]
             field_ft = _field_type(field_obj)
             # Signature widgets cannot be programmatically filled.
             if field_ft == "/Sig":
+                _mark_unwritable(field_name, "signature_field")
                 continue
             value = decision.selected_value
             if field_ft == "/Btn":
                 resolved = _resolve_button_value(field_obj, value)
                 if resolved is None:
-                    # Value does not map to a valid state; leave field untouched.
+                    _mark_unwritable(field_name, "unresolved_button_state")
                     continue
                 value = resolved
             elif field_ft == "/Ch":
@@ -359,6 +366,7 @@ def fill_pdf(
         written_fields=sorted(written_fields),
         skipped_review_fields=skipped_review_fields,
         skipped_empty_fields=skipped_empty_fields,
+        skipped_unwritable_fields=skipped_unwritable_fields,
     )
 
 

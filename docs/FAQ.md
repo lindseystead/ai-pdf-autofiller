@@ -45,11 +45,13 @@ Local `fill()` and the server `POST /fill` path share `run_fill_pipeline` (same 
 ## Signatures and choice fields
 
 - Choice (`/Ch`) fields are written (value as-is or matched to `/Opt` when present).
-- Signature (`/Sig`) fields are **not** filled — digital signature widgets are unsupported.
+- Signature (`/Sig`) fields are **not** filled — they appear in `skipped_unwritable_fields` / `X-PDF-Fields-Skipped-Unwritable` with reason `signature_field`.
+- Missing widgets and unresolved checkbox/radio states are reported the same way (`missing_widget`, `unresolved_button_state`) — never silent.
 
 ## More docs
 
 - [API.md](API.md) — HTTP contract  
-- [ROADMAP.md](ROADMAP.md) — phased plan  
 - [OPERATIONS.md](OPERATIONS.md) — deployment and env vars  
 - [integrations/](integrations/) — n8n / Zapier notes  
+- [../samples/README.md](../samples/README.md) — fixtures proven in CI  
+- [../recipes/](../recipes/) — worked examples against those fixtures  
