@@ -18,7 +18,30 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Probe whether Pages is configured without failing the workflow.
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.probe.outputs.ready }}
+    steps:
+      - name: Probe Pages site
+        id: probe
+        continue-on-error: true
+        uses: actions/configure-pages@v5
+
+      - name: Record readiness
+        id: ready
+        run: |
+          if [ "${{ steps.probe.outcome }}" = "success" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::GitHub Pages is not enabled (Settings → Pages → Source = GitHub Actions). Deploy skipped."
+          fi
+
   deploy:
+    needs: check
+    if: needs.check.outputs.ready == 'true'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -28,8 +51,6 @@ jobs:
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
-        with:
-          enablement: true
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
@@ -39,3 +60,13 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+  # Always-green summary when Pages is not configured yet.
+  skipped:
+    needs: check
+    if: needs.check.outputs.ready != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pages not enabled
+        run: |
+          echo "Pages deploy skipped — enable GitHub Pages (Actions source) to publish docs/site/."
