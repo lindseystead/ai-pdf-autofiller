@@ -23,7 +23,7 @@ This roadmap turns PDF Autofiller from a working beta into something people can 
 | Auth / upload guards | Solid defaults |
 | Tests | 100+ tests, ≥85% coverage; corpus hit-rate gate |
 | CI lint | Pinned Ruff `0.16.6`; lockfile + docker health smoke |
-| PyPI | Requires Release + `PYPI_API_TOKEN` (documented honestly) |
+| PyPI | Token-only workflow; preflight in `RELEASE.md`; needs `PYPI_API_TOKEN` secret |
 | SDK story | Local `fill()` + HTTP `PDFAutofillerClient` |
 | Inspect / preview | `POST /inspect` + `POST /preview` + playground actions |
 | Real-form proof | Synthetic sample + HR intake corpus fixtures in CI |
@@ -115,7 +115,7 @@ Aligned with OSS discovery practice ([GitHub SEO / README conversion](https://cl
 
 | # | Work | Why |
 |---|------|-----|
-| 3.1 | Reliable PyPI publish (no silent `continue-on-error`); README `pip install pdf-autofiller` | Install path |
+| 3.1 | Reliable PyPI publish via API token only (no broken OIDC); fail if secret missing; green before Release | Install path |
 | 3.2 | Hosted demo (rate-limited) or Codespaces one-click still primary | Try without clone |
 | 3.3 | Short demo GIF/video above the fold | 10-second conversion |
 | 3.4 | FAQ + comparison (“vs AI-only fillers / SaaS”) | Search + objections |
