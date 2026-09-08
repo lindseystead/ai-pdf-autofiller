@@ -1,11 +1,12 @@
 name: Publish to PyPI
 
-# Uses a PyPI API token only (no Trusted Publishing / OIDC).
-# Do not grant id-token: write here — that path fails with invalid-publisher
-# unless a matching trusted publisher is configured on PyPI.
-#
-# Before cutting a GitHub Release, confirm PYPI_API_TOKEN is set and prefer a
-# dry run via workflow_dispatch on main after CI is green.
+# Trusted Publishing (OIDC) — no PYPI_API_TOKEN secret.
+# Requires a matching publisher on PyPI (pending or project-level):
+#   Owner: lindseystead
+#   Repository: ai-pdf-autofiller
+#   Workflow: publish-pypi.yml
+#   Environment name: pypi
+# See docs/RELEASE.md.
 
 on:
   release:
@@ -14,21 +15,18 @@ on:
 
 permissions:
   contents: read
+  # Required for Trusted Publishing; do not pass password/API token.
+  id-token: write
 
 jobs:
   publish:
     runs-on: ubuntu-latest
+    # Must match the Environment name configured on PyPI (and the existing
+    # GitHub Environment). Omitting this produced environment: MISSING and
+    # invalid-publisher even when a publisher was intended.
+    environment: pypi
     steps:
       - uses: actions/checkout@v4
-
-      - name: Require PYPI_API_TOKEN
-        env:
-          TOKEN: ${{ secrets.PYPI_API_TOKEN }}
-        run: |
-          if [ -z "${TOKEN}" ]; then
-            echo "::error::PYPI_API_TOKEN is not set. Add a PyPI API token (pypi-...) as a repository secret before releasing. Do not create a GitHub Release until this secret exists."
-            exit 1
-          fi
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -44,7 +42,5 @@ jobs:
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          user: __token__
-          password: ${{ secrets.PYPI_API_TOKEN }}
           # Safe for retries of the same version after a prior successful upload.
           skip-existing: true
