@@ -73,7 +73,7 @@ python3 -c 'from pdf_autofiller import fill; fill("samples/sample_form.pdf", {"f
 | **Docker** | `docker run -p 8000:8000 -e API_AUTH_ENABLED=false ghcr.io/lindseystead/ai-pdf-autofiller:latest` |
 | **From source** | `git clone https://github.com/lindseystead/ai-pdf-autofiller.git && cd ai-pdf-autofiller && pip install -r requirements-dev.txt && API_AUTH_ENABLED=false make run-api` |
 | **Library (editable)** | `pip install -e .` then `from pdf_autofiller import fill` |
-| **PyPI** | `pip install pdf-autofiller` — **requires a published GitHub Release with `PYPI_API_TOKEN` configured**; until then prefer editable install or [Release wheels](https://github.com/lindseystead/ai-pdf-autofiller/releases) |
+| **PyPI** | `pip install pdf-autofiller` — only after a **green** `Publish to PyPI` run (`PYPI_API_TOKEN` secret; token-only workflow). Until then use editable install or [Release wheels](https://github.com/lindseystead/ai-pdf-autofiller/releases). See [docs/RELEASE.md](docs/RELEASE.md). |
 
 ```python
 from pdf_autofiller import fill

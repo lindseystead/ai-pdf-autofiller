@@ -89,7 +89,9 @@ Until Pages is enabled, `.github/workflows/pages.yml` **skips the deploy with a 
 
 ## PyPI publish
 
-Add `PYPI_API_TOKEN` as a repository secret. The publish workflow runs on each GitHub Release; **without the secret, publish fails** (it does not complete with a warning). Wheels may still be available on GitHub Releases. `pip install pdf-autofiller` only works after a successful publish with that token.
+Add `PYPI_API_TOKEN` as a repository secret (PyPI API token with upload scope). The workflow (`.github/workflows/publish-pypi.yml`) publishes with that token only — **not** Trusted Publishing / OIDC. Do not enable `id-token: write` unless a matching PyPI trusted publisher is configured; otherwise the job fails with `invalid-publisher`.
+
+**Without the secret, publish fails loudly** (no silent success). Wheels may still appear on GitHub Releases / GHCR. `pip install pdf-autofiller` only works after a **green** PyPI job. See [RELEASE.md](RELEASE.md) for the preflight checklist (green CI → verify secret → optional `workflow_dispatch` dry-run → then tag/Release).
 
 ## Deployment Assumptions
 
