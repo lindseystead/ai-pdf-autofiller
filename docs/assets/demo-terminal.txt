@@ -1,62 +1,48 @@
-$ git clone https://github.com/lindseystead/ai-pdf-autofiller.git
-$ cd ai-pdf-autofiller && API_AUTH_ENABLED=false make run-api
-INFO:     Uvicorn running on http://0.0.0.0:8000
+$ curl -s http://127.0.0.1:8000/health | jq '{status,version:.version,semantic:.checks.semantic_provider}'
+{
+  "status": "ok",
+  "version": "0.6.1",
+  "semantic": "unconfigured"
+}
 
-$ open http://localhost:8000/playground
-# Upload samples/sample_form.pdf, paste JSON, click Fill PDF
+$ curl -s -X POST http://127.0.0.1:8000/inspect -F pdf_file=@samples/sample_form.pdf | jq '{pages,field_count,fields:[.fields[].name]}'
+{
+  "pages": 1,
+  "field_count": 5,
+  "fields": [
+    "txtFirstName",
+    "txtLastName",
+    "txtDOB",
+    "txtEmail",
+    "txtPhone"
+  ]
+}
 
-$ curl -s -X POST http://localhost:8000/fill \
-  -F "pdf_file=@samples/sample_form.pdf;type=application/pdf" \
-  -F 'user_data={"firstname": "Jane", "lastname": "Doe", "dob": "1990-01-01"}' \
-  -F "strict=true" \
-  -o filled.pdf
-$ ls -lh filled.pdf
--rw-r--r--  1 dev  staff   12K filled.pdf
+$ curl -s -X POST http://127.0.0.1:8000/preview -F pdf_file=@samples/sample_form.pdf -F 'user_data={"firstname":"Jane","lastname":"Doe","dob":"1990-01-01"}' | jq '{decisions:[.decisions[]|{field_name,selected_value}],missing_required}'
+{
+  "decisions": [
+    {
+      "field_name": "txtFirstName",
+      "selected_value": "Jane"
+    },
+    {
+      "field_name": "txtLastName",
+      "selected_value": "Doe"
+    },
+    {
+      "field_name": "txtDOB",
+      "selected_value": "1990-01-01"
+    }
+  ],
+  "missing_required": []
+}
 
-$ python3 -c "from pdf_autofiller import fill; fill('samples/sample_form.pdf', {'firstname':'Jane'}, 'sdk-filled.pdf')"
-SDK filled.pdf written.
+$ curl -s -X POST http://127.0.0.1:8000/fill -F pdf_file=@samples/sample_form.pdf -F 'user_data={"firstname":"Jane","lastname":"Doe","dob":"1990-01-01"}' -o filled.pdf -D - -o /dev/null | grep -iE 'HTTP/|X-PDF|content-type'
+HTTP/1.1 200 OK
+x-pdf-fields-written: 3
+x-pdf-fields-skipped-review: 
+x-pdf-fields-skipped-empty: 
+content-type: application/pdf
+x-content-type-options: nosniff
 
-# Live demo_workflow output:
-============================================================
-Running PDF Autofiller Workflow
-============================================================
-
-Step 1: Reading PDF structure...
-✓ PDF loaded successfully
-  - Pages: 1
-  - Form fields found: 5
-  - Text regions: 0
-
-  Form fields:
-    - txtFirstName (text, required=True)
-    - txtLastName (text, required=True)
-    - txtDOB (text, required=True)
-    - txtEmail (text, required=False)
-    - txtPhone (text, required=False)
-
-Step 2: Inferring field semantics...
-  ⚠ Provider API key not configured, skipping semantic inference
-  (Set MODEL_PROVIDER_API_KEY environment variable to enable)
-  ⚠ Semantic inference skipped - using field names directly
-✓ Processed 5 fields
-
-Step 3: Mapping user data to fields...
-  User data keys: ['firstname', 'lastname', 'dob', 'email']
-✓ Mapping complete
-  - Decisions made: 4
-  - Missing required: 0
-  - Unmapped keys: 0
-
-  Mapping decisions:
-    ✓ txtFirstName: 'John' (confidence: 0.95)
-    ✓ txtLastName: 'Doe' (confidence: 0.95)
-    ✓ txtDOB: '1990-05-15' (confidence: 0.95)
-    ✓ txtEmail: 'john.doe@example.com' (confidence: 0.95)
-
-Step 4: Filling PDF...
-✓ PDF filled successfully
-  Output: /workspace/samples/sample_form_filled.pdf
-
-============================================================
-✓ Workflow completed successfully!
-============================================================
+filled.pdf written (2177 bytes)

@@ -6,6 +6,7 @@ ENV PYTHONPATH=/app/src
 
 WORKDIR /app
 
+# requirements.txt is fully pinned from poetry.lock (make sync-requirements).
 COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt \

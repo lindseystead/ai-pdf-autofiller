@@ -1,29 +1,33 @@
 # Makefile for PDF Autofiller
 
-.PHONY: help install install-runtime test test-cov smoke-check corpus-check lint format clean run-sample create-sample run-api playground demo-output install-release
+.PHONY: help install install-runtime test test-cov smoke-check corpus-check lint format clean run-sample create-sample run-api playground demo-output install-release sync-requirements
 
 help:
 	@echo "Available commands:"
-	@echo "  make install         - Install development dependencies"
-	@echo "  make install-runtime - Install runtime dependencies only"
-	@echo "  make test            - Run tests"
-	@echo "  make test-cov        - Run tests with coverage reporting"
-	@echo "  make smoke-check     - Run the local smoke-check script"
-	@echo "  make corpus-check    - Run golden corpus hit-rate report"
-	@echo "  make lint            - Run linters"
-	@echo "  make format          - Format code"
-	@echo "  make clean           - Clean build artifacts"
-	@echo "  make run-sample      - Run demo with sample form"
-	@echo "  make create-sample   - Regenerate the sample PDF form"
-	@echo "  make run-api         - Run FastAPI service"
-	@echo "  make playground      - Open playground URL hint"
-	@echo "  make install-release - Install SDK from latest GitHub Release wheel"
+	@echo "  make install            - Install development dependencies"
+	@echo "  make install-runtime    - Install runtime dependencies only"
+	@echo "  make sync-requirements  - Export pinned requirements from poetry.lock"
+	@echo "  make test               - Run tests"
+	@echo "  make test-cov           - Run tests with coverage reporting"
+	@echo "  make smoke-check        - Run the local smoke-check script"
+	@echo "  make corpus-check       - Run golden corpus hit-rate report"
+	@echo "  make lint               - Run linters"
+	@echo "  make format             - Format code"
+	@echo "  make clean              - Clean build artifacts"
+	@echo "  make run-sample         - Run demo with sample form"
+	@echo "  make create-sample      - Regenerate the sample PDF form"
+	@echo "  make run-api            - Run FastAPI service"
+	@echo "  make playground         - Open playground URL hint"
+	@echo "  make install-release    - Install SDK from latest GitHub Release wheel"
 
 install:
 	poetry install || pip install -r requirements-dev.txt
 
 install-runtime:
 	pip install -r requirements.txt
+
+sync-requirements:
+	bash scripts/sync_requirements.sh
 
 test:
 	PYTHONPATH=src python3 -m pytest tests/ -v

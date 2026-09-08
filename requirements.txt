@@ -1,19 +1,28 @@
-# Runtime requirements for PDF Autofiller
-#
-# Install with: pip install -r requirements.txt
-# Or use Poetry: poetry install
-#
-# Minimum versions are pinned to patched releases. pypdf parses untrusted PDFs
-# and python-multipart parses untrusted uploads, so their CVE fixes are
-# security-critical for this service; keep them current.
+# Generated from poetry.lock — do not hand-edit.
+# Regenerate: make sync-requirements
+# Source of truth: pyproject.toml + poetry.lock
 
-pypdf>=6.12.2
-pydantic>=2.0.0
-openai>=1.0.0
-fastapi>=0.136.0
-# starlette pinned explicitly (transitive via FastAPI) to the patched line for
-# PYSEC-2026-161; FastAPI >= 0.136 permits starlette >= 1.0.
-starlette>=1.0.1
-uvicorn>=0.30.0
-python-multipart>=0.0.30
-httpx>=0.27.0
+annotated-doc==0.0.4 ; python_version >= "3.11" and python_version < "4.0"
+annotated-types==0.7.0 ; python_version >= "3.11" and python_version < "4.0"
+anyio==4.12.1 ; python_version >= "3.11" and python_version < "4.0"
+certifi==2026.1.4 ; python_version >= "3.11" and python_version < "4.0"
+click==8.5.0 ; python_version >= "3.11" and python_version < "4.0"
+colorama==0.4.6 ; python_version >= "3.11" and python_version < "4.0" and platform_system == "Windows"
+distro==1.9.0 ; python_version >= "3.11" and python_version < "4.0"
+fastapi==0.136.3 ; python_version >= "3.11" and python_version < "4.0"
+h11==0.16.0 ; python_version >= "3.11" and python_version < "4.0"
+httpcore==1.0.9 ; python_version >= "3.11" and python_version < "4.0"
+httpx==0.27.2 ; python_version >= "3.11" and python_version < "4.0"
+idna==3.19 ; python_version >= "3.11" and python_version < "4.0"
+jiter==0.13.0 ; python_version >= "3.11" and python_version < "4.0"
+openai==1.109.1 ; python_version >= "3.11" and python_version < "4.0"
+pydantic-core==2.41.5 ; python_version >= "3.11" and python_version < "4.0"
+pydantic==2.12.5 ; python_version >= "3.11" and python_version < "4.0"
+pypdf==6.18.0 ; python_version >= "3.11" and python_version < "4.0"
+python-multipart==0.0.32 ; python_version >= "3.11" and python_version < "4.0"
+sniffio==1.3.1 ; python_version >= "3.11" and python_version < "4.0"
+starlette==1.6.0 ; python_version >= "3.11" and python_version < "4.0"
+tqdm==4.67.3 ; python_version >= "3.11" and python_version < "4.0"
+typing-extensions==4.15.0 ; python_version >= "3.11" and python_version < "4.0"
+typing-inspection==0.4.2 ; python_version >= "3.11" and python_version < "4.0"
+uvicorn==0.30.6 ; python_version >= "3.11" and python_version < "4.0"
