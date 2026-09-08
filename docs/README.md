@@ -9,7 +9,7 @@ Supporting documentation for the PDF Autofiller service.
 | [API.md](API.md) | Endpoint contracts, errors, and response headers |
 | [RELEASE.md](RELEASE.md) | Tag → PyPI / GHCR / Release assets |
 | [FAQ.md](FAQ.md) | Comparisons, AcroForm vs scan, auth, local vs HTTP |
-| [ROADMAP.md](ROADMAP.md) | Adoption phases and exit criteria |
+| [ROADMAP.md](ROADMAP.md) | Path to production quality (phased, scoped) |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Module boundaries, data flow, extension points |
 | [OPERATIONS.md](OPERATIONS.md) | Runtime configuration and deployment |
 | [TESTING.md](TESTING.md) | Local validation and CI |
