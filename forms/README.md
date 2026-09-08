@@ -1,46 +1,26 @@
-# Community Form Alias Packs
-
-These JSON files extend deterministic field matching for common form families. They ship with the package under `src/pdf_autofiller/form_aliases/` and are merged into `FIELD_ALIASES` at import time.
-
-## Built-in packs
-
-| Pack | File | Covers |
-|------|------|--------|
-| IRS W-9 | `w9.json` | Taxpayer name, EIN, business name, exemptions |
-| HR onboarding | `hr_onboarding.json` | Emergency contact, hire date, manager, employee ID |
+# Alias packs live in the installable package — not this folder.
+#
+# Packs: `src/pdf_autofiller/form_aliases/*.json`
+# Loader: `pdf_autofiller.aliases.AliasRegistry`
+#
+# This directory is intentionally empty of JSON so contributors do not add
+# packs in two places. Contribution steps:
 
 ## Contribute a pack
 
-1. Copy an existing JSON file and rename it for your form family (e.g. `cms1500.json`).
-2. Keys are **canonical semantic meanings** (snake_case).
-3. Values are **arrays of user-data key variants** your clients might send.
-4. Open a PR with a short note about which PDF(s) you tested against.
+1. Add `src/pdf_autofiller/form_aliases/<family>.json`
+2. Keys = canonical semantic meanings (snake_case)
+3. Values = arrays of user-data key variants
+4. Add a synthetic corpus case under `tests/fixtures/corpus/` that proves the pack
+5. Open a PR — do not claim real IRS/vendor form success without a redacted fixture
 
-## Custom alias directory
-
-Set `FORM_ALIASES_DIR` to load packs from your deployment. **This replaces the packaged `form_aliases` directory** (it does not merge with the shipped packs). Built-in `FIELD_ALIASES` in code still apply; only the JSON packs come from the chosen directory.
+## Custom directory at deploy time
 
 ```bash
 export FORM_ALIASES_DIR=/etc/pdf-autofiller/aliases
 ```
 
-Each `*.json` file in that directory is merged into `FIELD_ALIASES` the same way as the packaged packs.
-
-**Load once at import:** alias packs are loaded when `mapping.py` is imported. Changing `FORM_ALIASES_DIR` or the JSON files requires a **process restart** (or re-import) to take effect — there is no hot reload.
-
-## Example user data for W-9
-
-```json
-{
-  "name_line_1": "Jane Doe",
-  "business_name_line_2": "Doe Consulting LLC",
-  "tax_classification": "individual",
-  "addr1": "123 Main St",
-  "town": "Springfield",
-  "province": "IL",
-  "zipcode": "62701",
-  "ssn": "123-45-6789"
-}
-```
-
-See [recipes/w9.md](../recipes/w9.md) for a full curl recipe.
+This **replaces** the packaged `form_aliases` directory (built-in code aliases in
+`BUILTIN_ALIASES` still apply). Packs load when the default `AliasRegistry` is
+first constructed; change the env var or JSON files and restart the process
+(or call `set_default_registry(AliasRegistry.load())`).

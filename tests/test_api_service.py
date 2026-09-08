@@ -8,19 +8,18 @@ from fastapi.testclient import TestClient
 from pypdf import PdfWriter
 
 from pdf_autofiller import api_service
+from pdf_autofiller.api import config
+from pdf_autofiller.api import routes as api_routes
 from pdf_autofiller.models import EnrichedFormField, FieldSemantics, FormField, TextRegion
+from pdf_autofiller.pipeline import enrich_fields, page_context_by_number
 
 client = TestClient(api_service.app)
 
 
 @pytest.fixture(autouse=True)
 def _isolate_request_guards(monkeypatch):
-    """Run tests without auth and with a clean rate-limiter by default.
-
-    Authentication now defaults to enabled in production; the auth-specific
-    tests opt back in explicitly.
-    """
-    monkeypatch.setattr(api_service, "API_AUTH_ENABLED", False)
+    """Run tests without auth and with a clean rate-limiter by default."""
+    monkeypatch.setattr(config, "API_AUTH_ENABLED", False)
     api_service._reset_rate_limit_state()
     yield
     api_service._reset_rate_limit_state()
@@ -41,6 +40,11 @@ def test_health_endpoint():
     payload = response.json()
     assert payload["status"] == "ok"
     assert payload["service"] == "pdf-autofiller"
+    assert payload["checks"]["semantic_provider"] in {
+        "available",
+        "unconfigured",
+        "sdk_missing",
+    }
     assert "X-Request-ID" in response.headers
 
 
@@ -53,7 +57,7 @@ def test_version_endpoint():
 
 
 def test_page_context_by_number_groups_text_by_page():
-    contexts = api_service._page_context_by_number(
+    contexts = page_context_by_number(
         [
             TextRegion(text="First", page_number=1),
             TextRegion(text="Second", page_number=1),
@@ -83,7 +87,7 @@ def test_enrich_fields_passes_page_context_to_ai(monkeypatch):
     monkeypatch.setattr(fill_pipeline, "infer_field_semantics", fake_infer)
 
     field = FormField(name="txtFirstName", field_type="text", required=True, page_number=1)
-    enriched_fields = api_service._enrich_fields(
+    enriched_fields = enrich_fields(
         [field],
         use_semantic_inference=True,
         page_context={1: "Applicant First Name"},
@@ -91,6 +95,25 @@ def test_enrich_fields_passes_page_context_to_ai(monkeypatch):
 
     assert observed["context"] == "Applicant First Name"
     assert len(enriched_fields) == 1
+
+
+def test_enrich_fields_logs_inference_failure(monkeypatch, caplog):
+    import logging
+
+    def boom(field, context_text=None):
+        raise RuntimeError("provider down")
+
+    from pdf_autofiller import pipeline as fill_pipeline
+
+    monkeypatch.setattr(fill_pipeline, "infer_field_semantics", boom)
+
+    field = FormField(name="txtFirstName", field_type="text", required=True, page_number=1)
+    with caplog.at_level(logging.WARNING, logger="pdf_autofiller.pipeline"):
+        enriched = enrich_fields([field], use_semantic_inference=True)
+
+    assert len(enriched) == 1
+    assert enriched[0].semantics.semantic_meaning == "first_name"
+    assert "Semantic inference failed" in caplog.text
 
 
 def test_fill_endpoint_rejects_invalid_json():
@@ -169,11 +192,36 @@ def test_fill_endpoint_exposes_fill_report_headers():
     assert "X-PDF-Fields-Skipped-Empty" in response.headers
 
 
+def test_fill_endpoint_json_accept_returns_report_with_pdf_base64():
+    sample = Path("samples/sample_form.pdf")
+    if not sample.exists():
+        pytest.skip("sample PDF not present")
+
+    response = client.post(
+        "/fill",
+        headers={"Accept": "application/json"},
+        files={"pdf_file": (sample.name, sample.read_bytes(), "application/pdf")},
+        data={
+            "user_data": '{"firstname":"Jane","lastname":"Doe","dob":"1990-01-01"}',
+            "strict": "true",
+        },
+    )
+    assert response.status_code == 200
+    assert "application/json" in response.headers["content-type"]
+    payload = response.json()
+    assert "pdf_base64" in payload
+    assert payload["field_count"] >= 3
+    assert "txtFirstName" in payload["written_fields"]
+    import base64
+
+    assert base64.b64decode(payload["pdf_base64"]).startswith(b"%PDF")
+
+
 def test_fill_endpoint_emits_pii_free_audit_log(caplog):
     import logging
 
     secret_value = "Top-Secret-Applicant-Name"
-    with caplog.at_level(logging.INFO, logger="pdf_autofiller.api_service"):
+    with caplog.at_level(logging.INFO, logger="pdf_autofiller.api.routes"):
         response = client.post(
             "/fill",
             files={"pdf_file": ("input.pdf", _minimal_pdf_bytes(), "application/pdf")},
@@ -186,12 +234,11 @@ def test_fill_endpoint_emits_pii_free_audit_log(caplog):
     assert response.status_code == 200
     audit_lines = [r.getMessage() for r in caplog.records if "action=fill" in r.getMessage()]
     assert audit_lines, "expected an audit log line"
-    # The audit trail must never contain raw user values.
     assert secret_value not in caplog.text
 
 
 def test_fill_endpoint_rate_limited(monkeypatch):
-    monkeypatch.setattr(api_service, "RATE_LIMIT_PER_MINUTE", 1)
+    monkeypatch.setattr(config, "RATE_LIMIT_PER_MINUTE", 1)
 
     payload = {
         "files": {"pdf_file": ("input.pdf", _minimal_pdf_bytes(), "application/pdf")},
@@ -208,9 +255,9 @@ def test_fill_endpoint_rate_limited(monkeypatch):
 
 def test_unauthorized_does_not_consume_rate_limit(monkeypatch):
     """Auth failures must not burn the per-client fill budget."""
-    monkeypatch.setattr(api_service, "API_AUTH_ENABLED", True)
-    monkeypatch.setattr(api_service, "API_AUTH_TOKEN", "secret-token")
-    monkeypatch.setattr(api_service, "RATE_LIMIT_PER_MINUTE", 1)
+    monkeypatch.setattr(config, "API_AUTH_ENABLED", True)
+    monkeypatch.setattr(config, "API_AUTH_TOKEN", "secret-token")
+    monkeypatch.setattr(config, "RATE_LIMIT_PER_MINUTE", 1)
     api_service._reset_rate_limit_state()
 
     payload = {
@@ -293,11 +340,11 @@ def test_fill_endpoint_openapi_documents_pdf_response():
     fill_post = schema["paths"]["/fill"]["post"]
     content = fill_post["responses"]["200"]["content"]
     assert "application/pdf" in content
+    assert "application/json" in content
     assert "/preview" in schema["paths"]
 
 
-def test_inspect_endpoint_lists_sample_fields(monkeypatch):
-    monkeypatch.setattr(api_service, "API_AUTH_ENABLED", False)
+def test_inspect_endpoint_lists_sample_fields():
     sample = Path("samples/sample_form.pdf")
     if not sample.exists():
         pytest.skip("sample PDF not present")
@@ -323,7 +370,7 @@ def test_sample_form_route_serves_pdf():
 
 
 def test_fill_endpoint_rejects_too_many_pages(monkeypatch):
-    monkeypatch.setattr(api_service, "MAX_PDF_PAGES", 1)
+    monkeypatch.setattr(config, "MAX_PDF_PAGES", 1)
 
     response = client.post(
         "/fill",
@@ -341,8 +388,8 @@ def test_fill_endpoint_times_out_on_slow_read(monkeypatch):
         time.sleep(0.3)
         raise AssertionError("should have timed out before returning")
 
-    monkeypatch.setattr(api_service, "run_fill_pipeline", slow_pipeline)
-    monkeypatch.setattr(api_service, "PDF_READ_TIMEOUT_SECONDS", 0.01)
+    monkeypatch.setattr(api_routes, "run_fill_pipeline", slow_pipeline)
+    monkeypatch.setattr(config, "PDF_READ_TIMEOUT_SECONDS", 0.01)
 
     response = client.post(
         "/fill",
@@ -354,9 +401,9 @@ def test_fill_endpoint_times_out_on_slow_read(monkeypatch):
 
 
 def test_fill_endpoint_requires_api_key_when_enabled(monkeypatch):
-    monkeypatch.setattr(api_service, "API_AUTH_ENABLED", True)
-    monkeypatch.setattr(api_service, "API_AUTH_TOKEN", "secret-token")
-    monkeypatch.setattr(api_service, "API_KEY_HEADER", "X-API-Key")
+    monkeypatch.setattr(config, "API_AUTH_ENABLED", True)
+    monkeypatch.setattr(config, "API_AUTH_TOKEN", "secret-token")
+    monkeypatch.setattr(config, "API_KEY_HEADER", "X-API-Key")
 
     response = client.post(
         "/fill",
@@ -369,9 +416,9 @@ def test_fill_endpoint_requires_api_key_when_enabled(monkeypatch):
 
 
 def test_fill_endpoint_returns_server_auth_config_error(monkeypatch):
-    monkeypatch.setattr(api_service, "API_AUTH_ENABLED", True)
-    monkeypatch.setattr(api_service, "API_AUTH_TOKEN", "")
-    monkeypatch.setattr(api_service, "API_KEY_HEADER", "X-API-Key")
+    monkeypatch.setattr(config, "API_AUTH_ENABLED", True)
+    monkeypatch.setattr(config, "API_AUTH_TOKEN", "")
+    monkeypatch.setattr(config, "API_KEY_HEADER", "X-API-Key")
 
     response = client.post(
         "/fill",
@@ -385,9 +432,9 @@ def test_fill_endpoint_returns_server_auth_config_error(monkeypatch):
 
 
 def test_fill_endpoint_accepts_api_key_when_enabled(monkeypatch):
-    monkeypatch.setattr(api_service, "API_AUTH_ENABLED", True)
-    monkeypatch.setattr(api_service, "API_AUTH_TOKEN", "secret-token")
-    monkeypatch.setattr(api_service, "API_KEY_HEADER", "X-API-Key")
+    monkeypatch.setattr(config, "API_AUTH_ENABLED", True)
+    monkeypatch.setattr(config, "API_AUTH_TOKEN", "secret-token")
+    monkeypatch.setattr(config, "API_KEY_HEADER", "X-API-Key")
 
     response = client.post(
         "/fill",
@@ -399,7 +446,7 @@ def test_fill_endpoint_accepts_api_key_when_enabled(monkeypatch):
 
 
 def test_fill_endpoint_rejects_large_upload(monkeypatch):
-    monkeypatch.setattr(api_service, "MAX_UPLOAD_BYTES", 20)
+    monkeypatch.setattr(config, "MAX_UPLOAD_BYTES", 20)
 
     response = client.post(
         "/fill",
@@ -418,7 +465,7 @@ def test_fill_endpoint_returns_required_fields_unresolved_code(monkeypatch):
             skipped_fields=[],
         )
 
-    monkeypatch.setattr(api_service, "run_fill_pipeline", fake_pipeline)
+    monkeypatch.setattr(api_routes, "run_fill_pipeline", fake_pipeline)
 
     response = client.post(
         "/fill",
@@ -434,7 +481,7 @@ def test_fill_endpoint_returns_pdf_fill_failed_code(monkeypatch):
     def failing_pipeline(*_args, **_kwargs):
         raise RuntimeError("boom")
 
-    monkeypatch.setattr(api_service, "run_fill_pipeline", failing_pipeline)
+    monkeypatch.setattr(api_routes, "run_fill_pipeline", failing_pipeline)
 
     response = client.post(
         "/fill",

@@ -2,6 +2,7 @@
   {
     "name": "sample_form",
     "pdf": "samples/sample_form.pdf",
+    "notes": "Bundled demo AcroForm; built-in name/contact aliases.",
     "user_data": {
       "firstname": "Jane",
       "lastname": "Doe",
@@ -20,6 +21,7 @@
   {
     "name": "hr_intake",
     "pdf": "samples/hr_intake_sample.pdf",
+    "notes": "Synthetic HR intake; not a vendor PDF.",
     "user_data": {
       "employee_name": "Jane Doe",
       "ssn": "123-45-6789",
@@ -35,6 +37,71 @@
       "job_title": "txtJobTitle",
       "start_date": "txtStartDate",
       "consent": "chkConsent"
+    }
+  },
+  {
+    "name": "w9_shaped",
+    "pdf": "samples/w9_shaped_sample.pdf",
+    "notes": "Synthetic W-9-shaped field names + w9.json pack. Not an IRS W-9.",
+    "user_data": {
+      "name_line_1": "Jane Doe",
+      "business_name_line_2": "Doe Consulting LLC",
+      "ein": "12-3456789",
+      "addr1": "123 Main St",
+      "town": "Springfield",
+      "province": "IL",
+      "zip": "62701"
+    },
+    "expected": {
+      "name_line_1": "txtNameLine1",
+      "business_name_line_2": "txtBusinessName",
+      "ein": "txtEIN",
+      "addr1": "txtAddr1",
+      "town": "txtCity",
+      "province": "txtState",
+      "zip": "txtZIP"
+    }
+  },
+  {
+    "name": "address_contact",
+    "pdf": "samples/address_contact_sample.pdf",
+    "notes": "Built-in address/email/phone synonym clusters.",
+    "user_data": {
+      "address": "123 Main St",
+      "apt": "Suite 4",
+      "town": "Springfield",
+      "province": "IL",
+      "postcode": "62701",
+      "e_mail": "jane@example.com",
+      "cell": "555-0199"
+    },
+    "expected": {
+      "address": "txtStreet",
+      "apt": "txtAddress2",
+      "town": "txtTown",
+      "province": "txtProvince",
+      "postcode": "txtPostcode",
+      "e_mail": "txtEmail",
+      "cell": "txtMobile"
+    }
+  },
+  {
+    "name": "hr_hire_alias",
+    "pdf": "samples/hr_hire_alias_sample.pdf",
+    "notes": "HR onboarding pack: hire_date/supervisor/dept/emp_id synonyms.",
+    "user_data": {
+      "worker_name": "Pat Nguyen",
+      "hire_date": "2026-04-15",
+      "supervisor": "Alex Manager",
+      "dept": "Engineering",
+      "badge_number": "E-2048"
+    },
+    "expected": {
+      "worker_name": "txtEmployeeName",
+      "hire_date": "txtStartDate",
+      "supervisor": "txtManager",
+      "dept": "txtDepartment",
+      "badge_number": "txtEmployeeId"
     }
   }
 ]

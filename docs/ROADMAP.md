@@ -50,7 +50,7 @@ This roadmap turns PDF Autofiller from a working beta into something people can 
 | # | Work | Why |
 |---|------|-----|
 | 0.1 | Pin Ruff; explicit `[tool.ruff.lint]`; fix/autofix lint | Floating Ruff breaks CI |
-| 0.2 | Prefer Ruff format (or document Black-only) — one formatter | Avoid dual-formatter drift |
+| 0.2 | Prefer Ruff format (or document Black-only) — one formatter | Avoid dual-formatter drift | Done (Black removed; Ruff only) |
 | 0.3 | Export **local** `fill()` via `run_fill_pipeline`; keep `PDFAutofillerClient` for HTTP | README/recipes must work offline |
 | 0.4 | Add `py.typed` | Match `Typing :: Typed` classifier |
 | 0.5 | `auto_regenerate=False` on form writes | Avoid “save changes” dialogs ([pypdf forms docs](https://pypdf.readthedocs.io/en/stable/user/forms.html)) |
@@ -69,14 +69,14 @@ This roadmap turns PDF Autofiller from a working beta into something people can 
 
 ## Phase 1 — Deliver diagnosable value
 
-**Status:** Partial — shipped in 0.5.0: `/preview`, choice write path, flatten, playground Preview Mapping + fill-report panel (written / skipped-review / skipped-empty from response headers), OpenAPI `200 application/pdf`, ops clarifications. Still open: **1.2** Accept/JSON body fill report (headers + playground panel are the current report surface); **1.4** OpenAPI error catalog.
+**Status:** Done for 0.6.0 — `/preview`, choice write path, flatten, playground Preview Mapping + fill-report panel, OpenAPI `200` PDF+JSON, `Accept: application/json` fill report body. Still open: **1.4** OpenAPI error catalog.
 
 **Outcome:** Users can open any AcroForm, see fields, preview mapping, and debug misses.
 
 | # | Work | Why | Status |
 |---|------|-----|--------|
 | 1.1 | `POST /preview` — mapping decisions JSON without writing PDF | Debug without round-trips | Done |
-| 1.2 | Optional JSON fill report body / `Accept` negotiation | Headers alone are too weak for ops | Open (headers + playground panel interim) |
+| 1.2 | Optional JSON fill report body / `Accept` negotiation | Headers alone are too weak for ops | Done (`Accept: application/json`) |
 | 1.3 | Playground panel: field inventory + written/skipped/missing | Visual proof | Done (inspect + fill report panel) |
 | 1.4 | OpenAPI: document `200 application/pdf` + error catalog | SDK/codegen consumers | Partial (`200` PDF done; error catalog open) |
 | 1.5 | Choice (`/Ch`) write path; document signature (`/Sig`) limits | Completeness | Done |
@@ -89,7 +89,7 @@ This roadmap turns PDF Autofiller from a working beta into something people can 
 
 ## Phase 2 — Prove accuracy on real forms
 
-**Status:** Done for synthetic corpus (sample_form + hr_intake) — `tests/fixtures/corpus/`, `make corpus-check`. Redacted real W-9 still optional follow-up.
+**Status:** Done for synthetic corpus (5 cases / 30 expected fields: sample_form, hr_intake, w9_shaped, address_contact, hr_hire_alias). Redacted real IRS/vendor PDFs remain optional follow-up — do not market synthetic stand-ins as certified forms.
 
 **Outcome:** Marketing claims are backed by CI fixtures.
 

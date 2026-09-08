@@ -4,7 +4,30 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-_Nothing yet — changes for the next release will be listed here._
+## [0.6.0]
+
+### Added
+
+- `AliasRegistry` (`aliases.py`) — packs load via `AliasRegistry.load()` / `get_default_registry()` instead of mutating a module global at import
+- Library APIs: `inspect()`, `preview()`, `fill_detailed()` alongside `fill()`
+- `POST /fill` JSON mode when `Accept: application/json` (report + `pdf_base64`)
+- Health checks: `semantic_provider`, `rate_limit`
+- Synthetic corpus expansion: W-9-shaped, address/contact, HR hire-date alias samples (5 cases, 30/30 fields) — still synthetic, not official forms
+- `.pre-commit-config.yaml` (Ruff + mypy)
+- camelCase / digit-boundary splitting in `normalize_key` for AcroForm names like `txtNameLine1`
+
+### Changed
+
+- HTTP layer split into `pdf_autofiller.api.*`; `api_service` remains the ASGI entrypoint
+- Semantic inference failures log a warning before deterministic fallback (no silent `pass`)
+- Tooling: Black removed; Ruff is the only formatter; EditorConfig line length 110
+- Version bump to **0.6.0**
+- `run_fill_pipeline` returns `(report, mapping, field_count, page_count)`
+- `forms/README.md` points at packaged packs only (no duplicate JSON tree)
+
+### Fixed
+
+- Checkbox field names (`chkConsent`) strip `chk_` and map through the HR consent cluster
 
 ## [0.5.0]
 

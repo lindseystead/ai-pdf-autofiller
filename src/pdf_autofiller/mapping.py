@@ -9,14 +9,19 @@ Privacy: the optional provider fallback shares user-data *key names* and value
 through this path.
 """
 
+from __future__ import annotations
+
 import json
 import logging
-import os
 import re
 from datetime import datetime
-from pathlib import Path
 from typing import Any
 
+from .aliases import (
+    AliasRegistry,
+    get_default_registry,
+    normalize_key,
+)
 from .field_semantics import SemanticClient, strip_json_code_fence
 from .models import (
     EnrichedFormField,
@@ -26,176 +31,17 @@ from .models import (
 
 logger = logging.getLogger(__name__)
 
-
-# Semantic aliases used by deterministic matching.
-# Keys are canonical semantic meanings; values are common user-data key variants.
-FIELD_ALIASES: dict[str, list[str]] = {
-    "first_name": ["firstname", "given_name", "forename", "fname"],
-    "last_name": ["lastname", "surname", "family_name", "lname"],
-    "middle_name": ["middlename", "middle_initial", "mi"],
-    "full_name": ["fullname", "name", "legal_name"],
-    "date_of_birth": ["dob", "birth_date", "birthdate", "birthday"],
-    "email_address": ["email", "emailaddress", "e_mail"],
-    "phone_number": ["phone", "mobile", "cell", "telephone", "tel"],
-    "street_address": ["address", "street", "addr1", "address_line_1", "address1"],
-    "address_line_2": ["addr2", "address2", "apt", "suite", "unit"],
-    "city": ["town", "municipality"],
-    "state": ["province", "region", "state_province"],
-    "postal_code": ["zip", "zipcode", "zip_code", "postcode"],
-    "country": ["nation"],
-    "social_security_number": ["ssn", "social_security", "tax_id", "national_id"],
-    "employer": ["company", "employer_name", "organization"],
-    "job_title": ["title", "position", "occupation", "jobtitle"],
-    "employee_name": ["employeename", "worker_name", "staff_name"],
-    "signature_date": ["date_signed", "signed_date", "sign_date"],
-}
-
-
-def _resolve_aliases_dir() -> Path:
-    """Resolve the alias pack directory, falling back when misconfigured."""
-    default = Path(__file__).parent / "form_aliases"
-    custom_env = os.getenv("FORM_ALIASES_DIR")
-    if not custom_env:
-        return default
-
-    candidate = Path(custom_env).expanduser()
-    if not candidate.is_absolute():
-        candidate = (Path.cwd() / candidate).resolve()
-    else:
-        candidate = candidate.resolve()
-
-    if not candidate.is_dir():
-        logger.warning(
-            "FORM_ALIASES_DIR is not a directory (%s); using package defaults",
-            candidate,
-        )
-        return default
-
-    return candidate
-
-
-def _load_community_aliases() -> dict[str, list[str]]:
-    """Merge optional community alias packs shipped with the package."""
-    aliases_dir = _resolve_aliases_dir()
-    if not aliases_dir.is_dir():
-        return {}
-
-    merged: dict[str, list[str]] = {}
-    for path in sorted(aliases_dir.glob("*.json")):
-        try:
-            payload = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as exc:
-            logger.warning("Skipping invalid alias pack %s: %s", path.name, exc)
-            continue
-        if not isinstance(payload, dict):
-            logger.warning("Skipping alias pack %s: expected JSON object", path.name)
-            continue
-        for semantic, variants in payload.items():
-            if not isinstance(semantic, str) or not isinstance(variants, list):
-                continue
-            cleaned = [variant for variant in variants if isinstance(variant, str)]
-            if cleaned:
-                merged.setdefault(semantic, []).extend(cleaned)
-    return merged
-
-
-FIELD_ALIASES.update(_load_community_aliases())
+# Backward-compatible module alias: live view of the default registry.
+# Prefer AliasRegistry / get_default_registry() in new code.
+FIELD_ALIASES: dict[str, list[str]] = get_default_registry().aliases
 
 
 def alias_pack_status() -> dict[str, str]:
     """Return alias-pack metadata for health checks."""
-    aliases_dir = _resolve_aliases_dir()
-    pack_count = len(list(aliases_dir.glob("*.json"))) if aliases_dir.is_dir() else 0
-    return {
-        "alias_directory": str(aliases_dir),
-        "alias_pack_count": str(pack_count),
-    }
+    return get_default_registry().status()
 
 
-def normalize_key(key: str) -> str:
-    """
-    Normalize a key string for matching.
-    
-    Converts to lowercase, standardizes separators to underscores, and
-    removes punctuation. This allows matching "First-Name" to "first_name".
-    
-    Args:
-        key: Original key string
-        
-    Returns:
-        Normalized key in snake_case format
-    """
-    key = key.lower()
-    key = re.sub(r'[\s\-_\.]+', '_', key)
-    key = re.sub(r'[^\w_]', '', key)
-    key = re.sub(r'_+', '_', key)
-    key = key.strip('_')
-    
-    return key
-
-
-def coerce_value(value: Any, expected_type: str) -> tuple[str | None, bool]:
-    """
-    Coerce a value to match the expected data type.
-    
-    Performs type conversion and validation. Returns a flag indicating whether
-    the coercion was ambiguous and requires human review.
-    
-    Args:
-        value: Value to coerce
-        expected_type: One of "string", "date", "number", "boolean"
-        
-    Returns:
-        Tuple of (coerced_value, requires_review)
-        - coerced_value: String representation, or None if value is None
-        - requires_review: True if coercion was ambiguous or failed
-    """
-    if value is None:
-        return None, False
-    
-    str_value = str(value).strip()
-    
-    if expected_type == "string":
-        return str_value, False
-    
-    elif expected_type == "date":
-        # Only accept ISO format YYYY-MM-DD
-        date_pattern = r'^\d{4}-\d{2}-\d{2}$'
-        if re.match(date_pattern, str_value):
-            try:
-                datetime.strptime(str_value, "%Y-%m-%d")
-                return str_value, False
-            except ValueError:
-                # Invalid date (e.g., 2024-13-45)
-                return str_value, True
-        else:
-            # Wrong format entirely
-            return str_value, True
-    
-    elif expected_type == "number":
-        try:
-            float_val = float(str_value)
-            # Prefer integer representation when possible
-            if float_val.is_integer():
-                return str(int(float_val)), False
-            return str(float_val), False
-        except (ValueError, OverflowError):
-            return str_value, True
-    
-    elif expected_type == "boolean":
-        str_lower = str_value.lower()
-        if str_lower in ("true", "yes", "1", "on"):
-            return "true", False
-        elif str_lower in ("false", "no", "0", "off"):
-            return "false", False
-        else:
-            # Ambiguous boolean value
-            return str_value, True
-    
-    return str_value, False
-
-
-def alias_equivalence_set(key: str) -> set[str]:
+def alias_equivalence_set(key: str, registry: AliasRegistry | None = None) -> set[str]:
     """
     Return every normalized key that shares an alias pack with ``key``.
 
@@ -204,59 +50,80 @@ def alias_equivalence_set(key: str) -> set[str]:
     stripping ``txt``). Matching must treat the whole cluster as equivalent
     so ``given_name`` still maps when the derived semantic is ``firstname``.
     """
-    normalized = normalize_key(key)
-    cluster: set[str] = {normalized}
-    for canon, aliases in FIELD_ALIASES.items():
-        members = {normalize_key(canon)} | {normalize_key(alias) for alias in aliases}
-        if normalized in members:
-            cluster |= members
-    return cluster
+    return (registry or get_default_registry()).equivalence_set(key)
 
 
-def canonicalize_semantic(key: str) -> str:
+def canonicalize_semantic(key: str, registry: AliasRegistry | None = None) -> str:
     """Map a synonym onto its canonical alias-pack key when one exists."""
-    normalized = normalize_key(key)
-    for canon, aliases in FIELD_ALIASES.items():
-        members = {normalize_key(canon)} | {normalize_key(alias) for alias in aliases}
-        if normalized in members:
-            return canon
-    return normalized
+    return (registry or get_default_registry()).canonicalize(key)
+
+
+def coerce_value(value: Any, expected_type: str) -> tuple[str | None, bool]:
+    """
+    Coerce a value to match the expected data type.
+
+    Returns ``(coerced_value, requires_review)``.
+    """
+    if value is None:
+        return None, False
+
+    str_value = str(value).strip()
+
+    if expected_type == "string":
+        return str_value, False
+
+    if expected_type == "date":
+        if re.match(r"^\d{4}-\d{2}-\d{2}$", str_value):
+            try:
+                datetime.strptime(str_value, "%Y-%m-%d")
+                return str_value, False
+            except ValueError:
+                return str_value, True
+        return str_value, True
+
+    if expected_type == "number":
+        try:
+            float_val = float(str_value)
+            if float_val.is_integer():
+                return str(int(float_val)), False
+            return str(float_val), False
+        except (ValueError, OverflowError):
+            return str_value, True
+
+    if expected_type == "boolean":
+        str_lower = str_value.lower()
+        if str_lower in ("true", "yes", "1", "on"):
+            return "true", False
+        if str_lower in ("false", "no", "0", "off"):
+            return "false", False
+        return str_value, True
+
+    return str_value, False
 
 
 def find_deterministic_match(
     semantic_meaning: str,
     user_data: dict[str, Any],
-    expected_type: str
+    expected_type: str,
+    registry: AliasRegistry | None = None,
 ) -> tuple[str | None, str | None, float, str, bool]:
     """
     Find a deterministic match for a semantic meaning.
-    
-    Tries direct normalized matching first, then falls back to alias-cluster
-    matching (canonical key + all pack synonyms). Returns None if no match
-    found. All matching is case-insensitive and handles key normalization.
-    
-    Args:
-        semantic_meaning: Semantic meaning to match (e.g., "first_name")
-        user_data: User-provided data dictionary
-        expected_type: Expected data type for type coercion
-        
-    Returns:
-        Tuple of (matched_key, matched_value, confidence, reason, requires_review)
+
+    Tries direct normalized matching first, then alias-cluster matching.
     """
+    active = registry or get_default_registry()
     normalized_semantic = normalize_key(semantic_meaning)
-    equivalence = alias_equivalence_set(semantic_meaning)
-    
-    # Direct normalized match
+    equivalence = active.equivalence_set(semantic_meaning)
+
     for user_key, user_value in user_data.items():
         normalized_key = normalize_key(user_key)
-        
         if normalized_key == normalized_semantic:
             coerced_value, requires_review = coerce_value(user_value, expected_type)
             confidence = 0.95 if not requires_review else 0.70
             reason = f"Direct match: '{user_key}' matches semantic '{semantic_meaning}'"
             return user_key, coerced_value, confidence, reason, requires_review
-    
-    # Alias-cluster match: any synonym in the same pack as the semantic meaning.
+
     for user_key, user_value in user_data.items():
         normalized_key = normalize_key(user_key)
         if normalized_key in equivalence:
@@ -267,50 +134,40 @@ def find_deterministic_match(
                 f"'{semantic_meaning}' via alias cluster"
             )
             return user_key, coerced_value, confidence, reason, requires_review
-    
+
     return None, None, 0.0, "No deterministic match found", False
 
 
 def semantic_fallback_mapping(
     unmapped_fields: list[EnrichedFormField],
     user_data: dict[str, Any],
-    api_key: str | None = None
+    api_key: str | None = None,
 ) -> dict[str, tuple[str, str | None, float, str]]:
     """
     Use provider-backed fallback to map unmapped fields when deterministic matching fails.
 
-    Only called for fields that couldn't be matched deterministically.
-    Returns empty dict if the semantic client is unavailable or if no fields provided.
-
-    Args:
-        unmapped_fields: Fields that failed deterministic matching
-        user_data: User-provided data dictionary
-        api_key: Optional provider API key
-        
-    Returns:
-        Dictionary mapping field_name -> (matched_key, matched_value, confidence, reason)
+    Only key names and value *types* are sent to the provider — never raw values.
     """
     if not unmapped_fields:
         return {}
-    
+
     client = SemanticClient(api_key=api_key)
     if not client.is_available():
+        logger.info("Provider fallback skipped: semantic client unavailable")
         return {}
-    
-    # Prepare field metadata for provider-backed fallback.
+
     fields_info = []
     for field in unmapped_fields:
-        fields_info.append({
-            "field_name": field.field.name,
-            "semantic_meaning": field.semantics.semantic_meaning,
-            "expected_type": field.semantics.expected_data_type,
-            "required": field.field.required
-        })
-    
+        fields_info.append(
+            {
+                "field_name": field.field.name,
+                "semantic_meaning": field.semantics.semantic_meaning,
+                "expected_type": field.semantics.expected_data_type,
+                "required": field.field.required,
+            }
+        )
+
     user_data_keys = list(user_data.keys())
-    # Privacy: send only key names and value *types* to the provider. Raw user
-    # values (which are typically PII) are withheld so they never leave the
-    # service via the fallback path.
     user_data_types = {key: type(value).__name__ for key, value in user_data.items()}
 
     prompt = f"""Map the following PDF form fields to user data keys.
@@ -339,7 +196,7 @@ Example response:
     "reason": "User key 'firstname' matches semantic 'first_name'"
   }}
 }}"""
-    
+
     try:
         content = client.create_json_completion(
             system_prompt=(
@@ -350,29 +207,25 @@ Example response:
             model="gpt-4o-mini",
             temperature=0.2,
         )
-        
         fallback_result = json.loads(strip_json_code_fence(content))
-        
-        # Convert to our format
-        result = {}
+
+        result: dict[str, tuple[str, str | None, float, str]] = {}
         for field in unmapped_fields:
             field_name = field.field.name
-            if field_name in fallback_result:
-                match_info = fallback_result[field_name]
-                matched_key = match_info.get("matched_key")
-                confidence = float(match_info.get("confidence", 0.0))
-                reason = match_info.get("reason", "Fallback mapping")
-                
-                if matched_key and matched_key in user_data:
-                    # Coerce the value
-                    coerced_value, _ = coerce_value(
-                        user_data[matched_key],
-                        field.semantics.expected_data_type
-                    )
-                    result[field_name] = (matched_key, coerced_value, confidence, reason)
-        
+            if field_name not in fallback_result:
+                continue
+            match_info = fallback_result[field_name]
+            matched_key = match_info.get("matched_key")
+            confidence = float(match_info.get("confidence", 0.0))
+            reason = match_info.get("reason", "Fallback mapping")
+
+            if matched_key and matched_key in user_data:
+                coerced_value, _ = coerce_value(
+                    user_data[matched_key],
+                    field.semantics.expected_data_type,
+                )
+                result[field_name] = (matched_key, coerced_value, confidence, reason)
         return result
-        
     except (RuntimeError, json.JSONDecodeError, TypeError, ValueError, KeyError) as exc:
         logger.warning("Provider fallback mapping failed: %s", exc)
         return {}
@@ -384,118 +237,90 @@ def map_user_data_to_fields(
     *,
     strict: bool = False,
     allow_fallback_mapping: bool = False,
-    api_key: str | None = None
+    api_key: str | None = None,
+    registry: AliasRegistry | None = None,
 ) -> MappingResult:
     """
     Map user-provided structured data to PDF form fields.
-    
-    Uses deterministic matching first (exact/normalized/aliases), then optional
-    fallback mapping for ambiguous cases.
-    
-    Args:
-        enriched_fields: List of form fields with inferred semantics
-        user_data: User-provided data dictionary
-        strict: If True, only use deterministic matching (no fallback mapping)
-        allow_fallback_mapping: If True, use fallback mapping for unmapped required/high-value fields
-        api_key: Optional provider API key for fallback mapping
-        
-    Returns:
-        MappingResult with decisions, missing required fields, and unmapped keys
-        
-    Example:
-        >>> fields = [
-        ...     EnrichedFormField(
-        ...         field=FormField(name="txtFirstName", field_type="text", required=True, page_number=1),
-        ...         semantics=FieldSemantics(
-        ...             semantic_meaning="first_name",
-        ...             expected_data_type="string",
-        ...             confidence_score=0.95,
-        ...         )
-        ...     )
-        ... ]
-        >>> user_data = {"firstname": "John", "lastname": "Doe"}
-        >>> result = map_user_data_to_fields(fields, user_data)
-        >>> result.decisions[0].selected_value
-        'John'
+
+    Uses deterministic matching first, then optional provider fallback for
+    unresolved required/high-value fields.
     """
     decisions: list[FieldMappingDecision] = []
     unmapped_fields: list[EnrichedFormField] = []
     used_user_keys: set[str] = set()
-    
-    # Deterministic pass runs first so mappings stay auditable and predictable.
+    active = registry or get_default_registry()
+
     for enriched_field in enriched_fields:
         semantic = enriched_field.semantics.semantic_meaning
         expected_type = enriched_field.semantics.expected_data_type
-        
-        matched_key, matched_value, confidence, reason, requires_review = find_deterministic_match(
-            semantic,
-            user_data,
-            expected_type
+
+        matched_key, matched_value, confidence, reason, requires_review = (
+            find_deterministic_match(
+                semantic,
+                user_data,
+                expected_type,
+                registry=active,
+            )
         )
-        
+
         if matched_key:
             used_user_keys.add(matched_key)
-            
-            decisions.append(FieldMappingDecision(
-                field_name=enriched_field.field.name,
-                semantic_meaning=semantic,
-                selected_value=matched_value,
-                confidence=confidence,
-                reason=reason,
-                requires_review=requires_review or confidence < 0.80
-            ))
+            decisions.append(
+                FieldMappingDecision(
+                    field_name=enriched_field.field.name,
+                    semantic_meaning=semantic,
+                    selected_value=matched_value,
+                    confidence=confidence,
+                    reason=reason,
+                    requires_review=requires_review or confidence < 0.80,
+                )
+            )
         else:
             unmapped_fields.append(enriched_field)
-    
-    # Provider-backed fallback is constrained to unresolved fields with high value
-    # (required or high-confidence semantics).
+
     if not strict and allow_fallback_mapping and unmapped_fields:
         high_value_fields = [
-            f for f in unmapped_fields
+            f
+            for f in unmapped_fields
             if f.field.required or f.semantics.confidence_score > 0.8
         ]
-        
+
         if high_value_fields:
-            fallback_mappings = semantic_fallback_mapping(high_value_fields, user_data, api_key)
-            
+            fallback_mappings = semantic_fallback_mapping(
+                high_value_fields, user_data, api_key
+            )
+
             for enriched_field in high_value_fields[:]:
                 field_name = enriched_field.field.name
-                
-                if field_name in fallback_mappings:
-                    matched_key, matched_value, confidence, reason = fallback_mappings[field_name]
-                    
-                    if matched_key and matched_key not in used_user_keys:
-                        used_user_keys.add(matched_key)
-                        coerced_value, requires_review = coerce_value(
-                            matched_value,
-                            enriched_field.semantics.expected_data_type,
-                        )
-                        
-                        decisions.append(FieldMappingDecision(
+                if field_name not in fallback_mappings:
+                    continue
+                matched_key, matched_value, confidence, reason = fallback_mappings[
+                    field_name
+                ]
+                if matched_key and matched_key not in used_user_keys:
+                    used_user_keys.add(matched_key)
+                    coerced_value, requires_review = coerce_value(
+                        matched_value,
+                        enriched_field.semantics.expected_data_type,
+                    )
+                    decisions.append(
+                        FieldMappingDecision(
                             field_name=field_name,
                             semantic_meaning=enriched_field.semantics.semantic_meaning,
                             selected_value=coerced_value,
                             confidence=confidence,
                             reason=reason,
-                            requires_review=requires_review or confidence < 0.80
-                        ))
-                        
-                        unmapped_fields.remove(enriched_field)
-    
-    # Collect validation results
-    missing_required = [
-        f.field.name
-        for f in unmapped_fields
-        if f.field.required
-    ]
-    
-    unmapped_user_keys = [
-        key for key in user_data
-        if key not in used_user_keys
-    ]
-    
+                            requires_review=requires_review or confidence < 0.80,
+                        )
+                    )
+                    unmapped_fields.remove(enriched_field)
+
+    missing_required = [f.field.name for f in unmapped_fields if f.field.required]
+    unmapped_user_keys = [key for key in user_data if key not in used_user_keys]
+
     return MappingResult(
         decisions=decisions,
         missing_required=missing_required,
-        unmapped_user_keys=unmapped_user_keys
+        unmapped_user_keys=unmapped_user_keys,
     )

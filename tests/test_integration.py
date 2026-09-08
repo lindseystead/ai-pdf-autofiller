@@ -23,7 +23,7 @@ def test_sample_form_round_trip_writes_required_fields(tmp_path: Path):
     }
     output_path = tmp_path / "filled.pdf"
 
-    report, mapping_result, field_count = run_fill_pipeline(
+    report, mapping_result, field_count, _pages = run_fill_pipeline(
         SAMPLE_PDF,
         output_path,
         user_data,
@@ -58,7 +58,7 @@ def test_sample_form_fills_from_alias_synonyms(tmp_path: Path):
     }
     output_path = tmp_path / "alias_filled.pdf"
 
-    report, mapping_result, _field_count = run_fill_pipeline(
+    report, mapping_result, _field_count, _pages = run_fill_pipeline(
         SAMPLE_PDF,
         output_path,
         user_data,
@@ -86,21 +86,19 @@ def test_sample_form_fills_from_alias_synonyms(tmp_path: Path):
 
 
 @pytest.mark.skipif(not SAMPLE_PDF.exists(), reason="sample PDF not present")
-def test_fill_endpoint_round_trip_with_sample_pdf():
+def test_fill_endpoint_round_trip_with_sample_pdf(monkeypatch):
+    from pdf_autofiller.api import config
+
     client = TestClient(api_service.app)
-    original_auth = api_service.API_AUTH_ENABLED
-    api_service.API_AUTH_ENABLED = False
-    try:
-        response = client.post(
-            "/fill",
-            files={"pdf_file": (SAMPLE_PDF.name, SAMPLE_PDF.read_bytes(), "application/pdf")},
-            data={
-                "user_data": '{"firstname":"Jane","lastname":"Doe","dob":"1990-01-01"}',
-                "strict": "true",
-            },
-        )
-    finally:
-        api_service.API_AUTH_ENABLED = original_auth
+    monkeypatch.setattr(config, "API_AUTH_ENABLED", False)
+    response = client.post(
+        "/fill",
+        files={"pdf_file": (SAMPLE_PDF.name, SAMPLE_PDF.read_bytes(), "application/pdf")},
+        data={
+            "user_data": '{"firstname":"Jane","lastname":"Doe","dob":"1990-01-01"}',
+            "strict": "true",
+        },
+    )
 
     assert response.status_code == 200
     assert response.headers["content-type"] == "application/pdf"
@@ -108,9 +106,11 @@ def test_fill_endpoint_round_trip_with_sample_pdf():
 
 
 def test_health_reports_alias_packs_and_auth_state(monkeypatch):
+    from pdf_autofiller.api import config
+
     client = TestClient(api_service.app)
-    monkeypatch.setattr(api_service, "API_AUTH_ENABLED", True)
-    monkeypatch.setattr(api_service, "API_AUTH_TOKEN", "")
+    monkeypatch.setattr(config, "API_AUTH_ENABLED", True)
+    monkeypatch.setattr(config, "API_AUTH_TOKEN", "")
 
     response = client.get("/health")
     payload = response.json()
@@ -118,3 +118,8 @@ def test_health_reports_alias_packs_and_auth_state(monkeypatch):
     assert payload["status"] == "degraded"
     assert payload["checks"]["auth"] == "misconfigured"
     assert int(payload["checks"]["alias_pack_count"]) >= 1
+    assert payload["checks"]["semantic_provider"] in {
+        "available",
+        "unconfigured",
+        "sdk_missing",
+    }

@@ -77,12 +77,15 @@ def sample_enriched_fields():
 
 
 def test_normalize_key():
-    """Test key normalization."""
+    """Test key normalization including AcroForm camelCase names."""
     assert normalize_key("First-Name!") == "first_name"
     assert normalize_key("Email Address") == "email_address"
     assert normalize_key("phone_number") == "phone_number"
     assert normalize_key("DOB") == "dob"
     assert normalize_key("first__name") == "first_name"
+    assert normalize_key("txtFirstName") == "txt_first_name"
+    assert normalize_key("txtNameLine1") == "txt_name_line_1"
+    assert normalize_key("chkConsent") == "chk_consent"
 
 
 def test_coerce_value_string():
@@ -511,9 +514,9 @@ def test_alias_cluster_matches_synonym_semantics(
 ):
     """Field-name fallback synonyms still resolve through the alias pack cluster.
 
-    Without AI, txtFirstName becomes ``firstname`` (not ``first_name``). Alias
-    packs are keyed by the canonical name, so matching must treat the whole
-    synonym cluster as equivalent.
+    Without AI, ``txtFirstName`` normalizes to ``first_name`` (camelCase split).
+    Older synonym-only semantics like ``firstname`` must still resolve profile
+    keys such as ``given_name`` via the alias cluster.
     """
     matched_key, matched_value, confidence, reason, _requires_review = find_deterministic_match(
         derived_semantic,

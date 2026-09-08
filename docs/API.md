@@ -28,16 +28,18 @@ Example response:
 {
   "status": "ok",
   "service": "pdf-autofiller",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "checks": {
     "auth": "disabled",
+    "semantic_provider": "unconfigured",
+    "rate_limit": "in_process",
     "alias_directory": "/app/src/pdf_autofiller/form_aliases",
     "alias_pack_count": "2"
   }
 }
 ```
 
-`status` is `degraded` when auth is enabled but `API_AUTH_TOKEN` is unset (`checks.auth` = `misconfigured`). Alias pack availability is reported via `checks.alias_directory` and `checks.alias_pack_count`.
+`status` is `degraded` when auth is enabled but `API_AUTH_TOKEN` is unset (`checks.auth` = `misconfigured`). Alias pack availability is reported via `checks.alias_directory` and `checks.alias_pack_count`. `semantic_provider` is one of `available` | `unconfigured` | `sdk_missing` — it does not claim inference succeeded on a request.
 
 ### `GET /version`
 
@@ -129,7 +131,11 @@ Authentication and rate limits match `POST /fill`.
 
 ### `POST /fill`
 
-Accepts a multipart form upload and returns a filled PDF (`application/pdf`).
+Accepts a multipart form upload.
+
+**Default** (`Accept: application/pdf` or unspecified): response body is the filled PDF.
+
+**JSON report mode** (`Accept: application/json`): response body is JSON including mapping decisions, written/skipped fields, and `pdf_base64` (standard base64 of the filled PDF). Use this when headers alone are not enough for automation.
 
 Required form fields:
 
@@ -143,7 +149,7 @@ Optional form fields:
 - `use_semantic_inference`: when `true`, enables the semantic inference step before mapping (default `false`)
 - `flatten`: when `true`, burns field appearances into page content and removes widget annotations (default `false`)
 
-Example:
+Example (PDF):
 
 ```bash
 curl -s -X POST http://localhost:8000/fill \
@@ -153,7 +159,16 @@ curl -s -X POST http://localhost:8000/fill \
   -o filled.pdf
 ```
 
-On success the response body is the generated PDF (`application/pdf`). OpenAPI documents this as `200` with `content: application/pdf`.
+Example (JSON report):
+
+```bash
+curl -s -X POST http://localhost:8000/fill \
+  -H "Accept: application/json" \
+  -F "pdf_file=@samples/sample_form.pdf;type=application/pdf" \
+  -F 'user_data={"firstname":"Alex","lastname":"Example","dob":"1990-01-15"}'
+```
+
+On PDF success the response body is `application/pdf`. OpenAPI documents both `application/pdf` and `application/json` for `200`.
 
 Successful responses also include fill-outcome headers so clients can detect
 fields that were dropped instead of silently losing them:
