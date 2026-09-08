@@ -4,13 +4,13 @@ This directory contains sample PDF forms for testing the PDF autofiller.
 
 ## Files
 
-- `sample_form.pdf` - Sample fillable form with common fields
-- `sample_form_filled.pdf` - Generated output from the demo flow (gitignored)
+- `sample_form.pdf` — sample fillable form with common name/contact fields (`scripts/create_sample_form.py`)
+- `hr_intake_sample.pdf` — synthetic HR intake AcroForm (`scripts/create_corpus_forms.py`)
+- Corpus expectations: `tests/fixtures/corpus/cases.json`
 
 ## Usage
 
-To test with the sample form:
-
 ```bash
-PYTHONPATH=src python -m scripts.demo_workflow samples/sample_form.pdf
+PYTHONPATH=src python3 -m scripts.demo_workflow samples/sample_form.pdf
+make corpus-check
 ```

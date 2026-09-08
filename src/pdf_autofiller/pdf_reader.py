@@ -12,7 +12,6 @@ total volume of text retained and forwarded downstream.
 import logging
 import os
 from pathlib import Path
-from typing import Optional
 
 from pypdf import PdfReader
 
@@ -39,7 +38,7 @@ class PdfPageLimitError(Exception):
         )
 
 
-def _metadata_value(metadata: dict[str, object], key: str) -> Optional[str]:
+def _metadata_value(metadata: dict[str, object], key: str) -> str | None:
     """Read and normalize metadata values as strings."""
     value = metadata.get(key)
     return value if isinstance(value, str) else None
@@ -73,7 +72,7 @@ def _extract_text_regions(reader: PdfReader) -> list[TextRegion]:
     return text_regions
 
 
-def read_pdf(pdf_path: Path, *, max_pages: Optional[int] = None) -> DocumentStructure:
+def read_pdf(pdf_path: Path, *, max_pages: int | None = None) -> DocumentStructure:
     """Read a PDF and extract its complete structure."""
     if not pdf_path.exists():
         raise FileNotFoundError(f"PDF file not found: {pdf_path}")

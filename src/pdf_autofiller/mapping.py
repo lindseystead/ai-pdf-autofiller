@@ -15,8 +15,7 @@ import os
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
-
+from typing import Any
 
 from .field_semantics import SemanticClient, strip_json_code_fence
 from .models import (
@@ -46,7 +45,8 @@ FIELD_ALIASES: dict[str, list[str]] = {
     "country": ["nation"],
     "social_security_number": ["ssn", "social_security", "tax_id", "national_id"],
     "employer": ["company", "employer_name", "organization"],
-    "job_title": ["title", "position", "occupation"],
+    "job_title": ["title", "position", "occupation", "jobtitle"],
+    "employee_name": ["employeename", "worker_name", "staff_name"],
     "signature_date": ["date_signed", "signed_date", "sign_date"],
 }
 
@@ -134,7 +134,7 @@ def normalize_key(key: str) -> str:
     return key
 
 
-def coerce_value(value: Any, expected_type: str) -> tuple[Optional[str], bool]:
+def coerce_value(value: Any, expected_type: str) -> tuple[str | None, bool]:
     """
     Coerce a value to match the expected data type.
     
@@ -195,17 +195,45 @@ def coerce_value(value: Any, expected_type: str) -> tuple[Optional[str], bool]:
     return str_value, False
 
 
+def alias_equivalence_set(key: str) -> set[str]:
+    """
+    Return every normalized key that shares an alias pack with ``key``.
+
+    Alias packs are keyed by canonical semantics (``first_name``), but
+    field-name fallback often produces a synonym (``firstname`` after
+    stripping ``txt``). Matching must treat the whole cluster as equivalent
+    so ``given_name`` still maps when the derived semantic is ``firstname``.
+    """
+    normalized = normalize_key(key)
+    cluster: set[str] = {normalized}
+    for canon, aliases in FIELD_ALIASES.items():
+        members = {normalize_key(canon)} | {normalize_key(alias) for alias in aliases}
+        if normalized in members:
+            cluster |= members
+    return cluster
+
+
+def canonicalize_semantic(key: str) -> str:
+    """Map a synonym onto its canonical alias-pack key when one exists."""
+    normalized = normalize_key(key)
+    for canon, aliases in FIELD_ALIASES.items():
+        members = {normalize_key(canon)} | {normalize_key(alias) for alias in aliases}
+        if normalized in members:
+            return canon
+    return normalized
+
+
 def find_deterministic_match(
     semantic_meaning: str,
     user_data: dict[str, Any],
     expected_type: str
-) -> tuple[Optional[str], Optional[str], float, str, bool]:
+) -> tuple[str | None, str | None, float, str, bool]:
     """
     Find a deterministic match for a semantic meaning.
     
-    Tries direct normalized matching first, then falls back to alias matching.
-    Returns None if no match found. All matching is case-insensitive and
-    handles key normalization.
+    Tries direct normalized matching first, then falls back to alias-cluster
+    matching (canonical key + all pack synonyms). Returns None if no match
+    found. All matching is case-insensitive and handles key normalization.
     
     Args:
         semantic_meaning: Semantic meaning to match (e.g., "first_name")
@@ -216,6 +244,7 @@ def find_deterministic_match(
         Tuple of (matched_key, matched_value, confidence, reason, requires_review)
     """
     normalized_semantic = normalize_key(semantic_meaning)
+    equivalence = alias_equivalence_set(semantic_meaning)
     
     # Direct normalized match
     for user_key, user_value in user_data.items():
@@ -227,19 +256,17 @@ def find_deterministic_match(
             reason = f"Direct match: '{user_key}' matches semantic '{semantic_meaning}'"
             return user_key, coerced_value, confidence, reason, requires_review
     
-    # Alias match
-    if semantic_meaning in FIELD_ALIASES:
-        normalized_aliases = {
-            normalize_key(alias) for alias in FIELD_ALIASES[semantic_meaning]
-        }
-        for user_key, user_value in user_data.items():
-            normalized_key = normalize_key(user_key)
-            
-            if normalized_key in normalized_aliases:
-                coerced_value, requires_review = coerce_value(user_value, expected_type)
-                confidence = 0.90 if not requires_review else 0.65
-                reason = f"Alias match: '{user_key}' matches semantic '{semantic_meaning}' via alias"
-                return user_key, coerced_value, confidence, reason, requires_review
+    # Alias-cluster match: any synonym in the same pack as the semantic meaning.
+    for user_key, user_value in user_data.items():
+        normalized_key = normalize_key(user_key)
+        if normalized_key in equivalence:
+            coerced_value, requires_review = coerce_value(user_value, expected_type)
+            confidence = 0.90 if not requires_review else 0.65
+            reason = (
+                f"Alias match: '{user_key}' matches semantic "
+                f"'{semantic_meaning}' via alias cluster"
+            )
+            return user_key, coerced_value, confidence, reason, requires_review
     
     return None, None, 0.0, "No deterministic match found", False
 
@@ -247,8 +274,8 @@ def find_deterministic_match(
 def semantic_fallback_mapping(
     unmapped_fields: list[EnrichedFormField],
     user_data: dict[str, Any],
-    api_key: Optional[str] = None
-) -> dict[str, tuple[str, Optional[str], float, str]]:
+    api_key: str | None = None
+) -> dict[str, tuple[str, str | None, float, str]]:
     """
     Use provider-backed fallback to map unmapped fields when deterministic matching fails.
 
@@ -356,8 +383,8 @@ def map_user_data_to_fields(
     user_data: dict[str, Any],
     *,
     strict: bool = False,
-    allow_fallback_mapping: bool = True,
-    api_key: Optional[str] = None
+    allow_fallback_mapping: bool = False,
+    api_key: str | None = None
 ) -> MappingResult:
     """
     Map user-provided structured data to PDF form fields.
@@ -379,7 +406,11 @@ def map_user_data_to_fields(
         >>> fields = [
         ...     EnrichedFormField(
         ...         field=FormField(name="txtFirstName", field_type="text", required=True, page_number=1),
-        ...         semantics=FieldSemantics(semantic_meaning="first_name", expected_data_type="string", confidence_score=0.95)
+        ...         semantics=FieldSemantics(
+        ...             semantic_meaning="first_name",
+        ...             expected_data_type="string",
+        ...             confidence_score=0.95,
+        ...         )
         ...     )
         ... ]
         >>> user_data = {"firstname": "John", "lastname": "Doe"}
@@ -435,7 +466,10 @@ def map_user_data_to_fields(
                     
                     if matched_key and matched_key not in used_user_keys:
                         used_user_keys.add(matched_key)
-                        coerced_value, requires_review = coerce_value(matched_value, enriched_field.semantics.expected_data_type)
+                        coerced_value, requires_review = coerce_value(
+                            matched_value,
+                            enriched_field.semantics.expected_data_type,
+                        )
                         
                         decisions.append(FieldMappingDecision(
                             field_name=field_name,
@@ -456,7 +490,7 @@ def map_user_data_to_fields(
     ]
     
     unmapped_user_keys = [
-        key for key in user_data.keys()
+        key for key in user_data
         if key not in used_user_keys
     ]
     

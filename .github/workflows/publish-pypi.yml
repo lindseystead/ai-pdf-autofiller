@@ -30,10 +30,4 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.PYPI_API_TOKEN }}
-        continue-on-error: true
         id: pypi
-
-      - name: PyPI publish note
-        if: steps.pypi.outcome == 'failure'
-        run: |
-          echo "::warning::PyPI publish did not complete. Add PYPI_API_TOKEN to repository secrets to enable pip install from PyPI."

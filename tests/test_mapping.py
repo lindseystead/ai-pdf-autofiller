@@ -6,9 +6,9 @@ from pdf_autofiller import mapping as mapping_module
 from pdf_autofiller.mapping import (
     coerce_value,
     find_deterministic_match,
-    semantic_fallback_mapping,
     map_user_data_to_fields,
     normalize_key,
+    semantic_fallback_mapping,
 )
 from pdf_autofiller.models import (
     EnrichedFormField,
@@ -492,3 +492,46 @@ def test_community_w9_alias_pack_loaded():
     assert confidence >= 0.85
     assert "Alias match" in reason
 
+
+
+@pytest.mark.parametrize(
+    ("derived_semantic", "user_key", "user_value"),
+    [
+        ("firstname", "given_name", "Pat"),
+        ("lastname", "surname", "Nguyen"),
+        ("dob", "birthdate", "2001-12-31"),
+        ("email", "e_mail", "pat@example.com"),
+        ("phone", "tel", "555-0000"),
+    ],
+)
+def test_alias_cluster_matches_synonym_semantics(
+    derived_semantic: str,
+    user_key: str,
+    user_value: str,
+):
+    """Field-name fallback synonyms still resolve through the alias pack cluster.
+
+    Without AI, txtFirstName becomes ``firstname`` (not ``first_name``). Alias
+    packs are keyed by the canonical name, so matching must treat the whole
+    synonym cluster as equivalent.
+    """
+    matched_key, matched_value, confidence, reason, _requires_review = find_deterministic_match(
+        derived_semantic,
+        {user_key: user_value},
+        "string",
+    )
+
+    assert matched_key == user_key
+    assert matched_value == user_value
+    assert confidence >= 0.85
+    assert "Alias match" in reason
+
+
+def test_canonicalize_semantic_maps_synonyms_to_pack_keys():
+    """canonicalize_semantic prefers the alias-pack canonical key."""
+    from pdf_autofiller.mapping import canonicalize_semantic
+
+    assert canonicalize_semantic("firstname") == "first_name"
+    assert canonicalize_semantic("given_name") == "first_name"
+    assert canonicalize_semantic("birthdate") == "date_of_birth"
+    assert canonicalize_semantic("mystery_field") == "mystery_field"

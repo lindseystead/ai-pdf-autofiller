@@ -1,6 +1,6 @@
 [project]
 name = "pdf-autofiller"
-version = "0.4.3"
+version = "0.5.0"
 description = "Fill any AcroForm PDF from JSON — open-source FastAPI API with playground, Docker image, and Python SDK"
 readme = "README.md"
 requires-python = ">=3.11,<4.0"
@@ -78,17 +78,32 @@ httpx = "^0.27.0"
 pytest = "^7.4.0"
 pytest-cov = "^4.0.0"
 black = "^23.0.0"
-ruff = "^0.1.0"
+ruff = "0.16.6"
 mypy = "^1.0.0"
 
 [tool.black]
-line-length = 100
+line-length = 110
 target-version = ["py311"]
 include = '\.pyi?$'
 
 [tool.ruff]
-line-length = 100
+line-length = 110
 target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+ignore = [
+  # FastAPI dependency injection uses File()/Form() defaults intentionally.
+  "B008",
+  # Broad excepts remain in PDF parsing paths; narrowed over Phase 4.
+  "BLE001",
+  # Ternary path resolve is less readable than if/else.
+  "SIM108",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["RUF012", "RUF059"]
+"scripts/*" = ["BLE001", "T201"]
 
 [tool.mypy]
 python_version = "3.11"

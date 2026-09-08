@@ -6,9 +6,9 @@ import json
 import sys
 from pathlib import Path
 
-from pdf_autofiller.pdf_reader import read_pdf
 from pdf_autofiller.field_semantics import infer_field_semantics
 from pdf_autofiller.mapping import map_user_data_to_fields, normalize_key
+from pdf_autofiller.pdf_reader import read_pdf
 from pdf_autofiller.pdf_writer import UnresolvedRequiredFieldsError, fill_pdf
 
 

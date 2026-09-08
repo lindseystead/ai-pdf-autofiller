@@ -89,6 +89,86 @@ def _checkbox_decision(value: str, field_name: str = "chkAgree") -> MappingResul
     )
 
 
+def create_pdf_with_choice(output_path: Path, field_name: str = "cmbState") -> None:
+    """Create a minimal PDF containing a choice field with /Opt options."""
+    from pypdf import PdfWriter
+    from pypdf.generic import (
+        ArrayObject,
+        DictionaryObject,
+        NameObject,
+        NumberObject,
+        TextStringObject,
+    )
+
+    writer = PdfWriter()
+    page = writer.add_blank_page(width=300, height=300)
+
+    choice = DictionaryObject(
+        {
+            NameObject("/Type"): NameObject("/Annot"),
+            NameObject("/Subtype"): NameObject("/Widget"),
+            NameObject("/FT"): NameObject("/Ch"),
+            NameObject("/T"): TextStringObject(field_name),
+            NameObject("/Rect"): ArrayObject(
+                [NumberObject(10), NumberObject(10), NumberObject(120), NumberObject(30)]
+            ),
+            NameObject("/Opt"): ArrayObject(
+                [TextStringObject("CA"), TextStringObject("NY"), TextStringObject("TX")]
+            ),
+            NameObject("/V"): TextStringObject(""),
+        }
+    )
+    choice_ref = writer._add_object(choice)
+    page[NameObject("/Annots")] = ArrayObject([choice_ref])
+    acro_form = DictionaryObject({NameObject("/Fields"): ArrayObject([choice_ref])})
+    writer._root_object[NameObject("/AcroForm")] = acro_form
+
+    with open(output_path, "wb") as handle:
+        writer.write(handle)
+
+
+def test_fill_pdf_writes_choice_field_matching_option(tmp_path):
+    from pypdf import PdfReader
+
+    input_pdf = tmp_path / "choice.pdf"
+    output_pdf = tmp_path / "out.pdf"
+    create_pdf_with_choice(input_pdf)
+
+    mapping = MappingResult(
+        decisions=[
+            FieldMappingDecision(
+                field_name="cmbState",
+                semantic_meaning="state",
+                selected_value="ny",
+                confidence=0.95,
+                reason="Direct match",
+                requires_review=False,
+            )
+        ],
+        missing_required=[],
+        unmapped_user_keys=[],
+    )
+    report = fill_pdf(input_pdf, output_pdf, mapping)
+    assert "cmbState" in report.written_fields
+    fields = PdfReader(str(output_pdf)).get_fields()
+    assert str(fields["cmbState"].get("/V")) == "NY"
+
+
+def test_fill_pdf_flatten_removes_widget_annotations(tmp_path):
+    from pypdf import PdfReader
+
+    input_pdf = tmp_path / "input.pdf"
+    output_pdf = tmp_path / "flat.pdf"
+    create_pdf_with_checkbox(input_pdf)
+
+    fill_pdf(input_pdf, output_pdf, _checkbox_decision("true"), flatten=True)
+    assert output_pdf.exists()
+    reader = PdfReader(str(output_pdf))
+    # Flatten + remove_annotations should leave no widget annots on the page.
+    annots = reader.pages[0].get("/Annots")
+    assert annots in (None, [])
+
+
 @pytest.mark.parametrize("value", ["true", "Yes", "1", "on", "/Yes"])
 def test_fill_pdf_checks_checkbox_for_truthy_values(tmp_path, value):
     """Truthy values must set the checkbox to its on-state, not leave it /Off."""
@@ -384,7 +464,7 @@ def test_fill_pdf_raises_when_required_field_is_skipped(tmp_path, monkeypatch):
             return None
 
         @staticmethod
-        def update_page_form_field_values(_page, _values):
+        def update_page_form_field_values(_page, _values, **_kwargs):
             return None
 
         @staticmethod
@@ -460,7 +540,7 @@ def test_fill_pdf_uses_annotation_fallback_metadata(tmp_path, monkeypatch):
         def clone_reader_document_root(_reader):
             return None
 
-        def update_page_form_field_values(self, _page, values):
+        def update_page_form_field_values(self, _page, values, **_kwargs):
             self.calls.append(values.copy())
 
         @staticmethod

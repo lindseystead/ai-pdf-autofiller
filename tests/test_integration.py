@@ -47,6 +47,45 @@ def test_sample_form_round_trip_writes_required_fields(tmp_path: Path):
 
 
 @pytest.mark.skipif(not SAMPLE_PDF.exists(), reason="sample PDF not present")
+def test_sample_form_fills_from_alias_synonyms(tmp_path: Path):
+    """Deterministic fill works when profile JSON uses alias-pack synonyms."""
+    user_data = {
+        "given_name": "Pat",
+        "surname": "Nguyen",
+        "birthdate": "2001-12-31",
+        "e_mail": "pat@example.com",
+        "tel": "555-0000",
+    }
+    output_path = tmp_path / "alias_filled.pdf"
+
+    report, mapping_result, _field_count = run_fill_pipeline(
+        SAMPLE_PDF,
+        output_path,
+        user_data,
+        strict=True,
+        allow_fallback_mapping=False,
+        use_semantic_inference=False,
+    )
+
+    assert not mapping_result.missing_required
+    assert set(report.written_fields) >= {
+        "txtFirstName",
+        "txtLastName",
+        "txtDOB",
+        "txtEmail",
+        "txtPhone",
+    }
+
+    reader = PdfReader(str(output_path))
+    fields = reader.get_fields() or {}
+    assert get_field_value(fields["txtFirstName"]) == "Pat"
+    assert get_field_value(fields["txtLastName"]) == "Nguyen"
+    assert get_field_value(fields["txtDOB"]) == "2001-12-31"
+    assert get_field_value(fields["txtEmail"]) == "pat@example.com"
+    assert get_field_value(fields["txtPhone"]) == "555-0000"
+
+
+@pytest.mark.skipif(not SAMPLE_PDF.exists(), reason="sample PDF not present")
 def test_fill_endpoint_round_trip_with_sample_pdf():
     client = TestClient(api_service.app)
     original_auth = api_service.API_AUTH_ENABLED

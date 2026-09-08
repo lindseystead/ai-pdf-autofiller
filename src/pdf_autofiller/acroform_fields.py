@@ -6,7 +6,7 @@ AcroForm metadata is incomplete and widget annotations must be scanned.
 """
 
 import logging
-from typing import Literal, Optional, cast
+from typing import Literal, cast
 
 from pypdf import PdfReader
 from pypdf.generic import IndirectObject
@@ -31,7 +31,7 @@ def get_field_type(field_obj) -> Literal["text", "button", "choice", "signature"
     return "unknown"
 
 
-def get_field_value(field_obj) -> Optional[str]:
+def get_field_value(field_obj) -> str | None:
     """Read the current value from a PDF field object."""
     value = field_obj.get("/V")
     if value is None:
