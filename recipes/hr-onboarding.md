@@ -1,68 +1,59 @@
 # Fill HR onboarding PDFs from JSON
 
-Generic recipe for employee intake packets (I-9 supplements, benefits enrollment, emergency contacts).
+Generic recipe for employee intake packets. CI proves two **synthetic** fixtures —
+not vendor HRIS PDFs.
 
-## User data template
+## Corpus fixtures (from `/inspect`)
 
-```json
-{
-  "firstname": "Jane",
-  "lastname": "Doe",
-  "dob": "1990-05-15",
-  "email": "jane.doe@company.com",
-  "phone": "555-0100",
-  "addr1": "123 Main St",
-  "town": "Springfield",
-  "province": "IL",
-  "zipcode": "62701",
-  "hire_date": "2026-03-01",
-  "position": "Software Engineer",
-  "department": "Engineering",
-  "manager": "Alex Morgan",
-  "emergency_contact": "John Doe",
-  "emergency_phone": "555-0199",
-  "employee_id": "EMP-1042"
-}
-```
+### `samples/hr_intake_sample.pdf`
 
-## curl
+| Field | Type | Required | Example JSON keys |
+|-------|------|----------|-------------------|
+| `txtEmployeeName` | text | yes | `employee_name`, `worker_name` |
+| `txtSSN` | text | yes | `ssn` |
+| `txtEmployer` | text | yes | `employer`, `company` |
+| `txtJobTitle` | text | no | `job_title`, `position` |
+| `txtStartDate` | text | no | `start_date`, `hire_date` |
+| `chkConsent` | button | no | `consent`, `agree` |
 
-Start the API without a token for local demos (`API_AUTH_ENABLED=false make run-api`), then:
+### `samples/hr_hire_alias_sample.pdf`
+
+| Field | Type | Required | Example JSON keys |
+|-------|------|----------|-------------------|
+| `txtEmployeeName` | text | yes | `worker_name` |
+| `txtStartDate` | text | yes | `hire_date` |
+| `txtManager` | text | no | `supervisor`, `manager` |
+| `txtDepartment` | text | no | `dept`, `department` |
+| `txtEmployeeId` | text | no | `badge_number`, `emp_id` |
+
+## curl (hire-date aliases)
 
 ```bash
+API_AUTH_ENABLED=false make run-api   # other terminal
+
 curl -s -X POST http://localhost:8000/fill \
-  -F "pdf_file=@onboarding.pdf;type=application/pdf" \
-  -F 'user_data={
-    "firstname": "Jane",
-    "lastname": "Doe",
-    "email": "jane.doe@company.com",
-    "hire_date": "2026-03-01",
-    "position": "Software Engineer",
-    "emergency_contact": "John Doe"
-  }' \
-  -F "strict=true" \
-  -o onboarding-filled.pdf
+  -F "pdf_file=@samples/hr_hire_alias_sample.pdf;type=application/pdf" \
+  -F 'user_data={"worker_name":"Pat Nguyen","hire_date":"2026-04-15","supervisor":"Alex Manager","dept":"Engineering","badge_number":"E-2048"}' \
+  -o hr_hire_filled.pdf
 ```
 
-When auth is enabled, add `-H "X-API-Key: ${API_AUTH_TOKEN}"`.
-
-## Python SDK
+## Library
 
 ```python
-from pdf_autofiller.client import PDFAutofillerClient
+from pdf_autofiller import fill, preview
 
-client = PDFAutofillerClient("http://localhost:8000", api_key="your-token")
-client.fill_to_file("onboarding.pdf", {
-    "firstname": "Jane",
-    "lastname": "Doe",
-    "hire_date": "2026-03-01",
-}, "onboarding-filled.pdf")
+profile = {
+    "employee_name": "Jane Doe",
+    "ssn": "123-45-6789",
+    "employer": "Acme Corp",
+    "job_title": "Software Engineer",
+    "start_date": "2026-03-01",
+    "consent": True,
+}
+assert not preview("samples/hr_intake_sample.pdf", profile).mapping.missing_required
+fill("samples/hr_intake_sample.pdf", profile, "hr_intake_filled.pdf")
 ```
 
 ## Alias pack
 
-HR-specific aliases ship in `src/pdf_autofiller/form_aliases/hr_onboarding.json`.
-
-## Synthetic fixture
-
-A CI/demo HR intake PDF lives at `samples/hr_intake_sample.pdf` (fields: `txtEmployeeName`, `txtSSN`, `txtEmployer`, `txtJobTitle`, `txtStartDate`, `chkConsent`). Expected maps are in `tests/fixtures/corpus/cases.json`. Regenerate with `python3 scripts/create_corpus_forms.py`.
+`src/pdf_autofiller/form_aliases/hr_onboarding.json` — contribute new synonyms with a corpus case.

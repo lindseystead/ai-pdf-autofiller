@@ -69,7 +69,7 @@ This roadmap turns PDF Autofiller from a working beta into something people can 
 
 ## Phase 1 — Deliver diagnosable value
 
-**Status:** Done for 0.6.0 — `/preview`, choice write path, flatten, playground Preview Mapping + fill-report panel, OpenAPI `200` PDF+JSON, `Accept: application/json` fill report body. Still open: **1.4** OpenAPI error catalog.
+**Status:** Done for 0.6.1 — `/preview`, choice write path, flatten, playground Preview Mapping + fill-report panel, OpenAPI `200` PDF+JSON, `Accept: application/json` fill report body, **OpenAPI error catalog**.
 
 **Outcome:** Users can open any AcroForm, see fields, preview mapping, and debug misses.
 
@@ -78,7 +78,7 @@ This roadmap turns PDF Autofiller from a working beta into something people can 
 | 1.1 | `POST /preview` — mapping decisions JSON without writing PDF | Debug without round-trips | Done |
 | 1.2 | Optional JSON fill report body / `Accept` negotiation | Headers alone are too weak for ops | Done (`Accept: application/json`) |
 | 1.3 | Playground panel: field inventory + written/skipped/missing | Visual proof | Done (inspect + fill report panel) |
-| 1.4 | OpenAPI: document `200 application/pdf` + error catalog | SDK/codegen consumers | Partial (`200` PDF done; error catalog open) |
+| 1.4 | OpenAPI: document `200 application/pdf` + error catalog | SDK/codegen consumers | Done |
 | 1.5 | Choice (`/Ch`) write path; document signature (`/Sig`) limits | Completeness | Done |
 | 1.6 | Alias reload or documented import-time caveat for `FORM_ALIASES_DIR` | Ops correctness | Done (documented) |
 | 1.7 | Rename/clarify `PDF_READ_TIMEOUT_SECONDS` (covers full pipeline) | Honest ops | Done |
@@ -107,7 +107,7 @@ This roadmap turns PDF Autofiller from a working beta into something people can 
 
 ## Phase 3 — Distribution & discoverability
 
-**Status:** Partial — FAQ, integrations copy-paste, Pages links, honest PyPI note. Hosted demo GIF / star metrics still later.
+**Status:** Partial — FAQ, importable n8n workflow, Pages links, honest PyPI/`RELEASE.md` runbook. Hosted demo GIF / PyPI token publish still operator-owned.
 
 **Outcome:** Strangers find and install the project.
 

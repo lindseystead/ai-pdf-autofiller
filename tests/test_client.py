@@ -47,6 +47,61 @@ def test_client_fill_bytes():
     call_kwargs = http.post.call_args.kwargs
     assert call_kwargs["data"]["flatten"] == "false"
     assert call_kwargs["data"]["strict"] == "true"
+    assert call_kwargs["headers"]["Accept"] == "application/pdf"
+
+
+def test_client_inspect_and_preview():
+    inspect_response = Mock(spec=httpx.Response)
+    inspect_response.status_code = 200
+    inspect_response.json.return_value = {"pages": 1, "field_count": 2, "fields": []}
+
+    preview_response = Mock(spec=httpx.Response)
+    preview_response.status_code = 200
+    preview_response.json.return_value = {
+        "pages": 1,
+        "field_count": 2,
+        "decisions": [],
+        "missing_required": [],
+        "unmapped_user_keys": [],
+    }
+
+    http = Mock(spec=httpx.Client)
+    http.post.side_effect = [inspect_response, preview_response]
+
+    sdk = PDFAutofillerClient("http://testserver", http_client=http)
+    inventory = sdk.inspect(b"%PDF-1.4", filename="demo.pdf")
+    assert inventory["field_count"] == 2
+    mapping = sdk.preview(b"%PDF-1.4", {"firstname": "Jane"}, filename="demo.pdf")
+    assert mapping["missing_required"] == []
+
+
+def test_client_fill_json_accept():
+    response = Mock(spec=httpx.Response)
+    response.status_code = 200
+    response.headers = httpx.Headers({"content-type": "application/json"})
+    response.json.return_value = {
+        "pages": 1,
+        "field_count": 1,
+        "written_fields": ["txtFirstName"],
+        "skipped_review_fields": [],
+        "skipped_empty_fields": [],
+        "missing_required": [],
+        "unmapped_user_keys": [],
+        "decisions": [],
+        "pdf_base64": "JVBERi0=",
+    }
+    http = Mock(spec=httpx.Client)
+    http.post.return_value = response
+
+    sdk = PDFAutofillerClient("http://testserver", http_client=http)
+    payload, _headers = sdk.fill(
+        b"%PDF-1.4",
+        {"firstname": "Jane"},
+        filename="demo.pdf",
+        accept="application/json",
+    )
+    assert isinstance(payload, dict)
+    assert payload["written_fields"] == ["txtFirstName"]
 
 
 def test_client_fill_sends_flatten_flag():

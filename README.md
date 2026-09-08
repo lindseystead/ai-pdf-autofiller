@@ -145,9 +145,10 @@ flowchart LR
 
 | Recipe | Form |
 |--------|------|
-| [w9.md](recipes/w9.md) | IRS W-9 |
-| [hr-onboarding.md](recipes/hr-onboarding.md) | Employee intake |
+| [w9.md](recipes/w9.md) | W-9-shaped synthetic + inspect inventory |
+| [hr-onboarding.md](recipes/hr-onboarding.md) | HR intake / hire-date aliases |
 | [sample-form.sh](recipes/sample-form.sh) | One-line demo |
+| [integrations/n8n-fill-workflow.json](docs/integrations/n8n-fill-workflow.json) | Importable n8n workflow |
 
 ## Documentation
 
@@ -156,6 +157,7 @@ flowchart LR
 | [docs/FAQ.md](docs/FAQ.md) | vs SaaS, AcroForm vs scan, auth, local vs HTTP |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Adoption phases and exit criteria |
 | [docs/API.md](docs/API.md) | Endpoints and errors |
+| [docs/RELEASE.md](docs/RELEASE.md) | Tag → PyPI / GHCR release runbook |
 | [docs/OPERATIONS.md](docs/OPERATIONS.md) | Config and deployment |
 | [docs/TESTING.md](docs/TESTING.md) | Tests and CI |
 | [docs/integrations/](docs/integrations/) | n8n, Zapier, LangChain |
@@ -168,7 +170,7 @@ flowchart LR
 make test && make lint && make smoke-check
 ```
 
-136 tests · 85%+ coverage · Python 3.11 & 3.12 · synthetic corpus 30/30
+141 tests · 85%+ coverage · Python 3.11 & 3.12 · synthetic corpus 30/30
 
 ## License
 

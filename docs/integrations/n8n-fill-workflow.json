@@ -1,0 +1,176 @@
+{
+  "name": "PDF Autofiller — inspect → preview → fill",
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "description": "Import into n8n. Set PDF_AUTOFILLER_BASE_URL and X-API-Key. Uses sample AcroForm from the repo when run locally."
+  },
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual-trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "profile",
+              "name": "profile",
+              "value": "={{ { firstname: 'Jane', lastname: 'Doe', dob: '1990-01-01', email: 'jane@example.com', phone: '555-0100' } }}",
+              "type": "object"
+            },
+            {
+              "id": "base",
+              "name": "baseUrl",
+              "value": "http://localhost:8000",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-profile",
+      "name": "Set Profile + Base URL",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [220, 0]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.baseUrl }}/samples/sample_form.pdf",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "download-sample",
+      "name": "Download Sample PDF",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Set Profile + Base URL').item.json.baseUrl }}/inspect",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "pdf_file",
+              "inputDataFieldName": "data"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "inspect",
+      "name": "Inspect Fields",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [660, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Set Profile + Base URL').item.json.baseUrl }}/preview",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "pdf_file",
+              "inputDataFieldName": "data"
+            },
+            {
+              "name": "user_data",
+              "value": "={{ JSON.stringify($('Set Profile + Base URL').item.json.profile) }}"
+            },
+            {
+              "name": "strict",
+              "value": "true"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "preview",
+      "name": "Preview Mapping",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [880, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Set Profile + Base URL').item.json.baseUrl }}/fill",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "pdf_file",
+              "inputDataFieldName": "data"
+            },
+            {
+              "name": "user_data",
+              "value": "={{ JSON.stringify($('Set Profile + Base URL').item.json.profile) }}"
+            },
+            {
+              "name": "strict",
+              "value": "true"
+            },
+            {
+              "name": "flatten",
+              "value": "false"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "fill",
+      "name": "Fill PDF",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1100, 0]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [[{ "node": "Set Profile + Base URL", "type": "main", "index": 0 }]]
+    },
+    "Set Profile + Base URL": {
+      "main": [[{ "node": "Download Sample PDF", "type": "main", "index": 0 }]]
+    },
+    "Download Sample PDF": {
+      "main": [[{ "node": "Inspect Fields", "type": "main", "index": 0 }]]
+    },
+    "Inspect Fields": {
+      "main": [[{ "node": "Preview Mapping", "type": "main", "index": 0 }]]
+    },
+    "Preview Mapping": {
+      "main": [[{ "node": "Fill PDF", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

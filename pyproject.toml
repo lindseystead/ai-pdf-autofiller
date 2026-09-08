@@ -1,6 +1,6 @@
 [project]
 name = "pdf-autofiller"
-version = "0.6.0"
+version = "0.6.1"
 description = "Fill any AcroForm PDF from JSON — open-source FastAPI API with playground, Docker image, and Python SDK"
 readme = "README.md"
 requires-python = ">=3.11,<4.0"
@@ -80,6 +80,7 @@ pytest-cov = "^4.0.0"
 ruff = "0.16.6"
 mypy = "^1.0.0"
 pre-commit = "^3.5.0"
+pip-audit = "^2.7.0"
 
 [tool.ruff]
 line-length = 110
