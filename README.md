@@ -156,7 +156,7 @@ flowchart LR
 | Doc | Contents |
 |-----|----------|
 | [docs/FAQ.md](docs/FAQ.md) | vs SaaS, AcroForm vs scan, auth, local vs HTTP |
-| [docs/ROADMAP.md](docs/ROADMAP.md) | Adoption phases and exit criteria |
+| [docs/ROADMAP.md](docs/ROADMAP.md) | Path to production quality (no over-engineering) |
 | [docs/API.md](docs/API.md) | Endpoints and errors |
 | [docs/RELEASE.md](docs/RELEASE.md) | Tag → PyPI / GHCR release runbook |
 | [docs/OPERATIONS.md](docs/OPERATIONS.md) | Config and deployment |

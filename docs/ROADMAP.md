@@ -1,188 +1,157 @@
-# Adoption & Best-Practices Roadmap
+# Roadmap: early-senior → production quality
 
-This roadmap turns PDF Autofiller from a working beta into something people can **find**, **trust**, and **use in production**. It is grounded in:
+This plan takes PDF Autofiller from a solid **early-senior beta** to **production-quality** work without turning it into a platform rewrite.
 
-- End-to-end testing of the current app (see PR notes / CHANGELOG)
-- Senior code audit of `src/`, API, playground, CI, and docs
-- Industry practice for OSS discoverability, FastAPI production services, and pypdf AcroForm filling
+Grounded in the current codebase (`pipeline` / `api/` / writer / corpus), E2E verification, and the honesty gaps that still separate “works on our samples” from “teams would run this in prod.”
 
 ## Goals
 
-1. **Findable** — GitHub/PyPI search and README convert strangers in &lt;30 seconds  
-2. **Valuable** — Real forms fill correctly without AI; failures are diagnosable  
-3. **Trusted** — CI green, security defaults honest, docs match code  
-4. **Usable** — One-command try path; inspect → map → fill loop  
-5. **Maintainable** — Lint/type/test gates stable; every feature follows the same patterns  
+1. **Correct** — fill reports tell the truth; required fields cannot silently vanish  
+2. **Proven** — claims match fixtures that are not self-fulfilling  
+3. **Installable** — one supported install path strangers can trust  
+4. **Operable** — single-node deploy is safe by default; scale limits are documented, not faked  
+5. **Maintainable** — small modules, pinned lint/types/tests; no dual truth in docs  
 
-## Current state (baseline)
+## Non-goals (deliberate — avoid over-engineering)
+
+- OCR / scanned PDFs  
+- Multi-tenant SaaS, billing, or hosted AI gateway  
+- Mandatory Redis / shared cache in-process  
+- Full Pydantic Settings rewrite unless env drift becomes painful  
+- Microservices, event buses, or plugin frameworks  
+- “Any PDF / official IRS certification” marketing  
+
+## Principles
+
+- Deterministic-first; AI remains opt-in  
+- Docs = code; fail closed on auth/size/pages/timeout  
+- Prefer fixing report honesty and real fixtures over new features  
+- One change class per phase; exit criteria must be measurable  
+
+## Current baseline (0.6.1)
 
 | Area | Status |
 |------|--------|
-| Core fill pipeline | Works on sample AcroForm; deterministic + optional AI |
-| Alias packs | Fixed synonym-cluster matching (required for no-AI value) |
-| Auth / upload guards | Solid defaults |
-| Tests | 100+ tests, ≥85% coverage; corpus hit-rate gate |
-| CI lint | Pinned Ruff `0.16.6`; lockfile + docker health smoke |
-| PyPI | Deferred (manual OIDC workflow); Release wheels + GHCR are the supported path |
-| SDK story | Local `fill()` + HTTP `PDFAutofillerClient` |
-| Inspect / preview | `POST /inspect` + `POST /preview` + playground actions |
-| Real-form proof | Synthetic sample + HR intake corpus fixtures in CI |
-| Discoverability | FAQ, ROADMAP, Pages links, recipes updated |
+| Library + HTTP inspect/preview/fill | Done |
+| Error catalog, upload/DoS guards, fail-closed auth | Done |
+| Synthetic corpus 5/30 in CI | Done |
+| Release wheels + GHCR; PyPI manual/deferred | Done (honest) |
+| Writer report gaps (button/Sig/object misses) | Open |
+| Real / redacted vendor fixtures | Open |
+| Docs marketing slips (e.g. recipes table vs W-9 honesty) | Open |
 
-## Principles (non-negotiable)
-
-- **Deterministic-first** — AI is opt-in; default path must be auditable  
-- **Docs = code** — every documented response field exists; every example runs  
-- **Fail closed** — auth, size, page, and timeout guards stay on by default  
-- **One formatter/linter pin** — CI and local use the same tool versions  
-- **Local library works offline** — HTTP API is a deployment option, not a requirement  
-- **pypdf form best practice** — `auto_regenerate=False` on writes; optional `flatten` flag shipped for archival outputs  
-- **Honest marketing** — never claim W-9/HR success without fixtures that prove it  
+Phases 0–2 in the historical roadmap (foundation, inspect/preview, synthetic corpus) are **complete**. What follows is the remaining path.
 
 ---
 
-## Phase 0 — Unblock trust (this foundation PR)
+## Phase A — Make the write path trustworthy
 
-**Status:** Done (foundation PR).
+**Why first:** Production quality starts with “the report matches the PDF.” Architecture is already fine; silent skips in `pdf_writer.py` are the highest-leverage correctness gap.
 
-**Outcome:** CI green; install story honest; writer follows pypdf guidance; roadmap published.
+| # | Work | Why | Anti-complexity note |
+|---|------|-----|----------------------|
+| A.1 | Track unresolved checkbox/radio values, missing field objects, and `/Sig` skips in `FillReport` (new explicit lists or a single `skipped_unwritable_fields` + reasons) | Callers can detect lies-by-omission | Extend existing report model; no new service |
+| A.2 | Warn (log) + surface counts on API JSON fill / headers when decisions &gt; writes | Ops visibility | Reuse audit log; no new telemetry stack |
+| A.3 | Unit tests: decision present but widget missing / bad button state → appears in report | Prevent regressions | |
+| A.4 | Fix remaining docs honesty (`recipes/README.md` W-9 row, any “IRS” claim without real fixture) | Trust | Doc-only |
 
-| # | Work | Why |
-|---|------|-----|
-| 0.1 | Pin Ruff; explicit `[tool.ruff.lint]`; fix/autofix lint | Floating Ruff breaks CI |
-| 0.2 | Prefer Ruff format (or document Black-only) — one formatter | Avoid dual-formatter drift | Done (Black removed; Ruff only) |
-| 0.3 | Export **local** `fill()` via `run_fill_pipeline`; keep `PDFAutofillerClient` for HTTP | README/recipes must work offline |
-| 0.4 | Add `py.typed` | Match `Typing :: Typed` classifier |
-| 0.5 | `auto_regenerate=False` on form writes | Avoid “save changes” dialogs ([pypdf forms docs](https://pypdf.readthedocs.io/en/stable/user/forms.html)) |
-| 0.6 | Align `allow_fallback_mapping` defaults (API/library/pipeline = `False`) | Surprise AI/network calls |
-| 0.7 | Fix docs drift (`TESTING.md` audit ignore, `OPERATIONS.md` proxy headers) | Accuracy |
-| 0.8 | `Makefile` / scripts use `python3` | Portability |
-| 0.9 | Auth **before** rate-limit counting; `Retry-After` on 429 | FastAPI production practice |
-| 0.10 | `POST /inspect` — list fields (name, type, required, page) | Onboarding loop |
-| 0.11 | Playground: safer status DOM, password API key, error codes, sample PDF link | UX + XSS hygiene |
-| 0.12 | Ship `samples/` in Docker image; `docker-compose.yml` for one-command try | Discovery → value |
-| 0.13 | README: accurate test counts, local vs remote fill, Quickstart ≤3 steps | Conversion |
+**Exit criteria:** No successful fill can drop a mapped value without naming that field in the report. Tests cover at least two skip classes. Marketing language matches `ARCHITECTURE.md` / `PURPOSE.md`.
 
-**Exit criteria:** `make lint && make test && make smoke-check` green; `pip install -e .` then `from pdf_autofiller import fill` works without a server; `/inspect` + playground sample path work.
+**Effort shape:** Writer + models + a handful of tests + doc nits. No API redesign.
 
 ---
 
-## Phase 1 — Deliver diagnosable value
+## Phase B — Prove value beyond self-generated forms
 
-**Status:** Done for 0.6.1 — `/preview`, choice write path, flatten, playground Preview Mapping + fill-report panel, OpenAPI `200` PDF+JSON, `Accept: application/json` fill report body, **OpenAPI error catalog**.
+**Why next:** Senior work is evidence-backed. Synthetic `txt*` fixtures that mirror alias packs prove the pipeline, not template diversity.
 
-**Outcome:** Users can open any AcroForm, see fields, preview mapping, and debug misses.
+| # | Work | Why | Anti-complexity note |
+|---|------|-----|----------------------|
+| B.1 | Add **≥1 redacted real AcroForm** *or* a synthetic form whose field names were taken from a real inspect dump (not invented to match aliases) | Breaks circular proof | One hard fixture beats ten soft ones |
+| B.2 | Corpus case + expected writes for that fixture; aliases only where inspect justifies them | CI regression | Same `cases.json` pattern |
+| B.3 | Recipe updated from `/inspect` inventory only | Docs = code | |
+| B.4 | Optional second fixture (HR vendor-like) if B.1 was tax-shaped — stop at two unless hit rate demands more | Depth over breadth | |
 
-| # | Work | Why | Status |
-|---|------|-----|--------|
-| 1.1 | `POST /preview` — mapping decisions JSON without writing PDF | Debug without round-trips | Done |
-| 1.2 | Optional JSON fill report body / `Accept` negotiation | Headers alone are too weak for ops | Done (`Accept: application/json`) |
-| 1.3 | Playground panel: field inventory + written/skipped/missing | Visual proof | Done (inspect + fill report panel) |
-| 1.4 | OpenAPI: document `200 application/pdf` + error catalog | SDK/codegen consumers | Done |
-| 1.5 | Choice (`/Ch`) write path; document signature (`/Sig`) limits | Completeness | Done |
-| 1.6 | Alias reload or documented import-time caveat for `FORM_ALIASES_DIR` | Ops correctness | Done (documented) |
-| 1.7 | Rename/clarify `PDF_READ_TIMEOUT_SECONDS` (covers full pipeline) | Honest ops | Done |
+**Exit criteria:** README/recipes that mention a form family point at a fixture that was not hand-built solely to match the pack. Corpus CI still green.
 
-**Exit criteria:** New user fills an unknown PDF using inspect → edit JSON → preview → fill with zero Slack help.
+**Out of scope here:** Buying form libraries, OCR, or claiming government certification.
 
 ---
 
-## Phase 2 — Prove accuracy on real forms
+## Phase C — Distribution that matches the product
 
-**Status:** Done for synthetic corpus (5 cases / 30 expected fields: sample_form, hr_intake, w9_shaped, address_contact, hr_hire_alias). Redacted real IRS/vendor PDFs remain optional follow-up — do not market synthetic stand-ins as certified forms.
+**Why:** Quality nobody can install is not production quality for OSS. Do the minimum that makes `pip` or Release wheels the single clear story.
 
-**Outcome:** Marketing claims are backed by CI fixtures.
+| # | Work | Why | Anti-complexity note |
+|---|------|-----|----------------------|
+| C.1 | When ready: one-time PyPI Trusted Publisher (`environment: pypi`) + `workflow_dispatch` green + re-enable release trigger | Standard install | Already wired; operator step only |
+| C.2 | Until C.1: keep README primary path = `make install-release` / Release wheels | No false `pip install` | Already done — maintain |
+| C.3 | Short demo artifact (terminal transcript already exists; optional GIF) linked above the fold | Conversion | Do not build a hosted multi-tenant demo |
+| C.4 | Keep Pages skip-if-disabled; enable Pages when convenient | Docs hub | No custom docs platform |
 
-| # | Work | Why |
-|---|------|-----|
-| 2.1 | Golden corpus: synthetic `sample_form` + HR intake fixtures + expected maps | Trust |
-| 2.2 | Hit-rate report in CI (`scripts/corpus_report.py`) | Regression signal |
-| 2.3 | Expand alias packs from corpus field names | Deterministic lift |
-| 2.4 | Recipes updated with real field inventories from `/inspect` | Accuracy |
-| 2.5 | Optional flatten flag for archival outputs | Common production need |
-
-**Exit criteria:** CI publishes ≥N-form hit rate; W-9 recipe runs against a shipped fixture.
+**Exit criteria:** Cold path documented in README works in &lt;5 minutes on a clean machine (Release wheel *or* PyPI — whichever is live). CI does not go red on Release because of PyPI.
 
 ---
 
-## Phase 3 — Distribution & discoverability
+## Phase D — Production ops polish (thin)
 
-**Status:** Partial — FAQ, importable n8n workflow, Pages links, Release-wheel install path, OIDC PyPI workflow kept **manual** so Releases stay green. Hosted demo GIF and enabling PyPI (one trusted-publisher row + dispatch) remain operator-owned.
+**Why last:** Hardening that helps operators, without redesigning the stack.
 
-**Outcome:** Strangers find and install the project.
+| # | Work | Why | Anti-complexity note |
+|---|------|-----|----------------------|
+| D.1 | Narrow `except Exception` in reader/writer/acroform **only** where the expected pypdf errors are known; leave a documented broad catch at the PDF boundary | Maintainability | Do not invent a custom PDF error hierarchy |
+| D.2 | Startup validation for numeric env bounds (pages, bytes, timeout) — small helper or keep getenv + clamp/fail | Misconfig fails fast | Full Settings model still optional |
+| D.3 | Remove stale `api_service` test-only re-exports; tests import from `api.*` | Cleaner boundary | No route rewrite required |
+| D.4 | Confirm OPERATIONS docs: in-process rate limit = single worker; use ingress/Redis *outside* the app for multi-instance | Honest scale | Do not implement Redis client in-app unless a real deployer needs it |
+| D.5 | Optional: Playwright smoke for playground **only if** UI regressions recur | Confidence | Prefer HTTP contract tests; skip if stable |
 
-Aligned with OSS discovery practice ([GitHub SEO / README conversion](https://claudegithub.com/blog-github-seo-keywords)):
-
-| # | Work | Why |
-|---|------|-----|
-| 3.1 | Enable PyPI when ready (trusted publisher + re-enable release trigger); until then Release wheels | Install path |
-| 3.2 | Hosted demo (rate-limited) or Codespaces one-click still primary | Try without clone |
-| 3.3 | Short demo GIF/video above the fold | 10-second conversion |
-| 3.4 | FAQ + comparison (“vs AI-only fillers / SaaS”) | Search + objections |
-| 3.5 | n8n/Zapier copy-paste templates that actually run | Workflow users |
-| 3.6 | Fix GitHub Pages deploy; link API.md + recipes from site | Docs hub |
-| 3.7 | Star history / usage proof once metrics exist | Social proof |
-
-**Exit criteria:** Cold visitor: find via search → install → filled PDF in &lt;5 minutes.
+**Exit criteria:** Fresh deploy with bad env fails clearly; library/API boundary has no historical re-export debt; ops docs match runtime.
 
 ---
 
-## Phase 4 — Production hardening
+## Sequencing
 
-**Status:** Partial — JSON logs (`LOG_FORMAT=json`), security headers, multi-worker rate-limit docs, docker CI smoke. Pydantic Settings skipped (env vars remain as-is); narrowing `except Exception` deferred.
+```text
+Phase A (write-report truth) ──► Phase B (real-ish proof)
+         │                              │
+         └──────────► Phase C (install) ◄┘
+                              │
+                              ▼
+                    Phase D (thin ops polish)
+```
 
-**Outcome:** Multi-instance deployments are safe by default.
+Do **not** start D before A. Do **not** block A/B on PyPI. C can overlap B once A is merged.
 
-| # | Work | Why |
-|---|------|-----|
-| 4.1 | Document Redis/ingress rate limiting; keep in-process as single-worker fallback | Scale |
-| 4.2 | Pydantic Settings for config (typed env) | FastAPI production pattern |
-| 4.3 | Structured JSON logging option | Ops |
-| 4.4 | Security headers middleware | Defense in depth |
-| 4.5 | CI: `docker build` + health smoke; optional Playwright playground | Ship confidence |
-| 4.6 | Narrow `except Exception` to expected types where safe | Maintainability |
+## Definition of “senior / production quality” for this repo
 
----
+Ship when all are true:
 
-## Feature checklist (every new feature)
+1. Fill reports cannot omit unwritable mapped fields (A)  
+2. At least one non-circular form fixture is in CI (B)  
+3. Install path in README works without tribal knowledge (C)  
+4. Single-node production deploy is documented and fail-closed; scale limits are explicit (D)  
+5. Scope stays AcroForm + deterministic-first — no OCR/SaaS creep  
 
-Before merging any feature, verify:
+That bar is **production-quality for a focused library + optional API**, not “enterprise PDF platform.”
+
+## Feature checklist (unchanged)
+
+Before merging any feature:
 
 - [ ] Tests cover success + failure contracts  
-- [ ] Docs/API/OpenAPI updated in the same PR  
-- [ ] Defaults are safe (no surprise network/AI)  
+- [ ] Docs/OpenAPI updated in the same PR  
+- [ ] Defaults safe (no surprise network/AI)  
 - [ ] Errors use `{detail: {error: {code, message, details}}}`  
 - [ ] No PII in logs  
 - [ ] Lint + mypy clean under pinned tools  
 - [ ] README example still runs as written  
-
-## Suggested sequencing for contributors
-
-```text
-Phase 0 (foundation) ──► Phase 1 (inspect/preview UX) ──► Phase 2 (corpus)
-         │                                                      │
-         └──────────► Phase 3 (PyPI / demo) ◄───────────────────┘
-                              │
-                              ▼
-                         Phase 4 (scale)
-```
-
-## Success metrics
-
-| Metric | Baseline | Target |
-|--------|----------|--------|
-| CI green on `main` | Lint flaky/red under new Ruff | Always green |
-| Time to first filled PDF | Clone + guess field names | &lt;5 min with sample + inspect |
-| Offline `fill()` works | No | Yes |
-| Real-form fixture coverage | 1 synthetic sample | ≥5 real AcroForms |
-| PyPI install | Broken/unreliable | Documented + CI-verified |
-| Alias synonym accuracy | Fixed in alias PR | Covered by regression tests |
 
 ## Related docs
 
 - [PURPOSE.md](PURPOSE.md) — problem framing  
 - [ARCHITECTURE.md](ARCHITECTURE.md) — module boundaries  
 - [API.md](API.md) — HTTP contract  
-- [FAQ.md](FAQ.md) — comparisons and common questions  
 - [OPERATIONS.md](OPERATIONS.md) — deployment  
+- [RELEASE.md](RELEASE.md) — release / PyPI deferral  
 - [TESTING.md](TESTING.md) — quality gates  
+- [FAQ.md](FAQ.md) — comparisons  
