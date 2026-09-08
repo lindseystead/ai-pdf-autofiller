@@ -176,6 +176,7 @@ fields that were dropped instead of silently losing them:
 - `X-PDF-Fields-Written`: count of fields that received a value
 - `X-PDF-Fields-Skipped-Review`: comma-separated field names skipped because the mapping was flagged for review
 - `X-PDF-Fields-Skipped-Empty`: comma-separated field names skipped because the mapped value was empty
+- `X-PDF-Fields-Skipped-Unwritable`: comma-separated entries `field (reason)` when a mapped value could not be written (missing widget, signature field, or unresolved checkbox/radio state)
 
 Checkbox and radio (`/Btn`) fields are written using their PDF state names, so
 boolean-style inputs (`true`/`yes`/`1`/`on`) correctly toggle the control.

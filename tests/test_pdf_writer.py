@@ -217,6 +217,62 @@ def test_fill_pdf_returns_report_listing_review_skips(tmp_path, sample_mapping_r
     assert "txtDOB" not in report.written_fields
 
 
+def test_fill_pdf_reports_missing_widget_as_unwritable(tmp_path):
+    """Mapped field with no matching widget appears in skipped_unwritable_fields."""
+    input_pdf = tmp_path / "chk.pdf"
+    output_pdf = tmp_path / "out.pdf"
+    create_pdf_with_checkbox(input_pdf)
+
+    mapping = MappingResult(
+        decisions=[
+            FieldMappingDecision(
+                field_name="GhostField",
+                semantic_meaning="ghost",
+                selected_value="x",
+                confidence=0.9,
+                reason="test",
+                requires_review=False,
+            )
+        ],
+        missing_required=[],
+        unmapped_user_keys=[],
+    )
+    report = fill_pdf(input_pdf, output_pdf, mapping)
+    assert "GhostField" not in report.written_fields
+    assert any(
+        entry.startswith("GhostField (missing_widget)")
+        for entry in report.skipped_unwritable_fields
+    )
+
+
+def test_fill_pdf_reports_unresolved_button_state(tmp_path):
+    """Checkbox values that do not map to a PDF state are reported, not silent."""
+    input_pdf = tmp_path / "chk.pdf"
+    output_pdf = tmp_path / "out.pdf"
+    create_pdf_with_checkbox(input_pdf)
+
+    mapping = MappingResult(
+        decisions=[
+            FieldMappingDecision(
+                field_name="chkAgree",
+                semantic_meaning="consent",
+                selected_value="maybe",
+                confidence=0.9,
+                reason="test",
+                requires_review=False,
+            )
+        ],
+        missing_required=[],
+        unmapped_user_keys=[],
+    )
+    report = fill_pdf(input_pdf, output_pdf, mapping)
+    assert "chkAgree" not in report.written_fields
+    assert any(
+        entry.startswith("chkAgree (unresolved_button_state)")
+        for entry in report.skipped_unwritable_fields
+    )
+
+
 @pytest.fixture
 def sample_mapping_result():
     """Create sample mapping result for testing."""

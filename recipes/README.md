@@ -1,12 +1,13 @@
 # PDF Autofiller Recipes
 
-Copy-paste recipes for filling common PDF forms. Each recipe assumes the API is running locally or on your deployed playground.
+Copy-paste examples against **shipped sample PDFs**. Each recipe’s field inventory comes from `inspect()` / `POST /inspect` on that file.
 
-| Recipe | Form | Difficulty |
-|--------|------|------------|
-| [w9.md](w9.md) | IRS Form W-9 | Easy |
-| [hr-onboarding.md](hr-onboarding.md) | Generic HR intake | Easy |
-| [sample-form.sh](sample-form.sh) | Bundled demo PDF | 30 seconds |
+| Recipe | Fixture | Notes |
+|--------|---------|--------|
+| [sample-form.sh](sample-form.sh) | `samples/sample_form.pdf` | Bundled demo; ~30 seconds |
+| [w9.md](w9.md) | `samples/w9_shaped_sample.pdf` | Synthetic W-9-**shaped** fields + `w9.json` — **not** an official IRS W-9 |
+| [hr-onboarding.md](hr-onboarding.md) | `samples/hr_intake_sample.pdf`, `samples/hr_hire_alias_sample.pdf` | Synthetic HR intake — not a vendor HRIS PDF |
+| [vendor-opaque.md](vendor-opaque.md) | `samples/vendor_opaque_sample.pdf` | Opaque export-style widget names from an anonymized inspect dump |
 
 ## Prerequisites
 
@@ -21,22 +22,10 @@ If you enable auth for a closer-to-production local run, export your key:
 export API_AUTH_TOKEN=your-token
 ```
 
-## Tips for any recipe
+## Tips
 
 1. Use **strict=true** first — deterministic mapping is free and auditable.
-2. Enable **semantic inference** only when field names are opaque (`field_12`, `Text1`).
-3. Check response headers: `X-PDF-Fields-Written`, `X-PDF-Fields-Skipped-Review`.
+2. Enable **semantic inference** only when field names are opaque and aliases do not cover them.
+3. Check response headers: `X-PDF-Fields-Written`, `X-PDF-Fields-Skipped-Review`, `X-PDF-Fields-Skipped-Empty`, `X-PDF-Fields-Skipped-Unwritable`.
 4. Missing required fields return `422` with `required_fields_unresolved` — fix your JSON and retry.
-5. Golden fixtures: `samples/sample_form.pdf`, `samples/hr_intake_sample.pdf`, expectations in `tests/fixtures/corpus/cases.json` (`make corpus-check`).
-
-## Python SDK (3 lines)
-
-```python
-from pdf_autofiller import fill
-
-fill("form.pdf", {"firstname": "Jane", "lastname": "Doe"}, "filled.pdf")
-```
-
-## Share your recipe
-
-Add a new file under `recipes/` and open a PR. Include the JSON schema you used and which PDF version you tested.
+5. Golden fixtures and expectations: `tests/fixtures/corpus/cases.json` (`make corpus-check`).

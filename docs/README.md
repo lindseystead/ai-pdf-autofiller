@@ -1,19 +1,18 @@
 # Documentation Index
 
-Supporting documentation for the PDF Autofiller service.
+Supporting documentation for the PDF Autofiller service. Claims in these docs match code and CI fixtures — not future plans.
 
 ## Core docs
 
 | Doc | Description |
 |-----|-------------|
 | [API.md](API.md) | Endpoint contracts, errors, and response headers |
-| [RELEASE.md](RELEASE.md) | Tag → PyPI / GHCR / Release assets |
-| [FAQ.md](FAQ.md) | Comparisons, AcroForm vs scan, auth, local vs HTTP |
-| [ROADMAP.md](ROADMAP.md) | Path to production quality (phased, scoped) |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Module boundaries, data flow, extension points |
 | [OPERATIONS.md](OPERATIONS.md) | Runtime configuration and deployment |
+| [RELEASE.md](RELEASE.md) | Tag → GHCR / Release assets (PyPI optional/manual) |
 | [TESTING.md](TESTING.md) | Local validation and CI |
 | [PURPOSE.md](PURPOSE.md) | Problem statement, scope, intended usage |
+| [FAQ.md](FAQ.md) | Comparisons, AcroForm vs scan, auth, local vs HTTP |
 
 ## Related
 
@@ -25,6 +24,8 @@ Supporting documentation for the PDF Autofiller service.
 | [../CONTRIBUTING.md](../CONTRIBUTING.md) | Contributor setup and PR expectations |
 | [../CODE_OF_CONDUCT.md](../CODE_OF_CONDUCT.md) | Community standards |
 | [../SECURITY.md](../SECURITY.md) | Vulnerability reporting |
+| [../samples/README.md](../samples/README.md) | Sample PDFs and corpus notes |
+| [../recipes/](../recipes/) | Worked examples against shipped fixtures |
 
 ## Landing page
 
@@ -39,5 +40,3 @@ bash scripts/apply-repo-metadata.sh
 Requires `gh` CLI logged in as a repo admin.
 
 Optional: upload `docs/assets/social-preview.png` under **Settings → General → Social preview** for link previews on Twitter/Slack/Discord.
-
-- [ROADMAP.md](ROADMAP.md) — adoption and best-practices plan

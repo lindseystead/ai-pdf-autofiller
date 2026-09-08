@@ -106,6 +106,8 @@ class FillReport(BaseModel):
     Surfaces which fields were written and which were intentionally skipped, so
     callers can detect non-required fields that were dropped (for example because
     they were flagged ``requires_review``) instead of silently losing them.
+    Unwritable mapped values (missing widget, signature field, unresolved
+    checkbox/radio state) are listed in ``skipped_unwritable_fields`` — never silent.
     """
 
     written_fields: list[str] = Field(
@@ -119,6 +121,13 @@ class FillReport(BaseModel):
     skipped_empty_fields: list[str] = Field(
         default_factory=list,
         description="Field names skipped because the mapped value was empty"
+    )
+    skipped_unwritable_fields: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Mapped fields that could not be written (missing widget, /Sig, "
+            "or unresolved button state). Format: 'field_name (reason)'."
+        ),
     )
 
 

@@ -45,7 +45,7 @@ Also set `TRUST_PROXY_HEADERS=true` only when a trusted proxy strips/spoofs `X-F
 
 ## Audit Logging
 
-- Each successful fill emits one structured, PII-free `audit action=fill` log line containing the request ID, whether auth was enabled, the optional features used, and field counts (total/written/review-skipped/empty-skipped/missing). No field names or user values are logged.
+- Each successful fill emits one structured, PII-free `audit action=fill` log line containing the request ID, whether auth was enabled, the optional features used, and field counts (total/written/review-skipped/empty-skipped/unwritable/missing). No field names or user values are logged.
 - Set `LOG_FORMAT=json` to emit JSON log lines for shipping to a log aggregator.
 - These lines are the application-level audit trail. Shipping them to a durable, access-controlled store and setting a retention policy are deployment responsibilities.
 

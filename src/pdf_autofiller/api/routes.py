@@ -68,6 +68,9 @@ def _fill_report_headers(report: FillReport) -> dict[str, str]:
         "X-PDF-Fields-Written": str(len(report.written_fields)),
         "X-PDF-Fields-Skipped-Review": _safe_header_value(report.skipped_review_fields),
         "X-PDF-Fields-Skipped-Empty": _safe_header_value(report.skipped_empty_fields),
+        "X-PDF-Fields-Skipped-Unwritable": _safe_header_value(
+            report.skipped_unwritable_fields
+        ),
     }
 
 
@@ -97,14 +100,15 @@ def _audit_log_fill(
     request_id = getattr(request.state, "request_id", "unknown")
     logger.info(
         "audit action=fill request_id=%s auth=%s fields_total=%d fields_written=%d "
-        "fields_review_skipped=%d fields_empty_skipped=%d missing_required=%d "
-        "semantic_inference=%s fallback_mapping=%s response_mode=%s",
+        "fields_review_skipped=%d fields_empty_skipped=%d fields_unwritable=%d "
+        "missing_required=%d semantic_inference=%s fallback_mapping=%s response_mode=%s",
         request_id,
         "enabled" if config.API_AUTH_ENABLED else "disabled",
         fields_total,
         len(report.written_fields),
         len(report.skipped_review_fields),
         len(report.skipped_empty_fields),
+        len(report.skipped_unwritable_fields),
         missing_required,
         use_semantic_inference,
         allow_fallback_mapping,
@@ -471,6 +475,7 @@ async def fill(
                 written_fields=list(fill_report.written_fields),
                 skipped_review_fields=list(fill_report.skipped_review_fields),
                 skipped_empty_fields=list(fill_report.skipped_empty_fields),
+                skipped_unwritable_fields=list(fill_report.skipped_unwritable_fields),
                 missing_required=list(mapping_result.missing_required),
                 unmapped_user_keys=list(mapping_result.unmapped_user_keys),
                 decisions=decisions,

@@ -16,7 +16,7 @@ Open-source FastAPI service · browser playground · Python SDK · Docker image
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Docker](https://img.shields.io/badge/docker-ghcr.io-blue)](https://github.com/lindseystead/ai-pdf-autofiller/pkgs/container/ai-pdf-autofiller)
 
-[Try in Codespaces](#try-it-now) · [Install](#install) · [API](#api) · [FAQ](docs/FAQ.md) · [Roadmap](docs/ROADMAP.md) · [Recipes](recipes/) · [Docs](docs/)
+[Try in Codespaces](#try-it-now) · [Install](#install) · [API](#api) · [FAQ](docs/FAQ.md) · [Recipes](recipes/) · [Docs](docs/)
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/lindseystead/ai-pdf-autofiller)
 
@@ -105,7 +105,7 @@ client.fill_to_file("form.pdf", {"firstname": "Jane"}, "filled.pdf")
 | `POST` | `/preview` | Mapping decisions JSON (no PDF write) |
 | `POST` | `/fill` | PDF in, filled PDF out |
 
-Full contract: [docs/API.md](docs/API.md) · FAQ: [docs/FAQ.md](docs/FAQ.md) · Roadmap: [docs/ROADMAP.md](docs/ROADMAP.md)
+Full contract: [docs/API.md](docs/API.md) · FAQ: [docs/FAQ.md](docs/FAQ.md) · Recipes: [recipes/](recipes/)
 
 ## Why this exists
 
@@ -146,9 +146,10 @@ flowchart LR
 
 | Recipe | Form |
 |--------|------|
-| [w9.md](recipes/w9.md) | W-9-shaped synthetic + inspect inventory |
-| [hr-onboarding.md](recipes/hr-onboarding.md) | HR intake / hire-date aliases |
-| [sample-form.sh](recipes/sample-form.sh) | One-line demo |
+| [sample-form.sh](recipes/sample-form.sh) | Bundled demo |
+| [w9.md](recipes/w9.md) | W-9-shaped synthetic (not IRS W-9) |
+| [hr-onboarding.md](recipes/hr-onboarding.md) | Synthetic HR intake / hire-date aliases |
+| [vendor-opaque.md](recipes/vendor-opaque.md) | Opaque inspect-derived widget names |
 | [integrations/n8n-fill-workflow.json](docs/integrations/n8n-fill-workflow.json) | Importable n8n workflow |
 
 ## Documentation
@@ -156,22 +157,23 @@ flowchart LR
 | Doc | Contents |
 |-----|----------|
 | [docs/FAQ.md](docs/FAQ.md) | vs SaaS, AcroForm vs scan, auth, local vs HTTP |
-| [docs/ROADMAP.md](docs/ROADMAP.md) | Path to production quality (no over-engineering) |
 | [docs/API.md](docs/API.md) | Endpoints and errors |
-| [docs/RELEASE.md](docs/RELEASE.md) | Tag → PyPI / GHCR release runbook |
+| [docs/RELEASE.md](docs/RELEASE.md) | Tag → GHCR / Release assets (PyPI optional) |
 | [docs/OPERATIONS.md](docs/OPERATIONS.md) | Config and deployment |
 | [docs/TESTING.md](docs/TESTING.md) | Tests and CI |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Module boundaries |
 | [docs/integrations/](docs/integrations/) | n8n, Zapier, LangChain |
+| [samples/README.md](samples/README.md) | Corpus fixtures |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | How to contribute |
 | [CHANGELOG.md](CHANGELOG.md) | Release history |
 
 ## Development
 
 ```bash
-make test && make lint && make smoke-check
+make test && make lint && make smoke-check && make corpus-check
 ```
 
-141 tests · 85%+ coverage · Python 3.11 & 3.12 · synthetic corpus 30/30
+144 tests · ≥85% coverage · Python 3.11 & 3.12 · corpus **35/35** expected field writes (6 fixtures)
 
 ## License
 
