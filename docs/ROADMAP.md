@@ -21,13 +21,13 @@ This roadmap turns PDF Autofiller from a working beta into something people can 
 | Core fill pipeline | Works on sample AcroForm; deterministic + optional AI |
 | Alias packs | Fixed synonym-cluster matching (required for no-AI value) |
 | Auth / upload guards | Solid defaults |
-| Tests | 100+ tests, ≥85% coverage |
-| CI lint | Broken under floating Ruff major — **blocks trust** |
-| PyPI | Package not reliably installable via `pip install` |
-| SDK story | README implies local `fill()`; implementation is HTTP-only |
-| Inspect / preview | Missing — users cannot draft JSON for unknown PDFs |
-| Real-form proof | No W-9/HR golden PDFs in CI |
-| Discoverability | Good keywords/README bones; weak proof + install path |
+| Tests | 100+ tests, ≥85% coverage; corpus hit-rate gate |
+| CI lint | Pinned Ruff `0.16.6`; lockfile + docker health smoke |
+| PyPI | Requires Release + `PYPI_API_TOKEN` (documented honestly) |
+| SDK story | Local `fill()` + HTTP `PDFAutofillerClient` |
+| Inspect / preview | `POST /inspect` + `POST /preview` + playground actions |
+| Real-form proof | Synthetic sample + HR intake corpus fixtures in CI |
+| Discoverability | FAQ, ROADMAP, Pages links, recipes updated |
 
 ## Principles (non-negotiable)
 
@@ -42,6 +42,8 @@ This roadmap turns PDF Autofiller from a working beta into something people can 
 ---
 
 ## Phase 0 — Unblock trust (this foundation PR)
+
+**Status:** Done (foundation PR).
 
 **Outcome:** CI green; install story honest; writer follows pypdf guidance; roadmap published.
 
@@ -67,6 +69,8 @@ This roadmap turns PDF Autofiller from a working beta into something people can 
 
 ## Phase 1 — Deliver diagnosable value
 
+**Status:** Done in 0.5.0 — `/preview`, choice write path, optional flatten, playground Preview Mapping, OpenAPI PDF response, ops clarifications.
+
 **Outcome:** Users can open any AcroForm, see fields, preview mapping, and debug misses.
 
 | # | Work | Why |
@@ -85,6 +89,8 @@ This roadmap turns PDF Autofiller from a working beta into something people can 
 
 ## Phase 2 — Prove accuracy on real forms
 
+**Status:** Done for synthetic corpus (sample_form + hr_intake) — `tests/fixtures/corpus/`, `make corpus-check`. Redacted real W-9 still optional follow-up.
+
 **Outcome:** Marketing claims are backed by CI fixtures.
 
 | # | Work | Why |
@@ -100,6 +106,8 @@ This roadmap turns PDF Autofiller from a working beta into something people can 
 ---
 
 ## Phase 3 — Distribution & discoverability
+
+**Status:** Partial — FAQ, integrations copy-paste, Pages links, honest PyPI note. Hosted demo GIF / star metrics still later.
 
 **Outcome:** Strangers find and install the project.
 
@@ -120,6 +128,8 @@ Aligned with OSS discovery practice ([GitHub SEO / README conversion](https://cl
 ---
 
 ## Phase 4 — Production hardening
+
+**Status:** Partial — JSON logs (`LOG_FORMAT=json`), security headers, multi-worker rate-limit docs, docker CI smoke. Pydantic Settings skipped (env vars remain as-is); narrowing `except Exception` deferred.
 
 **Outcome:** Multi-instance deployments are safe by default.
 
@@ -173,5 +183,6 @@ Phase 0 (foundation) ──► Phase 1 (inspect/preview UX) ──► Phase 2 (c
 - [PURPOSE.md](PURPOSE.md) — problem framing  
 - [ARCHITECTURE.md](ARCHITECTURE.md) — module boundaries  
 - [API.md](API.md) — HTTP contract  
+- [FAQ.md](FAQ.md) — comparisons and common questions  
 - [OPERATIONS.md](OPERATIONS.md) — deployment  
 - [TESTING.md](TESTING.md) — quality gates  

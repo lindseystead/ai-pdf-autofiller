@@ -16,7 +16,7 @@ Open-source FastAPI service · browser playground · Python SDK · Docker image
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Docker](https://img.shields.io/badge/docker-ghcr.io-blue)](https://github.com/lindseystead/ai-pdf-autofiller/pkgs/container/ai-pdf-autofiller)
 
-[Try in Codespaces](#try-it-now) · [Install](#install) · [API](#api) · [Recipes](recipes/) · [Docs](docs/)
+[Try in Codespaces](#try-it-now) · [Install](#install) · [API](#api) · [FAQ](docs/FAQ.md) · [Roadmap](docs/ROADMAP.md) · [Recipes](recipes/) · [Docs](docs/)
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/lindseystead/ai-pdf-autofiller)
 
@@ -73,6 +73,7 @@ python3 -c 'from pdf_autofiller import fill; fill("samples/sample_form.pdf", {"f
 | **Docker** | `docker run -p 8000:8000 -e API_AUTH_ENABLED=false ghcr.io/lindseystead/ai-pdf-autofiller:latest` |
 | **From source** | `git clone https://github.com/lindseystead/ai-pdf-autofiller.git && cd ai-pdf-autofiller && pip install -r requirements-dev.txt && API_AUTH_ENABLED=false make run-api` |
 | **Library (editable)** | `pip install -e .` then `from pdf_autofiller import fill` |
+| **PyPI** | `pip install pdf-autofiller` — **requires a published GitHub Release with `PYPI_API_TOKEN` configured**; until then prefer editable install or [Release wheels](https://github.com/lindseystead/ai-pdf-autofiller/releases) |
 
 ```python
 from pdf_autofiller import fill
@@ -98,9 +99,10 @@ client.fill_to_file("form.pdf", {"firstname": "Jane"}, "filled.pdf")
 | `GET` | `/health` | Health + dependency checks |
 | `GET` | `/samples/sample_form.pdf` | Bundled demo form |
 | `POST` | `/inspect` | List AcroForm fields as JSON |
+| `POST` | `/preview` | Mapping decisions JSON (no PDF write) |
 | `POST` | `/fill` | PDF in, filled PDF out |
 
-Full contract: [docs/API.md](docs/API.md) · Roadmap: [docs/ROADMAP.md](docs/ROADMAP.md)
+Full contract: [docs/API.md](docs/API.md) · FAQ: [docs/FAQ.md](docs/FAQ.md) · Roadmap: [docs/ROADMAP.md](docs/ROADMAP.md)
 
 ## Why this exists
 
@@ -141,6 +143,8 @@ flowchart LR
 
 | Doc | Contents |
 |-----|----------|
+| [docs/FAQ.md](docs/FAQ.md) | vs SaaS, AcroForm vs scan, auth, local vs HTTP |
+| [docs/ROADMAP.md](docs/ROADMAP.md) | Adoption phases and exit criteria |
 | [docs/API.md](docs/API.md) | Endpoints and errors |
 | [docs/OPERATIONS.md](docs/OPERATIONS.md) | Config and deployment |
 | [docs/TESTING.md](docs/TESTING.md) | Tests and CI |
@@ -154,7 +158,7 @@ flowchart LR
 make test && make lint && make smoke-check
 ```
 
-105 tests · 85%+ coverage · Python 3.11 & 3.12
+125 tests · 85%+ coverage · Python 3.11 & 3.12
 
 ## License
 

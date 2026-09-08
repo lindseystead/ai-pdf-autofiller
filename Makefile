@@ -1,6 +1,6 @@
 # Makefile for PDF Autofiller
 
-.PHONY: help install install-runtime test test-cov smoke-check lint format clean run-sample create-sample run-api playground demo-output install-release
+.PHONY: help install install-runtime test test-cov smoke-check corpus-check lint format clean run-sample create-sample run-api playground demo-output install-release
 
 help:
 	@echo "Available commands:"
@@ -9,6 +9,7 @@ help:
 	@echo "  make test            - Run tests"
 	@echo "  make test-cov        - Run tests with coverage reporting"
 	@echo "  make smoke-check     - Run the local smoke-check script"
+	@echo "  make corpus-check    - Run golden corpus hit-rate report"
 	@echo "  make lint            - Run linters"
 	@echo "  make format          - Format code"
 	@echo "  make clean           - Clean build artifacts"
@@ -32,6 +33,9 @@ test-cov:
 
 smoke-check:
 	PYTHONPATH=src python3 -m scripts.smoke_check
+
+corpus-check:
+	PYTHONPATH=src python3 -m scripts.corpus_report
 
 lint:
 	ruff check src/ tests/ scripts/

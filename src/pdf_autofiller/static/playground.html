@@ -140,6 +140,7 @@
         <div class="row" style="margin-top:12px;">
           <button id="loadSamplePdfBtn" class="ghost" type="button">Use sample PDF</button>
           <button id="inspectBtn" class="ghost" type="button">Inspect fields</button>
+          <button id="previewBtn" class="ghost" type="button">Preview Mapping</button>
         </div>
       </section>
 
@@ -191,6 +192,7 @@
     const sampleBtn = document.getElementById('sampleBtn');
     const loadSamplePdfBtn = document.getElementById('loadSamplePdfBtn');
     const inspectBtn = document.getElementById('inspectBtn');
+    const previewBtn = document.getElementById('previewBtn');
     const statusEl = document.getElementById('status');
     const inspectOut = document.getElementById('inspectOut');
     const download = document.getElementById('download');
@@ -305,6 +307,58 @@
         setStatus('Network error: ' + err.message, 'err');
       } finally {
         inspectBtn.disabled = false;
+      }
+    });
+
+    previewBtn.addEventListener('click', async () => {
+      if (!selectedFile) {
+        setStatus('Upload a PDF first (or click Use sample PDF).', 'err');
+        return;
+      }
+      let parsed;
+      try {
+        parsed = JSON.parse(userData.value);
+        if (typeof parsed !== 'object' || Array.isArray(parsed) || parsed === null) {
+          throw new Error('JSON must be an object');
+        }
+      } catch (err) {
+        setStatus('Invalid JSON: ' + err.message, 'err');
+        return;
+      }
+      previewBtn.disabled = true;
+      setStatus('Previewing mapping…');
+      const form = new FormData();
+      form.append('pdf_file', selectedFile, selectedFile.name);
+      form.append('user_data', JSON.stringify(parsed));
+      form.append('strict', document.getElementById('strict').checked ? 'true' : 'false');
+      form.append('allow_fallback_mapping', document.getElementById('fallback').checked ? 'true' : 'false');
+      form.append('use_semantic_inference', document.getElementById('semantic').checked ? 'true' : 'false');
+      try {
+        const response = await fetch('/preview', { method: 'POST', body: form, headers: authHeaders() });
+        const payload = await response.json();
+        if (!response.ok) {
+          setStatus(formatApiError(payload, response.status), 'err');
+          return;
+        }
+        const decisionLines = (payload.decisions || []).map(d => {
+          const review = d.requires_review ? ' [review]' : '';
+          const val = d.selected_value == null ? '(empty)' : JSON.stringify(d.selected_value);
+          return d.field_name + ' ← ' + val + ' (' + d.confidence.toFixed(2) + ')' + review
+            + '\n    ' + d.semantic_meaning + ' — ' + d.reason;
+        });
+        const missing = (payload.missing_required || []).join(', ') || '(none)';
+        const unmapped = (payload.unmapped_user_keys || []).join(', ') || '(none)';
+        inspectOut.style.display = 'block';
+        inspectOut.textContent =
+          'Preview (' + payload.field_count + ' fields, ' + payload.pages + ' pages)\n\n'
+          + 'Decisions:\n' + (decisionLines.join('\n') || '(none)') + '\n\n'
+          + 'Missing required: ' + missing + '\n'
+          + 'Unmapped user keys: ' + unmapped;
+        setStatus('Preview complete. Review decisions before filling.', 'ok');
+      } catch (err) {
+        setStatus('Network error: ' + err.message, 'err');
+      } finally {
+        previewBtn.disabled = false;
       }
     });
 

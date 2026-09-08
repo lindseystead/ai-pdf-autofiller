@@ -224,6 +224,78 @@ def test_unauthorized_does_not_consume_rate_limit(monkeypatch):
     assert allowed.status_code == 200
 
 
+def test_preview_endpoint_returns_mapping_decisions():
+    sample = Path("samples/sample_form.pdf")
+    if not sample.exists():
+        pytest.skip("sample PDF not present")
+
+    response = client.post(
+        "/preview",
+        files={"pdf_file": (sample.name, sample.read_bytes(), "application/pdf")},
+        data={
+            "user_data": '{"firstname":"Jane","lastname":"Doe","dob":"1990-01-01","extra":"x"}',
+            "strict": "true",
+            "allow_fallback_mapping": "false",
+            "use_semantic_inference": "false",
+        },
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["field_count"] >= 3
+    assert payload["pages"] >= 1
+    assert isinstance(payload["decisions"], list)
+    names = {d["field_name"] for d in payload["decisions"]}
+    assert "txtFirstName" in names
+    first = next(d for d in payload["decisions"] if d["field_name"] == "txtFirstName")
+    assert first["selected_value"] == "Jane"
+    assert "confidence" in first and "reason" in first
+    assert "extra" in payload["unmapped_user_keys"]
+
+
+def test_preview_endpoint_rejects_invalid_json():
+    response = client.post(
+        "/preview",
+        files={"pdf_file": ("input.pdf", _minimal_pdf_bytes(), "application/pdf")},
+        data={"user_data": "{invalid"},
+    )
+    assert response.status_code == 422
+    assert response.json()["detail"]["error"]["code"] == "invalid_user_data_json"
+
+
+def test_fill_endpoint_accepts_flatten_flag():
+    sample = Path("samples/sample_form.pdf")
+    if not sample.exists():
+        pytest.skip("sample PDF not present")
+
+    response = client.post(
+        "/fill",
+        files={"pdf_file": (sample.name, sample.read_bytes(), "application/pdf")},
+        data={
+            "user_data": '{"firstname":"Jane","lastname":"Doe","dob":"1990-01-01"}',
+            "strict": "true",
+            "flatten": "true",
+        },
+    )
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/pdf"
+    assert response.content.startswith(b"%PDF")
+
+
+def test_security_headers_present_on_health():
+    response = client.get("/health")
+    assert response.headers.get("x-content-type-options") == "nosniff"
+    assert response.headers.get("x-frame-options") == "DENY"
+    assert response.headers.get("referrer-policy") == "no-referrer"
+
+
+def test_fill_endpoint_openapi_documents_pdf_response():
+    schema = client.get("/openapi.json").json()
+    fill_post = schema["paths"]["/fill"]["post"]
+    content = fill_post["responses"]["200"]["content"]
+    assert "application/pdf" in content
+    assert "/preview" in schema["paths"]
+
+
 def test_inspect_endpoint_lists_sample_fields(monkeypatch):
     monkeypatch.setattr(api_service, "API_AUTH_ENABLED", False)
     sample = Path("samples/sample_form.pdf")

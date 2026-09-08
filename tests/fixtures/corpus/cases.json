@@ -1,0 +1,40 @@
+[
+  {
+    "name": "sample_form",
+    "pdf": "samples/sample_form.pdf",
+    "user_data": {
+      "firstname": "Jane",
+      "lastname": "Doe",
+      "dob": "1990-01-01",
+      "email": "jane@example.com",
+      "phone": "555-0100"
+    },
+    "expected": {
+      "firstname": "txtFirstName",
+      "lastname": "txtLastName",
+      "dob": "txtDOB",
+      "email": "txtEmail",
+      "phone": "txtPhone"
+    }
+  },
+  {
+    "name": "hr_intake",
+    "pdf": "samples/hr_intake_sample.pdf",
+    "user_data": {
+      "employee_name": "Jane Doe",
+      "ssn": "123-45-6789",
+      "employer": "Acme Corp",
+      "job_title": "Software Engineer",
+      "start_date": "2026-03-01",
+      "consent": true
+    },
+    "expected": {
+      "employee_name": "txtEmployeeName",
+      "ssn": "txtSSN",
+      "employer": "txtEmployer",
+      "job_title": "txtJobTitle",
+      "start_date": "txtStartDate",
+      "consent": "chkConsent"
+    }
+  }
+]

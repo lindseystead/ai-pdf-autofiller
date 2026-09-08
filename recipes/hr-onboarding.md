@@ -59,3 +59,7 @@ client.fill_to_file("onboarding.pdf", {
 ## Alias pack
 
 HR-specific aliases ship in `src/pdf_autofiller/form_aliases/hr_onboarding.json`.
+
+## Synthetic fixture
+
+A CI/demo HR intake PDF lives at `samples/hr_intake_sample.pdf` (fields: `txtEmployeeName`, `txtSSN`, `txtEmployer`, `txtJobTitle`, `txtStartDate`, `chkConsent`). Expected maps are in `tests/fixtures/corpus/cases.json`. Regenerate with `python3 scripts/create_corpus_forms.py`.

@@ -2,34 +2,50 @@
 
 ## Runtime Configuration
 
+Environment variables are read at process start (plain `os.getenv`). A Pydantic Settings refactor is intentionally deferred — keep configuration as documented here.
+
 - `MODEL_PROVIDER_API_KEY`: enables semantic inference and fallback mapping
-- `API_AUTH_ENABLED`: enables API key enforcement on `POST /fill` (**default `true`**; set `false` only for trusted/local use)
+- `API_AUTH_ENABLED`: enables API key enforcement on `POST /fill`, `/preview`, and `/inspect` (**default `true`**; set `false` only for trusted/local use)
 - `API_AUTH_TOKEN`: expected token value when auth is enabled
 - `API_KEY_HEADER`: header name used for the incoming token
 - `MAX_UPLOAD_BYTES`: maximum accepted PDF size in bytes (default 5 MiB)
 - `MAX_PDF_PAGES`: maximum accepted page count, rejected before extraction (default `200`)
-- `PDF_READ_TIMEOUT_SECONDS`: wall-clock budget for PDF processing on `/fill` and `/inspect` (default `20`)
+- `PDF_READ_TIMEOUT_SECONDS`: wall-clock budget for **full pipeline processing** on `/fill`, `/preview`, and `/inspect` — not only PDF parsing; covers enrich/map/write as well (default `20`)
 - `MAX_PDF_TEXT_CHARS`: cap on total extracted text retained/forwarded (default `2000000`)
-- `RATE_LIMIT_PER_MINUTE`: per-client request budget for `POST /fill`; `0` disables (default `60`)
+- `RATE_LIMIT_PER_MINUTE`: per-client request budget for authenticated PDF POSTs; `0` disables (default `60`)
 - `TRUST_PROXY_HEADERS`: when `true`, rate limiting uses the first `X-Forwarded-For` hop from a trusted reverse proxy (default `false`)
-- `FORM_ALIASES_DIR`: optional directory of JSON alias packs for deterministic field mapping; must exist and be readable when set
+- `FORM_ALIASES_DIR`: optional directory of JSON alias packs for deterministic field mapping; must exist and be readable when set. **Caveat:** alias packs are loaded once at import time of `mapping.py`. Changing the directory or JSON files requires a **process restart** (or re-import) to take effect — there is no hot reload.
 - `LOG_LEVEL`: process log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`)
+- `LOG_FORMAT`: `text` (default) or `json` for one JSON object per log line (useful for aggregators)
 
 ## Service Behavior
 
-- Authentication is **enabled by default** and fails closed: if `API_AUTH_ENABLED` is true but `API_AUTH_TOKEN` is unset, `POST /fill` returns `500 server_auth_config_error` rather than serving openly.
+- Authentication is **enabled by default** and fails closed: if `API_AUTH_ENABLED` is true but `API_AUTH_TOKEN` is unset, protected POSTs return `500 server_auth_config_error` rather than serving openly.
 - `GET /health` and `GET /version` are always unauthenticated.
-- `POST /fill` is rate limited per client and rejects PDFs over the page limit or that exceed the processing time budget.
+- Protected POSTs are rate limited per client and reject PDFs over the page limit or that exceed the processing time budget.
 - Uploads are read in bounded chunks so oversized files are rejected before the full body is buffered in memory.
 - `GET /health` reports dependency checks (`auth`, alias packs) and returns `degraded` when auth is misconfigured.
 - `POST /fill` writes uploads to a temporary working directory and returns the generated PDF directly.
 - Temporary files are cleaned up after request completion or failure, including error and timeout paths.
+- Responses include baseline security headers: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer` (playground HTML continues to work normally).
 - Privacy: provider-backed features send field metadata and nearby page text to an external service, but **never the raw user-data values or a field's current value** — only key names and value type names are shared. Disable these features by leaving `MODEL_PROVIDER_API_KEY` unset and the semantic/fallback flags off.
-- The in-process rate limiter suits a single worker; for multi-worker or multi-instance deployments, enforce limits at the ingress/proxy layer.
+
+## Rate limiting (single worker vs multi-worker)
+
+The in-process sliding-window limiter is suitable for a **single uvicorn worker**. It does **not** share state across workers or replicas.
+
+For multi-worker or multi-instance deployments, enforce limits **outside** the app:
+
+1. **Ingress / reverse proxy** — nginx `limit_req`, Envoy rate limits, Cloudflare, AWS API Gateway, etc.
+2. **Shared store** — Redis (or similar) token bucket / sliding window in front of or beside the app.
+3. Keep `RATE_LIMIT_PER_MINUTE` as a last-resort per-process guard, or set it to `0` when ingress already enforces a global budget.
+
+Also set `TRUST_PROXY_HEADERS=true` only when a trusted proxy strips/spoofs `X-Forwarded-For` correctly; otherwise clients can bypass per-IP limits.
 
 ## Audit Logging
 
 - Each successful fill emits one structured, PII-free `audit action=fill` log line containing the request ID, whether auth was enabled, the optional features used, and field counts (total/written/review-skipped/empty-skipped/missing). No field names or user values are logged.
+- Set `LOG_FORMAT=json` to emit JSON log lines for shipping to a log aggregator.
 - These lines are the application-level audit trail. Shipping them to a durable, access-controlled store and setting a retention policy are deployment responsibilities.
 
 ## Container Usage
@@ -49,6 +65,12 @@ docker run --rm -p 8000:8000 \
   pdf-autofiller
 ```
 
+One-command local try (auth off):
+
+```bash
+docker compose up --build
+```
+
 For trusted local experimentation only, you can disable auth with
 `-e API_AUTH_ENABLED=false`.
 
@@ -66,7 +88,7 @@ Published URL: `https://lindseystead.github.io/ai-pdf-autofiller/`
 
 ## PyPI publish
 
-Add `PYPI_API_TOKEN` as a repository secret. The publish workflow runs on each GitHub Release; without the secret it completes with a warning and wheels remain on GitHub Releases.
+Add `PYPI_API_TOKEN` as a repository secret. The publish workflow runs on each GitHub Release; without the secret it completes with a warning and wheels remain on GitHub Releases. `pip install pdf-autofiller` only works after a successful publish with that token.
 
 ## Deployment Assumptions
 

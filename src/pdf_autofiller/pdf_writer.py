@@ -131,10 +131,52 @@ def _resolve_button_value(field_obj, value: str) -> str | None:
     return None
 
 
+def _choice_options(field_obj) -> list[str]:
+    """Return display/export option strings for a choice (``/Ch``) field."""
+    options: list[str] = []
+    try:
+        opt = field_obj.get("/Opt")
+        if opt:
+            for entry in opt:
+                if hasattr(entry, "get"):
+                    # [export, display] pair
+                    export = entry[0] if len(entry) > 0 else entry
+                    options.append(str(export))
+                else:
+                    options.append(str(entry))
+    except Exception:
+        logger.debug("Failed to read /Opt from choice field", exc_info=True)
+
+    for state in _button_states(field_obj):
+        options.append(str(state).lstrip("/"))
+    return options
+
+
+def _resolve_choice_value(field_obj, value: str) -> str:
+    """
+    Resolve a mapped value for a choice (``/Ch``) field.
+
+    Writes the value as-is when no options are declared. When ``/Opt`` or
+    ``/_States_`` are present, prefers an exact (case-insensitive) option match.
+    Signature fields (``/Sig``) are never filled — callers skip them before
+    reaching this helper.
+    """
+    raw = value.strip()
+    options = _choice_options(field_obj)
+    if not options:
+        return raw
+
+    lookup = {opt.lstrip("/").lower(): opt for opt in options}
+    matched = lookup.get(raw.lstrip("/").lower())
+    return matched if matched is not None else raw
+
+
 def fill_pdf(
     input_pdf_path: Path,
     output_pdf_path: Path,
-    mapping_result: MappingResult
+    mapping_result: MappingResult,
+    *,
+    flatten: bool = False,
 ) -> FillReport:
     """
     Fill PDF form fields with mapped values from mapping result.
@@ -142,13 +184,17 @@ def fill_pdf(
     Writes values from FieldMappingDecision objects into the PDF form fields.
     Skips fields where requires_review=True or selected_value is None.
     Checkbox and radio (``/Btn``) values are translated to valid PDF state
-    names so boolean inputs actually toggle the control. Preserves original
-    formatting and untouched fields.
+    names so boolean inputs actually toggle the control. Choice (``/Ch``)
+    fields are written as-is or matched against ``/Opt`` / ``/_States_`` when
+    available. Signature (``/Sig``) fields are never filled. Preserves original
+    formatting and untouched fields unless ``flatten=True``.
 
     Args:
         input_pdf_path: Path to the input PDF file
         output_pdf_path: Path where the filled PDF will be saved
         mapping_result: MappingResult containing decisions and validation info
+        flatten: When true, burn field appearances into page content and remove
+            widget annotations (archival / non-editable output)
 
     Returns:
         FillReport listing the fields that were written and the fields that were
@@ -218,13 +264,19 @@ def fill_pdf(
             if field_name not in pdf_fields:
                 continue
             field_obj = pdf_fields[field_name]
+            field_ft = _field_type(field_obj)
+            # Signature widgets cannot be programmatically filled.
+            if field_ft == "/Sig":
+                continue
             value = decision.selected_value
-            if _field_type(field_obj) == "/Btn":
+            if field_ft == "/Btn":
                 resolved = _resolve_button_value(field_obj, value)
                 if resolved is None:
                     # Value does not map to a valid state; leave field untouched.
                     continue
                 value = resolved
+            elif field_ft == "/Ch":
+                value = _resolve_choice_value(field_obj, value)
             written_fields.add(field_name)
             field_values[field_name] = value
             continue
@@ -239,7 +291,10 @@ def fill_pdf(
         for page in writer.pages:
             try:
                 writer.update_page_form_field_values(
-                    page, field_values, auto_regenerate=False
+                    page,
+                    field_values,
+                    auto_regenerate=False,
+                    flatten=flatten,
                 )
             except Exception:
                 logger.debug(
@@ -250,7 +305,10 @@ def fill_pdf(
                 for field_name, value in field_values.items():
                     try:
                         writer.update_page_form_field_values(
-                            page, {field_name: value}, auto_regenerate=False
+                            page,
+                            {field_name: value},
+                            auto_regenerate=False,
+                            flatten=flatten,
                         )
                     except Exception:
                         logger.debug(
@@ -258,6 +316,12 @@ def fill_pdf(
                             field_name,
                             exc_info=True,
                         )
+
+    if flatten:
+        try:
+            writer.remove_annotations(subtypes="/Widget")
+        except Exception:
+            logger.debug("Failed to remove widget annotations after flatten", exc_info=True)
     
     # Validate that all required fields were filled
     missing_required = mapping_result.missing_required.copy()

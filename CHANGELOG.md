@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **0.5.0** `POST /preview` — mapping decisions JSON without writing a PDF
+- Optional `flatten` form flag on `/fill` (and local `fill()` / `run_fill_pipeline`)
+- Choice (`/Ch`) field write path; document that `/Sig` is unsupported
+- Playground **Preview Mapping** button
+- Golden corpus: `samples/hr_intake_sample.pdf`, `tests/fixtures/corpus/cases.json`,
+  `scripts/corpus_report.py`, `make corpus-check`
+- `docs/FAQ.md`; expanded n8n/Zapier notes; Pages links to ROADMAP/FAQ/inspect/compose
+- Optional `LOG_FORMAT=json` structured logging
+- Security headers middleware (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`)
+- CI `docker-smoke` job (build image, curl `/health`)
+- OpenAPI documents `/fill` `200 application/pdf`
+
 ### Fixed
 
 - Deterministic mapping now matches the full alias-pack synonym cluster, so
@@ -15,8 +29,24 @@ All notable changes to this project will be documented in this file.
 - Form writes set `auto_regenerate=False` (pypdf best practice)
 - Auth runs before rate-limit accounting; `429` includes `Retry-After`
 - Docs drift: proxy header wording, pip-audit command, timeout description
+- `poetry.lock` aligned with pinned Ruff `0.16.6`
 
-### Added
+### Changed
+
+- Version bump to **0.5.0**
+- `PDF_READ_TIMEOUT_SECONDS` documented as full-pipeline budget
+- `FORM_ALIASES_DIR` import-time load caveat documented
+- Multi-worker rate limiting guidance (Redis/ingress) clarified in OPERATIONS
+- Library `allow_fallback_mapping` default aligned to `False` (matches API)
+- Makefile format uses `ruff format`; commands prefer `python3`
+- PyPI publish no longer swallows failures with `continue-on-error`; README notes token requirement
+- README restructured for discovery: keywords, use cases, playground screenshot, stars badge
+- GitHub Pages landing (`docs/site/`) updated with Open Graph / Twitter meta tags
+- Docs index and asset README updated
+- Field-name fallback semantics canonicalize onto alias-pack keys when possible
+- HR alias pack expanded for corpus field names (`employee_name`, `startdate`, consent)
+
+### Previously in Unreleased (Phase 0)
 
 - `docs/ROADMAP.md` — phased adoption and best-practices plan
 - `POST /inspect` — list AcroForm fields as JSON
@@ -27,16 +57,6 @@ All notable changes to this project will be documented in this file.
 - README hero images (`docs/assets/social-preview.png`, `playground-preview.png`) for discoverability
 - `scripts/apply-repo-metadata.sh` to set GitHub description and topics (run locally with admin `gh`)
 - Expanded `pyproject.toml` keywords for search
-
-### Changed
-
-- Library `allow_fallback_mapping` default aligned to `False` (matches API)
-- Makefile format uses `ruff format`; commands prefer `python3`
-- PyPI publish no longer swallows failures with `continue-on-error`
-- README restructured for discovery: keywords, use cases, playground screenshot, stars badge
-- GitHub Pages landing (`docs/site/`) updated with Open Graph / Twitter meta tags
-- Docs index and asset README updated
-- Field-name fallback semantics canonicalize onto alias-pack keys when possible
 
 ## [0.4.3]
 

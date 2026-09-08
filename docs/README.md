@@ -7,6 +7,8 @@ Supporting documentation for the PDF Autofiller service.
 | Doc | Description |
 |-----|-------------|
 | [API.md](API.md) | Endpoint contracts, errors, and response headers |
+| [FAQ.md](FAQ.md) | Comparisons, AcroForm vs scan, auth, local vs HTTP |
+| [ROADMAP.md](ROADMAP.md) | Adoption phases and exit criteria |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Module boundaries, data flow, extension points |
 | [OPERATIONS.md](OPERATIONS.md) | Runtime configuration and deployment |
 | [TESTING.md](TESTING.md) | Local validation and CI |

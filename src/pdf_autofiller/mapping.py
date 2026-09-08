@@ -45,7 +45,8 @@ FIELD_ALIASES: dict[str, list[str]] = {
     "country": ["nation"],
     "social_security_number": ["ssn", "social_security", "tax_id", "national_id"],
     "employer": ["company", "employer_name", "organization"],
-    "job_title": ["title", "position", "occupation"],
+    "job_title": ["title", "position", "occupation", "jobtitle"],
+    "employee_name": ["employeename", "worker_name", "staff_name"],
     "signature_date": ["date_signed", "signed_date", "sign_date"],
 }
 

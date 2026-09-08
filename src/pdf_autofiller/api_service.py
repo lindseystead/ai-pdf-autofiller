@@ -31,16 +31,25 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel
 from starlette.background import BackgroundTask
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.types import ASGIApp
 
 from . import __version__
 from .mapping import alias_pack_status
 from .models import FillReport
 from .pdf_reader import PdfPageLimitError, read_pdf
 from .pdf_writer import UnresolvedRequiredFieldsError
-from .pipeline import enrich_fields, page_context_by_number, run_fill_pipeline
+from .pipeline import (
+    enrich_fields,
+    page_context_by_number,
+    run_fill_pipeline,
+    run_preview_pipeline,
+)
 from .playground import PLAYGROUND_HTML
 
 LOG_LEVEL_NAME = os.getenv("LOG_LEVEL", "INFO").upper()
+# Optional structured JSON logs for aggregators (LOG_FORMAT=json).
+LOG_FORMAT = os.getenv("LOG_FORMAT", "text").lower()
 # Fail closed: authentication is enabled unless explicitly disabled. Operators
 # running a trusted/local deployment can set API_AUTH_ENABLED=false.
 API_AUTH_ENABLED = os.getenv("API_AUTH_ENABLED", "true").lower() == "true"
@@ -49,13 +58,44 @@ API_KEY_HEADER = os.getenv("API_KEY_HEADER", "X-API-Key")
 MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(5 * 1024 * 1024)))
 # Reject obviously oversized documents before extraction (cheap DoS guard).
 MAX_PDF_PAGES = int(os.getenv("MAX_PDF_PAGES", "200"))
-# Wall-clock budget for PDF parsing/extraction, the main CPU/memory DoS vector.
+# Wall-clock budget for full pipeline processing on /fill, /preview, and /inspect
+# (not only PDF parsing — covers enrich/map/write as well).
 PDF_READ_TIMEOUT_SECONDS = float(os.getenv("PDF_READ_TIMEOUT_SECONDS", "20"))
-# Per-client request budget for POST /fill. Set to 0 to disable.
+# Per-client request budget for POST /fill, /preview, and /inspect. Set to 0 to disable.
 RATE_LIMIT_PER_MINUTE = int(os.getenv("RATE_LIMIT_PER_MINUTE", "60"))
 # Trust X-Forwarded-For for per-client rate limiting behind a reverse proxy.
 TRUST_PROXY_HEADERS = os.getenv("TRUST_PROXY_HEADERS", "false").lower() == "true"
 UPLOAD_CHUNK_BYTES = 64 * 1024
+
+
+class _JsonLogFormatter(logging.Formatter):
+    """Emit one JSON object per log line (no PII beyond the message text)."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        payload = {
+            "level": record.levelname,
+            "logger": record.name,
+            "message": record.getMessage(),
+            "time": self.formatTime(record, self.datefmt),
+        }
+        if record.exc_info:
+            payload["exc_info"] = self.formatException(record.exc_info)
+        return json.dumps(payload, ensure_ascii=True)
+
+
+def _configure_logging() -> None:
+    """Apply text or JSON logging based on LOG_FORMAT."""
+    root = logging.getLogger()
+    if not root.handlers:
+        handler = logging.StreamHandler()
+        if LOG_FORMAT == "json":
+            handler.setFormatter(_JsonLogFormatter())
+        else:
+            handler.setFormatter(
+                logging.Formatter("%(levelname)s:%(name)s:%(message)s")
+            )
+        root.addHandler(handler)
+    root.setLevel(_resolve_log_level())
 
 # Prefer packaged samples next to the install, then repo-root samples/ for local dev.
 _PACKAGE_ROOT = Path(__file__).resolve().parent
@@ -73,9 +113,23 @@ def _resolve_log_level() -> int:
     return level
 
 
-logger = logging.getLogger(__name__)
 LOGGER_LEVEL = _resolve_log_level()
+logger = logging.getLogger(__name__)
 logger.setLevel(LOGGER_LEVEL)
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Attach baseline security headers without breaking the playground HTML."""
+
+    def __init__(self, app: ASGIApp) -> None:
+        super().__init__(app)
+
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("Referrer-Policy", "no-referrer")
+        return response
 
 
 class HealthResponse(BaseModel):
@@ -202,6 +256,7 @@ app = FastAPI(
         "HTTP API for deterministic-first PDF form filling with optional semantic inference."
     ),
 )
+app.add_middleware(SecurityHeadersMiddleware)
 
 
 @app.exception_handler(RequestValidationError)
@@ -415,6 +470,23 @@ class InspectResponse(BaseModel):
     fields: list[InspectField]
 
 
+class PreviewDecision(BaseModel):
+    field_name: str
+    semantic_meaning: str
+    selected_value: str | None = None
+    confidence: float
+    reason: str
+    requires_review: bool = False
+
+
+class PreviewResponse(BaseModel):
+    pages: int
+    field_count: int
+    decisions: list[PreviewDecision]
+    missing_required: list[str]
+    unmapped_user_keys: list[str]
+
+
 @app.post("/inspect", response_model=InspectResponse)
 async def inspect_pdf(
     request: Request,
@@ -495,7 +567,125 @@ async def inspect_pdf(
         await pdf_file.close()
 
 
-@app.post("/fill")
+@app.post("/preview", response_model=PreviewResponse)
+async def preview_pdf(
+    request: Request,
+    pdf_file: UploadFile = File(...),
+    user_data: str = Form(...),
+    strict: bool = Form(True),
+    allow_fallback_mapping: bool = Form(False),
+    use_semantic_inference: bool = Form(False),
+) -> PreviewResponse:
+    """Return mapping decisions without writing a PDF (inspect → map debug loop)."""
+    temp_dir = None
+    try:
+        _require_api_key(request)
+        _enforce_rate_limit(request)
+
+        if pdf_file.content_type not in ("application/pdf", "application/octet-stream"):
+            raise _api_error(
+                status_code=415,
+                code="unsupported_media_type",
+                message="Expected a PDF upload",
+            )
+
+        parsed_user_data: dict[str, Any] = json.loads(user_data)
+        if not isinstance(parsed_user_data, dict):
+            raise _api_error(
+                status_code=422,
+                code="invalid_user_data_type",
+                message="user_data must be a JSON object",
+            )
+
+        content = await _read_bounded_upload(pdf_file, MAX_UPLOAD_BYTES)
+        if not content.startswith(b"%PDF-"):
+            raise _api_error(
+                status_code=415,
+                code="invalid_pdf_signature",
+                message="Uploaded file is not a valid PDF",
+            )
+
+        temp_dir = tempfile.TemporaryDirectory(prefix="pdf-autofiller-preview-")
+        input_path = Path(temp_dir.name) / "input.pdf"
+        input_path.write_bytes(content)
+
+        try:
+            mapping_result, field_count, page_count = await asyncio.wait_for(
+                asyncio.to_thread(
+                    run_preview_pipeline,
+                    input_path,
+                    parsed_user_data,
+                    strict=strict,
+                    allow_fallback_mapping=allow_fallback_mapping,
+                    use_semantic_inference=use_semantic_inference,
+                    max_pages=MAX_PDF_PAGES,
+                ),
+                timeout=PDF_READ_TIMEOUT_SECONDS,
+            )
+        except TimeoutError as exc:
+            raise _api_error(
+                status_code=503,
+                code="pdf_processing_timeout",
+                message="PDF processing exceeded the time limit",
+                details={"timeout_seconds": PDF_READ_TIMEOUT_SECONDS},
+            ) from exc
+        except PdfPageLimitError as exc:
+            raise _api_error(
+                status_code=413,
+                code="pdf_too_many_pages",
+                message="PDF exceeds the maximum allowed page count",
+                details={"max_pages": exc.max_pages, "num_pages": exc.num_pages},
+            ) from exc
+
+        decisions = [
+            PreviewDecision(
+                field_name=d.field_name,
+                semantic_meaning=d.semantic_meaning,
+                selected_value=d.selected_value,
+                confidence=d.confidence,
+                reason=d.reason,
+                requires_review=d.requires_review,
+            )
+            for d in mapping_result.decisions
+        ]
+        return PreviewResponse(
+            pages=page_count,
+            field_count=field_count,
+            decisions=decisions,
+            missing_required=list(mapping_result.missing_required),
+            unmapped_user_keys=list(mapping_result.unmapped_user_keys),
+        )
+    except json.JSONDecodeError as exc:
+        raise _api_error(
+            status_code=422,
+            code="invalid_user_data_json",
+            message="Invalid user_data JSON",
+            details={"reason": str(exc)},
+        ) from exc
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("PDF preview request failed")
+        raise _api_error(
+            status_code=500,
+            code="pdf_preview_failed",
+            message="PDF preview failed",
+        ) from exc
+    finally:
+        if temp_dir is not None:
+            temp_dir.cleanup()
+        await pdf_file.close()
+
+
+@app.post(
+    "/fill",
+    responses={
+        200: {
+            "content": {"application/pdf": {}},
+            "description": "Filled PDF binary",
+        }
+    },
+)
 async def fill(
     request: Request,
     pdf_file: UploadFile = File(...),
@@ -503,6 +693,7 @@ async def fill(
     strict: bool = Form(True),
     allow_fallback_mapping: bool = Form(False),
     use_semantic_inference: bool = Form(False),
+    flatten: bool = Form(False),
 ) -> FileResponse:
     """
     Fill a PDF form from uploaded file and user data.
@@ -514,6 +705,7 @@ async def fill(
         strict: Disable fallback mapping when true
         allow_fallback_mapping: Enable fallback mapping for unmapped high-value fields
         use_semantic_inference: Enable semantic inference before mapping
+        flatten: Burn field values into page content and remove widget annotations
     """
     temp_dir = None
     # The FileResponse streams the output and cleans up the temp dir via a
@@ -567,6 +759,7 @@ async def fill(
                     allow_fallback_mapping=allow_fallback_mapping,
                     use_semantic_inference=use_semantic_inference,
                     max_pages=MAX_PDF_PAGES,
+                    flatten=flatten,
                 ),
                 timeout=PDF_READ_TIMEOUT_SECONDS,
             )
@@ -639,8 +832,7 @@ def run() -> None:
     """Run local API server."""
     import uvicorn
 
-    if not logging.getLogger().handlers:
-        logging.basicConfig(level=LOGGER_LEVEL)
+    _configure_logging()
     uvicorn.run(
         "pdf_autofiller.api_service:app",
         host="0.0.0.0",

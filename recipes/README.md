@@ -27,6 +27,7 @@ export API_AUTH_TOKEN=your-token
 2. Enable **semantic inference** only when field names are opaque (`field_12`, `Text1`).
 3. Check response headers: `X-PDF-Fields-Written`, `X-PDF-Fields-Skipped-Review`.
 4. Missing required fields return `422` with `required_fields_unresolved` — fix your JSON and retry.
+5. Golden fixtures: `samples/sample_form.pdf`, `samples/hr_intake_sample.pdf`, expectations in `tests/fixtures/corpus/cases.json` (`make corpus-check`).
 
 ## Python SDK (3 lines)
 
