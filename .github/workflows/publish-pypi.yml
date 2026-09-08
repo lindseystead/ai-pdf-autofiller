@@ -1,5 +1,12 @@
 name: Publish to PyPI
 
+# Uses a PyPI API token only (no Trusted Publishing / OIDC).
+# Do not grant id-token: write here — that path fails with invalid-publisher
+# unless a matching trusted publisher is configured on PyPI.
+#
+# Before cutting a GitHub Release, confirm PYPI_API_TOKEN is set and prefer a
+# dry run via workflow_dispatch on main after CI is green.
+
 on:
   release:
     types: [published]
@@ -7,7 +14,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 jobs:
   publish:
@@ -15,13 +21,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Require PYPI_API_TOKEN
+        env:
+          TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+        run: |
+          if [ -z "${TOKEN}" ]; then
+            echo "::error::PYPI_API_TOKEN is not set. Add a PyPI API token (pypi-...) as a repository secret before releasing. Do not create a GitHub Release until this secret exists."
+            exit 1
+          fi
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
       - name: Install build tools
-        run: pip install build twine
+        run: pip install build
 
       - name: Build package
         run: python -m build
@@ -29,5 +44,7 @@ jobs:
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
+          user: __token__
           password: ${{ secrets.PYPI_API_TOKEN }}
-        id: pypi
+          # Safe for retries of the same version after a prior successful upload.
+          skip-existing: true

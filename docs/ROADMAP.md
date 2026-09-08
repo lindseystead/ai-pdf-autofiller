@@ -107,7 +107,7 @@ This roadmap turns PDF Autofiller from a working beta into something people can 
 
 ## Phase 3 — Distribution & discoverability
 
-**Status:** Partial — FAQ, importable n8n workflow, Pages links, honest PyPI/`RELEASE.md` runbook. Hosted demo GIF / PyPI token publish still operator-owned.
+**Status:** Partial — FAQ, importable n8n workflow, Pages links, token-only PyPI workflow + preflight in `RELEASE.md`. Hosted demo GIF and ensuring `PYPI_API_TOKEN` is present in the repo remain operator-owned.
 
 **Outcome:** Strangers find and install the project.
 
