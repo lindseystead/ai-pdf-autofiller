@@ -203,24 +203,28 @@ API errors return a JSON payload with a machine-readable code:
 }
 ```
 
-Common error codes:
+Canonical catalog (also exposed in OpenAPI on `/fill`, `/preview`, `/inspect`):
 
-- `request_validation_error`
-- `invalid_user_data_json`
-- `invalid_user_data_type`
-- `unsupported_media_type`
-- `invalid_pdf_signature`
-- `payload_too_large`
-- `pdf_too_many_pages`
-- `pdf_processing_timeout`
-- `rate_limited`
-- `unauthorized`
-- `server_auth_config_error`
-- `required_fields_unresolved`
-- `pdf_fill_failed`
-- `pdf_preview_failed`
-- `pdf_inspect_failed`
-- `sample_not_found`
+| Code | HTTP | When |
+|------|------|------|
+| `request_validation_error` | 422 | Missing/invalid multipart fields |
+| `invalid_user_data_json` | 422 | `user_data` is not valid JSON |
+| `invalid_user_data_type` | 422 | `user_data` is not a JSON object |
+| `unsupported_media_type` | 415 | Upload is not a PDF content-type |
+| `invalid_pdf_signature` | 415 | Bytes do not start with `%PDF-` |
+| `payload_too_large` | 413 | Over `MAX_UPLOAD_BYTES` |
+| `pdf_too_many_pages` | 413 | Over `MAX_PDF_PAGES` |
+| `pdf_processing_timeout` | 503 | Over `PDF_READ_TIMEOUT_SECONDS` |
+| `rate_limited` | 429 | Per-client budget exceeded (`Retry-After`) |
+| `unauthorized` | 401 | Missing/wrong API key |
+| `server_auth_config_error` | 500 | Auth enabled but token unset |
+| `required_fields_unresolved` | 422 | Required fields missing/skipped |
+| `pdf_fill_failed` | 500 | Unexpected fill failure |
+| `pdf_preview_failed` | 500 | Unexpected preview failure |
+| `pdf_inspect_failed` | 500 | Unexpected inspect failure |
+| `sample_not_found` | 404 | Bundled sample PDF missing |
+
+Source of truth in code: `pdf_autofiller.api.errors.ERROR_CATALOG`.
 
 ## Authentication
 

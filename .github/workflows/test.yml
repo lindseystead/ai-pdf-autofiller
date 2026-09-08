@@ -69,7 +69,13 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install Poetry
-        run: pipx install poetry
+      - name: Install Poetry + export plugin
+        run: |
+          pipx install poetry
+          poetry self add poetry-plugin-export
       - name: Verify poetry.lock is in sync with pyproject.toml
         run: poetry check --lock
+      - name: Verify requirements*.txt match poetry.lock
+        run: |
+          bash scripts/sync_requirements.sh
+          git diff --exit-code requirements.txt requirements-dev.txt

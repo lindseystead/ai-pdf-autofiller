@@ -7,6 +7,7 @@ Supporting documentation for the PDF Autofiller service.
 | Doc | Description |
 |-----|-------------|
 | [API.md](API.md) | Endpoint contracts, errors, and response headers |
+| [RELEASE.md](RELEASE.md) | Tag → PyPI / GHCR / Release assets |
 | [FAQ.md](FAQ.md) | Comparisons, AcroForm vs scan, auth, local vs HTTP |
 | [ROADMAP.md](ROADMAP.md) | Adoption phases and exit criteria |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Module boundaries, data flow, extension points |
@@ -18,8 +19,8 @@ Supporting documentation for the PDF Autofiller service.
 
 | Doc | Description |
 |-----|-------------|
-| [integrations/](integrations/) | n8n, Zapier, and LangChain guides |
-| [assets/demo-terminal.txt](assets/demo-terminal.txt) | Example terminal workflow output |
+| [integrations/](integrations/) | n8n (importable workflow), Zapier, LangChain |
+| [assets/demo-terminal.txt](assets/demo-terminal.txt) | Captured inspect → preview → fill transcript |
 | [../README.md](../README.md) | Project overview and quick start |
 | [../CONTRIBUTING.md](../CONTRIBUTING.md) | Contributor setup and PR expectations |
 | [../CODE_OF_CONDUCT.md](../CODE_OF_CONDUCT.md) | Community standards |

@@ -27,7 +27,11 @@ from pdf_autofiller.pipeline import (
 from pdf_autofiller.playground import PLAYGROUND_HTML
 
 from . import config
-from .errors import api_error
+from .errors import (
+    MUTATING_ERROR_CODES,
+    api_error,
+    openapi_error_responses,
+)
 from .schemas import (
     FillReportResponse,
     HealthResponse,
@@ -188,7 +192,14 @@ def sample_form_pdf() -> FileResponse:
     )
 
 
-@router.post("/inspect", response_model=InspectResponse)
+@router.post(
+    "/inspect",
+    response_model=InspectResponse,
+    responses=openapi_error_responses(
+        *MUTATING_ERROR_CODES,
+        "pdf_inspect_failed",
+    ),
+)
 async def inspect_pdf(
     request: Request,
     pdf_file: UploadFile = File(...),
@@ -257,7 +268,16 @@ async def inspect_pdf(
         await pdf_file.close()
 
 
-@router.post("/preview", response_model=PreviewResponse)
+@router.post(
+    "/preview",
+    response_model=PreviewResponse,
+    responses=openapi_error_responses(
+        *MUTATING_ERROR_CODES,
+        "invalid_user_data_json",
+        "invalid_user_data_type",
+        "pdf_preview_failed",
+    ),
+)
 async def preview_pdf(
     request: Request,
     pdf_file: UploadFile = File(...),
@@ -350,10 +370,18 @@ async def preview_pdf(
                     "description": (
                         "Fill report JSON including base64 PDF when "
                         "Accept prefers application/json"
-                    )
+                    ),
+                    "schema": FillReportResponse.model_json_schema(),
                 },
             },
-        }
+        },
+        **openapi_error_responses(
+            *MUTATING_ERROR_CODES,
+            "invalid_user_data_json",
+            "invalid_user_data_type",
+            "required_fields_unresolved",
+            "pdf_fill_failed",
+        ),
     },
 )
 async def fill(

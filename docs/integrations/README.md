@@ -1,14 +1,18 @@
 # Integration Guides
 
-Connect PDF Autofiller to automation platforms and AI agent workflows.
+Connect PDF Autofiller to automation platforms. Prefer **inspect → preview → fill**.
 
 Auth note: production defaults require `X-API-Key`. For local try paths set `API_AUTH_ENABLED=false` or send the token header on every request.
 
-## n8n — HTTP Request (copy-paste)
+## n8n — importable workflow
 
-Use the **HTTP Request** node to call `POST /fill` (or `/preview` / `/inspect`) with multipart form data.
+1. Start API: `API_AUTH_ENABLED=false make run-api` (or point at your host + API key)
+2. In n8n: **Workflows → Import from File** → [`n8n-fill-workflow.json`](n8n-fill-workflow.json)
+3. Edit **Set Profile + Base URL** if your host is not `http://localhost:8000`
+4. For production, add Header Auth (`X-API-Key`) on the HTTP Request nodes
+5. Execute — downloads the sample PDF, inspects fields, previews mapping, writes a filled PDF binary
 
-### Node configuration
+### Manual HTTP Request node (copy-paste)
 
 | Setting | Value |
 |---------|-------|
@@ -19,37 +23,17 @@ Use the **HTTP Request** node to call `POST /fill` (or `/preview` / `/inspect`) 
 | Header Value | your `API_AUTH_TOKEN` |
 | Send Body | On |
 | Body Content Type | **Form-Data** / Multipart-Form-Data |
-| Specify Body | Using Fields Below |
-
-### Body fields
 
 | Name | Type | Value |
 |------|------|-------|
-| `pdf_file` | **n8n Binary File** | Expression: `={{ $binary.data }}` (or the binary property from Drive/Dropbox) |
-| `user_data` | String | `={{ JSON.stringify($json.profile) }}` — must be a **JSON object string**, not nested form fields |
+| `pdf_file` | **n8n Binary File** | `={{ $binary.data }}` |
+| `user_data` | String | `={{ JSON.stringify($json.profile) }}` |
 | `strict` | String | `true` |
-| `allow_fallback_mapping` | String | `false` |
-| `use_semantic_inference` | String | `false` |
-| `flatten` | String | `false` (set `true` for archival non-editable PDFs) |
+| `flatten` | String | `false` |
 
-### Response handling
+Branch on error `detail.error.code` (see [API.md](../API.md#error-contract)).
 
-- Success: binary PDF. Save with a **Write Binary File** or Drive upload node.
-- Read headers `X-PDF-Fields-Written`, `X-PDF-Fields-Skipped-Review`, `X-PDF-Fields-Skipped-Empty`.
-- Errors: JSON `{ "detail": { "error": { "code", "message", "details" } } }` — branch on `code`.
-
-### Optional: preview before fill
-
-Duplicate the node, change URL to `/preview`, and parse the JSON `decisions` / `missing_required` / `unmapped_user_keys` before calling `/fill`.
-
-### Example workflow
-
-1. **Webhook** receives `{ "profile": { "firstname": "Jane", ... } }`
-2. **Google Drive** downloads the blank PDF template (binary)
-3. **HTTP Request** fills via `/fill` (multipart as above)
-4. **Google Drive** uploads the filled PDF binary
-
-## Zapier — multipart caveats
+## Zapier — multipart Webhooks
 
 Use **Webhooks by Zapier → Custom Request**.
 
@@ -57,75 +41,59 @@ Use **Webhooks by Zapier → Custom Request**.
 |-------|-------|
 | Method | POST |
 | URL | `https://your-host/fill` |
-| Data Pass-Through | No |
-| Unflatten | No |
-| Payload Type | **Form** (not JSON) |
+| Payload Type | **Form** |
+| Headers | `X-API-Key: your-token` |
 
 Form fields:
 
-- `pdf_file` — file from a prior Drive/Dropbox step (**Zapier paid plans** are typically required for reliable file upload in Webhooks)
-- `user_data` — a **single string** containing JSON (use Formatter → Utilities → Line-item to JSON, or a Code step). Do **not** split profile keys into separate form fields — the API expects one `user_data` text field.
+- `pdf_file` — file from Drive/Dropbox (**paid Zapier** usually required for reliable file parts)
+- `user_data` — **one string** of JSON (Code step: `return {user_data: JSON.stringify(inputData.profile)}`)
 - `strict` — `true`
-- Optional: `flatten` — `true` / `false`
 
-Headers:
+### Recommended Zapier sequence
 
-```text
-X-API-Key: your-token
-```
+1. **Storage** downloads blank AcroForm  
+2. **Webhooks** `POST /inspect` — stop if `field_count == 0` (likely a flat scan)  
+3. **Webhooks** `POST /preview` — stop if `missing_required` is non-empty  
+4. **Webhooks** `POST /fill` — save binary PDF  
 
 ### Common Zapier failures
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| `415 unsupported_media_type` | PDF not sent as a file part | Use Form payload + file field, not base64 in JSON body |
-| `422 invalid_user_data_json` | `user_data` is an object tree Zapier nested | Stringify to one field |
-| `401 unauthorized` | Missing/wrong key | Add `X-API-Key` header; match `API_KEY_HEADER` |
-| Empty PDF / 0 fields written | Flat scan, not AcroForm | Confirm with `/inspect` first |
+| `415 unsupported_media_type` | PDF not a file part | Form + file field |
+| `422 invalid_user_data_json` | Nested object tree | Stringify one `user_data` field |
+| `401 unauthorized` | Missing key | Add `X-API-Key` |
+| 0 fields written | Flat scan | Confirm with `/inspect` |
 
-**Tip:** If your Zap cannot attach files as multipart, base64-encode in a Code step and use a thin proxy that decodes to `/fill` (see below). Prefer native multipart when possible.
+## Make.com
 
-## LangChain / AI agents
+Same multipart pattern as n8n: HTTP module → POST → multipart → map binary PDF + JSON string + `X-API-Key`.
 
-Expose PDF filling as a tool in your agent:
+## LangChain / agents
 
 ```python
 from langchain.tools import tool
-from pdf_autofiller import fill
+from pdf_autofiller import fill, inspect
 
 
 @tool
 def fill_pdf_form(pdf_path: str, user_data: dict, output_path: str) -> str:
     """Fill a fillable PDF form from structured user data."""
+    inventory = inspect(pdf_path)
+    if inventory.field_count == 0:
+        return "No AcroForm fields found — this PDF is probably not fillable."
     report = fill(pdf_path, user_data, output_path)
-    return f"Filled PDF written to {output_path}. Fields written: {len(report.written_fields)}"
+    return f"Wrote {output_path}; fields written: {len(report.written_fields)}"
 ```
 
-For remote API usage:
+Remote:
 
 ```python
-from pdf_autofiller.client import PDFAutofillerClient
+from pdf_autofiller import PDFAutofillerClient
 
-client = PDFAutofillerClient("https://your-service.onrender.com", api_key="...")
-filled, headers = client.fill("template.pdf", profile_dict)
+client = PDFAutofillerClient("https://your-service", api_key="...")
+print(client.inspect("template.pdf")["field_count"])
+print(client.preview("template.pdf", profile)["missing_required"])
+filled, headers = client.fill("template.pdf", profile)
 ```
-
-## Make.com (Integromat)
-
-Same pattern as n8n:
-
-1. **HTTP → Make a request**
-2. Method POST, multipart body
-3. Map binary PDF + JSON profile string from prior modules
-4. Header `X-API-Key`
-
-## Webhook middleware pattern
-
-If your automation tool can't send multipart file uploads directly, add a thin proxy:
-
-```
-POST /your-proxy/fill
-{ "pdf_base64": "...", "user_data": { ... } }
-```
-
-Decode base64 server-side and forward to `/fill`. This repo ships `/fill` natively — prefer direct multipart when your platform supports it.

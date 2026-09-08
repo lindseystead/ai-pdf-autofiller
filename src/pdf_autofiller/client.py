@@ -70,6 +70,69 @@ class PDFAutofillerClient:
                 raise PDFAutofillError(500, "invalid_response", "Health endpoint returned non-object JSON")
             return payload
 
+    def _pdf_upload(
+        self,
+        pdf: str | Path | bytes,
+        *,
+        filename: str | None = None,
+    ) -> tuple[dict[str, tuple[str, bytes, str]], str]:
+        if isinstance(pdf, (str, Path)):
+            pdf_path = Path(pdf)
+            pdf_bytes = pdf_path.read_bytes()
+            upload_name = filename or pdf_path.name
+        else:
+            pdf_bytes = pdf
+            upload_name = filename or "upload.pdf"
+        return {"pdf_file": (upload_name, pdf_bytes, "application/pdf")}, upload_name
+
+    def inspect(self, pdf: str | Path | bytes, *, filename: str | None = None) -> dict[str, Any]:
+        """List AcroForm fields via ``POST /inspect``."""
+        files, _name = self._pdf_upload(pdf, filename=filename)
+        with self._client() as http:
+            response = http.post(
+                f"{self.base_url}/inspect",
+                headers=self._headers(),
+                files=files,
+            )
+        if response.status_code != 200:
+            self._raise_api_error(response)
+        payload = response.json()
+        if not isinstance(payload, dict):
+            raise PDFAutofillError(500, "invalid_response", "Inspect endpoint returned non-object JSON")
+        return payload
+
+    def preview(
+        self,
+        pdf: str | Path | bytes,
+        user_data: dict[str, Any],
+        *,
+        strict: bool = True,
+        allow_fallback_mapping: bool = False,
+        use_semantic_inference: bool = False,
+        filename: str | None = None,
+    ) -> dict[str, Any]:
+        """Return mapping decisions via ``POST /preview`` (no PDF write)."""
+        files, _name = self._pdf_upload(pdf, filename=filename)
+        data = {
+            "user_data": json.dumps(user_data),
+            "strict": str(strict).lower(),
+            "allow_fallback_mapping": str(allow_fallback_mapping).lower(),
+            "use_semantic_inference": str(use_semantic_inference).lower(),
+        }
+        with self._client() as http:
+            response = http.post(
+                f"{self.base_url}/preview",
+                headers=self._headers(),
+                files=files,
+                data=data,
+            )
+        if response.status_code != 200:
+            self._raise_api_error(response)
+        payload = response.json()
+        if not isinstance(payload, dict):
+            raise PDFAutofillError(500, "invalid_response", "Preview endpoint returned non-object JSON")
+        return payload
+
     def fill(
         self,
         pdf: str | Path | bytes,
@@ -80,31 +143,16 @@ class PDFAutofillerClient:
         use_semantic_inference: bool = False,
         flatten: bool = False,
         filename: str | None = None,
-    ) -> tuple[bytes, dict[str, str]]:
+        accept: str = "application/pdf",
+    ) -> tuple[bytes | dict[str, Any], dict[str, str]]:
         """
-        Fill a PDF from user data and return the filled PDF bytes plus response headers.
+        Fill a PDF from user data.
 
-        Args:
-            pdf: Path to a PDF file or raw PDF bytes
-            user_data: JSON-serializable mapping of profile fields
-            strict: Disable fallback mapping when True
-            allow_fallback_mapping: Enable provider-backed fallback for unresolved fields
-            use_semantic_inference: Run semantic inference before mapping
-            flatten: Burn field appearances into page content and remove widgets
-            filename: Optional upload filename when pdf is bytes
-
-        Returns:
-            Tuple of (filled_pdf_bytes, response_headers)
+        When ``accept`` is ``application/pdf`` (default), returns
+        ``(pdf_bytes, headers)``. When ``accept`` is ``application/json``,
+        returns ``(report_dict, headers)`` including ``pdf_base64``.
         """
-        if isinstance(pdf, (str, Path)):
-            pdf_path = Path(pdf)
-            pdf_bytes = pdf_path.read_bytes()
-            upload_name = filename or pdf_path.name
-        else:
-            pdf_bytes = pdf
-            upload_name = filename or "upload.pdf"
-
-        files = {"pdf_file": (upload_name, pdf_bytes, "application/pdf")}
+        files, _name = self._pdf_upload(pdf, filename=filename)
         data = {
             "user_data": json.dumps(user_data),
             "strict": str(strict).lower(),
@@ -112,11 +160,13 @@ class PDFAutofillerClient:
             "use_semantic_inference": str(use_semantic_inference).lower(),
             "flatten": str(flatten).lower(),
         }
+        headers = self._headers()
+        headers["Accept"] = accept
 
         with self._client() as http:
             response = http.post(
                 f"{self.base_url}/fill",
-                headers=self._headers(),
+                headers=headers,
                 files=files,
                 data=data,
             )
@@ -124,7 +174,13 @@ class PDFAutofillerClient:
         if response.status_code != 200:
             self._raise_api_error(response)
 
-        return response.content, dict(response.headers)
+        response_headers = dict(response.headers)
+        if accept.startswith("application/json"):
+            payload = response.json()
+            if not isinstance(payload, dict):
+                raise PDFAutofillError(500, "invalid_response", "Fill JSON response was not an object")
+            return payload, response_headers
+        return response.content, response_headers
 
     def _client(self) -> AbstractContextManager[httpx.Client]:
         if self._http_client is not None:
@@ -139,9 +195,16 @@ class PDFAutofillerClient:
         **kwargs: Any,
     ) -> dict[str, str]:
         """Fill a PDF and write the result to disk. Returns response headers."""
-        filled_bytes, headers = self.fill(pdf, user_data, **kwargs)
+        kwargs.setdefault("accept", "application/pdf")
+        filled, headers = self.fill(pdf, user_data, **kwargs)
+        if not isinstance(filled, (bytes, bytearray)):
+            raise PDFAutofillError(
+                500,
+                "invalid_response",
+                "fill_to_file requires Accept: application/pdf",
+            )
         output_path = Path(output)
-        output_path.write_bytes(filled_bytes)
+        output_path.write_bytes(bytes(filled))
         return headers
 
     @staticmethod

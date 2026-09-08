@@ -4,7 +4,22 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-## [0.6.0]
+## [0.6.1]
+
+### Added
+
+- OpenAPI error catalog (`ERROR_CATALOG` + shared `ApiErrorEnvelope`) on `/fill`, `/preview`, `/inspect`
+- Importable n8n workflow: `docs/integrations/n8n-fill-workflow.json`
+- HTTP client `inspect()` / `preview()` + JSON `Accept` on `fill()`
+- `docs/RELEASE.md` release runbook; `make sync-requirements` pins Docker/CI deps from `poetry.lock`
+- Demo transcript capture: `scripts/capture_demo_transcript.sh`
+- Recipes updated with real `/inspect` field inventories for synthetic fixtures
+
+### Changed
+
+- `requirements.txt` / `requirements-dev.txt` are fully pinned exports (CI verifies sync)
+- Integrations guide rewritten around inspect → preview → fill
+
 
 ### Added
 
