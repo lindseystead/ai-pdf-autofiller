@@ -1,29 +1,28 @@
 name: Publish to PyPI
 
-# Trusted Publishing (OIDC) — no PYPI_API_TOKEN secret.
-# Requires a matching publisher on PyPI (pending or project-level):
+# Manual only until a PyPI trusted (or pending) publisher is configured.
+# Do NOT auto-run on GitHub Release — that paints Releases red while
+# GHCR + Release wheels already provide a working install path.
+#
+# When ready (one-time on https://pypi.org/manage/account/publishing/):
 #   Owner: lindseystead
 #   Repository: ai-pdf-autofiller
 #   Workflow: publish-pypi.yml
 #   Environment name: pypi
+# then: gh workflow run publish-pypi.yml --ref main
+# and optionally re-enable the release trigger in this file.
 # See docs/RELEASE.md.
 
 on:
-  release:
-    types: [published]
   workflow_dispatch:
 
 permissions:
   contents: read
-  # Required for Trusted Publishing; do not pass password/API token.
   id-token: write
 
 jobs:
   publish:
     runs-on: ubuntu-latest
-    # Must match the Environment name configured on PyPI (and the existing
-    # GitHub Environment). Omitting this produced environment: MISSING and
-    # invalid-publisher even when a publisher was intended.
     environment: pypi
     steps:
       - uses: actions/checkout@v4
@@ -42,5 +41,4 @@ jobs:
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          # Safe for retries of the same version after a prior successful upload.
           skip-existing: true
