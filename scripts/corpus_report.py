@@ -34,7 +34,7 @@ def run_case(case: dict) -> tuple[bool, list[str], list[str]]:
 
     with tempfile.TemporaryDirectory(prefix="corpus-") as tmp:
         output = Path(tmp) / "filled.pdf"
-        report, _mapping, _count = run_fill_pipeline(
+        report, _mapping, _count, _pages = run_fill_pipeline(
             pdf_path,
             output,
             user_data,

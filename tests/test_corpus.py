@@ -21,7 +21,7 @@ def test_corpus_case_writes_expected_fields(case: dict, tmp_path: Path):
     if not pdf_path.is_file():
         pytest.skip(f"corpus PDF missing: {pdf_path}")
 
-    report, mapping_result, _count = run_fill_pipeline(
+    report, mapping_result, _count, _pages = run_fill_pipeline(
         pdf_path,
         tmp_path / "filled.pdf",
         case["user_data"],

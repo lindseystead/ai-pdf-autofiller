@@ -15,7 +15,10 @@ ruff check src/ tests/ scripts/
 mypy src/
 pip-audit -r requirements.txt
 PYTHONPATH=src pytest tests/ -v --cov=src --cov-report=term --cov-fail-under=85
+make corpus-check
 ```
+
+Optional: `pre-commit install` then `pre-commit run --all-files` (Ruff + mypy).
 
 `pip-audit` requires network access so it can query the vulnerability advisory service.
 
@@ -25,9 +28,11 @@ The helper targets in `Makefile` are the supported shortcuts for common local wo
 
 - Keep business logic in `src/`; keep scripts thin.
 - Prefer deterministic behavior over implicit heuristics.
-- Add or update tests for every behavioral change.
+- Alias packs live only under `src/pdf_autofiller/form_aliases/` (see `forms/README.md`).
+- Add or update tests for every behavioral change; prove packs with corpus cases.
 - Keep documentation in sync when changing APIs, configuration, or operational assumptions.
 - Avoid mixing unrelated refactors with feature or bug-fix changes.
+- Format with **Ruff only** (`make format`) — do not introduce a second formatter.
 
 ## Pull Requests
 
