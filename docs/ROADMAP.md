@@ -23,7 +23,7 @@ This roadmap turns PDF Autofiller from a working beta into something people can 
 | Auth / upload guards | Solid defaults |
 | Tests | 100+ tests, ≥85% coverage; corpus hit-rate gate |
 | CI lint | Pinned Ruff `0.16.6`; lockfile + docker health smoke |
-| PyPI | Trusted Publishing (OIDC) + `environment: pypi`; no API token secret |
+| PyPI | Deferred (manual OIDC workflow); Release wheels + GHCR are the supported path |
 | SDK story | Local `fill()` + HTTP `PDFAutofillerClient` |
 | Inspect / preview | `POST /inspect` + `POST /preview` + playground actions |
 | Real-form proof | Synthetic sample + HR intake corpus fixtures in CI |
@@ -107,7 +107,7 @@ This roadmap turns PDF Autofiller from a working beta into something people can 
 
 ## Phase 3 — Distribution & discoverability
 
-**Status:** Partial — FAQ, importable n8n workflow, Pages links, OIDC PyPI workflow (`environment: pypi`) + preflight in `RELEASE.md`. Hosted demo GIF and one-time PyPI trusted-publisher row remain operator-owned.
+**Status:** Partial — FAQ, importable n8n workflow, Pages links, Release-wheel install path, OIDC PyPI workflow kept **manual** so Releases stay green. Hosted demo GIF and enabling PyPI (one trusted-publisher row + dispatch) remain operator-owned.
 
 **Outcome:** Strangers find and install the project.
 
@@ -115,7 +115,7 @@ Aligned with OSS discovery practice ([GitHub SEO / README conversion](https://cl
 
 | # | Work | Why |
 |---|------|-----|
-| 3.1 | Reliable PyPI publish via Trusted Publishing (`environment: pypi`); no API token; green before Release | Install path |
+| 3.1 | Enable PyPI when ready (trusted publisher + re-enable release trigger); until then Release wheels | Install path |
 | 3.2 | Hosted demo (rate-limited) or Codespaces one-click still primary | Try without clone |
 | 3.3 | Short demo GIF/video above the fold | 10-second conversion |
 | 3.4 | FAQ + comparison (“vs AI-only fillers / SaaS”) | Search + objections |
