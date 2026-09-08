@@ -36,7 +36,7 @@ This roadmap turns PDF Autofiller from a working beta into something people can 
 - **Fail closed** — auth, size, page, and timeout guards stay on by default  
 - **One formatter/linter pin** — CI and local use the same tool versions  
 - **Local library works offline** — HTTP API is a deployment option, not a requirement  
-- **pypdf form best practice** — `auto_regenerate=False` on writes; optional flatten later  
+- **pypdf form best practice** — `auto_regenerate=False` on writes; optional `flatten` flag shipped for archival outputs  
 - **Honest marketing** — never claim W-9/HR success without fixtures that prove it  
 
 ---
@@ -69,19 +69,19 @@ This roadmap turns PDF Autofiller from a working beta into something people can 
 
 ## Phase 1 — Deliver diagnosable value
 
-**Status:** Done in 0.5.0 — `/preview`, choice write path, optional flatten, playground Preview Mapping, OpenAPI PDF response, ops clarifications.
+**Status:** Partial — shipped in 0.5.0: `/preview`, choice write path, flatten, playground Preview Mapping + fill-report panel (written / skipped-review / skipped-empty from response headers), OpenAPI `200 application/pdf`, ops clarifications. Still open: **1.2** Accept/JSON body fill report (headers + playground panel are the current report surface); **1.4** OpenAPI error catalog.
 
 **Outcome:** Users can open any AcroForm, see fields, preview mapping, and debug misses.
 
-| # | Work | Why |
-|---|------|-----|
-| 1.1 | `POST /preview` — mapping decisions JSON without writing PDF | Debug without round-trips |
-| 1.2 | Optional JSON fill report body / `Accept` negotiation | Headers alone are too weak for ops |
-| 1.3 | Playground panel: field inventory + written/skipped/missing | Visual proof |
-| 1.4 | OpenAPI: document `200 application/pdf` + error catalog | SDK/codegen consumers |
-| 1.5 | Choice (`/Ch`) write path; document signature (`/Sig`) limits | Completeness |
-| 1.6 | Alias reload or documented import-time caveat for `FORM_ALIASES_DIR` | Ops correctness |
-| 1.7 | Rename/clarify `PDF_READ_TIMEOUT_SECONDS` (covers full pipeline) | Honest ops |
+| # | Work | Why | Status |
+|---|------|-----|--------|
+| 1.1 | `POST /preview` — mapping decisions JSON without writing PDF | Debug without round-trips | Done |
+| 1.2 | Optional JSON fill report body / `Accept` negotiation | Headers alone are too weak for ops | Open (headers + playground panel interim) |
+| 1.3 | Playground panel: field inventory + written/skipped/missing | Visual proof | Done (inspect + fill report panel) |
+| 1.4 | OpenAPI: document `200 application/pdf` + error catalog | SDK/codegen consumers | Partial (`200` PDF done; error catalog open) |
+| 1.5 | Choice (`/Ch`) write path; document signature (`/Sig`) limits | Completeness | Done |
+| 1.6 | Alias reload or documented import-time caveat for `FORM_ALIASES_DIR` | Ops correctness | Done (documented) |
+| 1.7 | Rename/clarify `PDF_READ_TIMEOUT_SECONDS` (covers full pipeline) | Honest ops | Done |
 
 **Exit criteria:** New user fills an unknown PDF using inspect → edit JSON → preview → fill with zero Slack help.
 
@@ -95,7 +95,7 @@ This roadmap turns PDF Autofiller from a working beta into something people can 
 
 | # | Work | Why |
 |---|------|-----|
-| 2.1 | Golden corpus: redacted W-9 + HR intake PDFs + expected maps | Trust |
+| 2.1 | Golden corpus: synthetic `sample_form` + HR intake fixtures + expected maps | Trust |
 | 2.2 | Hit-rate report in CI (`scripts/corpus_report.py`) | Regression signal |
 | 2.3 | Expand alias packs from corpus field names | Deterministic lift |
 | 2.4 | Recipes updated with real field inventories from `/inspect` | Accuracy |

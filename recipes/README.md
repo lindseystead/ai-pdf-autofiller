@@ -11,11 +11,11 @@ Copy-paste recipes for filling common PDF forms. Each recipe assumes the API is 
 ## Prerequisites
 
 ```bash
-make run-api
+API_AUTH_ENABLED=false make run-api
 # Playground UI: http://localhost:8000/playground
 ```
 
-If auth is enabled, export your key:
+If you enable auth for a closer-to-production local run, export your key:
 
 ```bash
 export API_AUTH_TOKEN=your-token

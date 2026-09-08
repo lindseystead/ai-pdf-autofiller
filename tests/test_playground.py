@@ -22,6 +22,7 @@ def test_playground_page_renders_html():
     assert 'id="loadSamplePdfBtn"' in response.text
     assert 'id="inspectBtn"' in response.text
     assert 'id="previewBtn"' in response.text
+    assert 'id="flatten"' in response.text
     assert 'type="password"' in response.text
 
 

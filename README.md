@@ -95,8 +95,10 @@ client.fill_to_file("form.pdf", {"firstname": "Jane"}, "filled.pdf")
 
 | Method | Path | Description |
 |--------|------|-------------|
+| `GET` | `/` | Redirect to `/playground` |
 | `GET` | `/playground` | Browser UI |
 | `GET` | `/health` | Health + dependency checks |
+| `GET` | `/version` | Service identity and version |
 | `GET` | `/samples/sample_form.pdf` | Bundled demo form |
 | `POST` | `/inspect` | List AcroForm fields as JSON |
 | `POST` | `/preview` | Mapping decisions JSON (no PDF write) |
@@ -158,7 +160,7 @@ flowchart LR
 make test && make lint && make smoke-check
 ```
 
-125 tests · 85%+ coverage · Python 3.11 & 3.12
+126 tests · 85%+ coverage · Python 3.11 & 3.12
 
 ## License
 

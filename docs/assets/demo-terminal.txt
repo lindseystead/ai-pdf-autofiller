@@ -1,5 +1,5 @@
 $ git clone https://github.com/lindseystead/ai-pdf-autofiller.git
-$ cd ai-pdf-autofiller && make run-api
+$ cd ai-pdf-autofiller && API_AUTH_ENABLED=false make run-api
 INFO:     Uvicorn running on http://0.0.0.0:8000
 
 $ open http://localhost:8000/playground
@@ -13,7 +13,7 @@ $ curl -s -X POST http://localhost:8000/fill \
 $ ls -lh filled.pdf
 -rw-r--r--  1 dev  staff   12K filled.pdf
 
-$ python -c "from pdf_autofiller import fill; fill('samples/sample_form.pdf', {'firstname':'Jane'}, 'sdk-filled.pdf')"
+$ python3 -c "from pdf_autofiller import fill; fill('samples/sample_form.pdf', {'firstname':'Jane'}, 'sdk-filled.pdf')"
 SDK filled.pdf written.
 
 # Live demo_workflow output:

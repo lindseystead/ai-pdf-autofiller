@@ -21,7 +21,8 @@ Environment variables are read at process start (plain `os.getenv`). A Pydantic 
 ## Service Behavior
 
 - Authentication is **enabled by default** and fails closed: if `API_AUTH_ENABLED` is true but `API_AUTH_TOKEN` is unset, protected POSTs return `500 server_auth_config_error` rather than serving openly.
-- `GET /health` and `GET /version` are always unauthenticated.
+- Unauthenticated: `GET /`, `/playground`, `/health`, `/version`, `/samples/sample_form.pdf`.
+- Protected: `POST /fill`, `/preview`, `/inspect`.
 - Protected POSTs are rate limited per client and reject PDFs over the page limit or that exceed the processing time budget.
 - Uploads are read in bounded chunks so oversized files are rejected before the full body is buffered in memory.
 - `GET /health` reports dependency checks (`auth`, alias packs) and returns `degraded` when auth is misconfigured.
@@ -88,7 +89,7 @@ Published URL: `https://lindseystead.github.io/ai-pdf-autofiller/`
 
 ## PyPI publish
 
-Add `PYPI_API_TOKEN` as a repository secret. The publish workflow runs on each GitHub Release; without the secret it completes with a warning and wheels remain on GitHub Releases. `pip install pdf-autofiller` only works after a successful publish with that token.
+Add `PYPI_API_TOKEN` as a repository secret. The publish workflow runs on each GitHub Release; **without the secret, publish fails** (it does not complete with a warning). Wheels may still be available on GitHub Releases. `pip install pdf-autofiller` only works after a successful publish with that token.
 
 ## Deployment Assumptions
 

@@ -27,9 +27,10 @@ Generic recipe for employee intake packets (I-9 supplements, benefits enrollment
 
 ## curl
 
+Start the API without a token for local demos (`API_AUTH_ENABLED=false make run-api`), then:
+
 ```bash
 curl -s -X POST http://localhost:8000/fill \
-  -H "X-API-Key: ${API_AUTH_TOKEN:-}" \
   -F "pdf_file=@onboarding.pdf;type=application/pdf" \
   -F 'user_data={
     "firstname": "Jane",
@@ -42,6 +43,8 @@ curl -s -X POST http://localhost:8000/fill \
   -F "strict=true" \
   -o onboarding-filled.pdf
 ```
+
+When auth is enabled, add `-H "X-API-Key: ${API_AUTH_TOKEN}"`.
 
 ## Python SDK
 

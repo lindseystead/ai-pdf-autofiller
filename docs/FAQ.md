@@ -25,7 +25,8 @@ This tool fills **AcroForm** (and similar interactive) fields — widgets with n
 - `API_AUTH_ENABLED` defaults to **`true`** (fail closed).
 - Set `API_AUTH_TOKEN` in production.
 - For local/trusted use only: `API_AUTH_ENABLED=false`.
-- `GET /health`, `GET /version`, and `GET /playground` stay unauthenticated; `POST /fill`, `/preview`, and `/inspect` require the key when auth is enabled.
+- Unauthenticated: `GET /`, `/playground`, `/health`, `/version`, `/samples/sample_form.pdf`.
+- Protected when auth is enabled: `POST /fill`, `/preview`, `/inspect`.
 
 ## Local `fill()` vs HTTP `/fill`
 
@@ -35,7 +36,7 @@ This tool fills **AcroForm** (and similar interactive) fields — widgets with n
 | Server | Not required | FastAPI process |
 | Best for | Scripts, CI, offline batch | Playground, n8n/Zapier, multi-language clients |
 
-Both share `run_fill_pipeline` — same mapping and writer behavior.
+Local `fill()` and the server `POST /fill` path share `run_fill_pipeline` (same mapping and writer behavior). `PDFAutofillerClient` is an HTTP client that calls the remote `/fill` endpoint.
 
 ## Preview before fill
 

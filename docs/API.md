@@ -2,9 +2,15 @@
 
 ## Endpoints
 
+### `GET /`
+
+Redirects to `/playground` (temporary redirect).
+
 ### `GET /playground`
 
 Serves the browser playground UI for trying fills without curl.
+
+The playground exposes checkboxes for `strict`, `allow_fallback_mapping` (AI fallback), `use_semantic_inference`, and `flatten`. Use curl (or the SDK) when you need full control over form flags and headers.
 
 ### `GET /health`
 
@@ -47,6 +53,7 @@ curl -s http://localhost:8000/version
 ### `GET /samples/sample_form.pdf`
 
 Returns the bundled sample AcroForm used by the playground one-click demo.
+This endpoint is **unauthenticated** (same as `/health`, `/version`, and `/playground`).
 
 ### `POST /inspect`
 
@@ -131,9 +138,9 @@ Required form fields:
 
 Optional form fields:
 
-- `strict`: when `true`, disables fallback mapping
-- `allow_fallback_mapping`: when `true`, allows fallback mapping for unresolved high-value fields
-- `use_semantic_inference`: when `true`, enables the semantic inference step before mapping
+- `strict`: when `true`, disables fallback mapping (default `true`)
+- `allow_fallback_mapping`: when `true`, allows fallback mapping for unresolved high-value fields (default `false`)
+- `use_semantic_inference`: when `true`, enables the semantic inference step before mapping (default `false`)
 - `flatten`: when `true`, burns field appearances into page content and removes widget annotations (default `false`)
 
 Example:
@@ -198,6 +205,7 @@ Common error codes:
 - `pdf_fill_failed`
 - `pdf_preview_failed`
 - `pdf_inspect_failed`
+- `sample_not_found`
 
 ## Authentication
 

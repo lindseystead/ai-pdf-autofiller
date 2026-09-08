@@ -78,6 +78,7 @@ class PDFAutofillerClient:
         strict: bool = True,
         allow_fallback_mapping: bool = False,
         use_semantic_inference: bool = False,
+        flatten: bool = False,
         filename: str | None = None,
     ) -> tuple[bytes, dict[str, str]]:
         """
@@ -89,6 +90,7 @@ class PDFAutofillerClient:
             strict: Disable fallback mapping when True
             allow_fallback_mapping: Enable provider-backed fallback for unresolved fields
             use_semantic_inference: Run semantic inference before mapping
+            flatten: Burn field appearances into page content and remove widgets
             filename: Optional upload filename when pdf is bytes
 
         Returns:
@@ -108,6 +110,7 @@ class PDFAutofillerClient:
             "strict": str(strict).lower(),
             "allow_fallback_mapping": str(allow_fallback_mapping).lower(),
             "use_semantic_inference": str(use_semantic_inference).lower(),
+            "flatten": str(flatten).lower(),
         }
 
         with self._client() as http:

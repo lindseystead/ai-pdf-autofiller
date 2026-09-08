@@ -44,6 +44,19 @@ def test_client_fill_bytes():
     assert filled.startswith(b"%PDF-")
     assert headers["x-pdf-fields-written"] == "2"
     http.post.assert_called_once()
+    call_kwargs = http.post.call_args.kwargs
+    assert call_kwargs["data"]["flatten"] == "false"
+    assert call_kwargs["data"]["strict"] == "true"
+
+
+def test_client_fill_sends_flatten_flag():
+    http = Mock(spec=httpx.Client)
+    http.post.return_value = _pdf_response()
+
+    sdk = PDFAutofillerClient("http://testserver", http_client=http)
+    sdk.fill(b"%PDF-1.4", {"firstname": "Jane"}, flatten=True, filename="demo.pdf")
+    call_kwargs = http.post.call_args.kwargs
+    assert call_kwargs["data"]["flatten"] == "true"
 
 
 def test_client_fill_to_file(tmp_path):

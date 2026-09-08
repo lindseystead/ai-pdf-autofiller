@@ -60,7 +60,7 @@ run-api:
 	PYTHONPATH=src python3 -m uvicorn pdf_autofiller.api_service:app --host 0.0.0.0 --port 8000
 
 playground:
-	@echo "Playground: http://localhost:8000/playground (run 'make run-api' first)"
+	@echo "Playground: http://localhost:8000/playground (run 'API_AUTH_ENABLED=false make run-api' first)"
 
 install-release:
 	bash scripts/install-from-release.sh

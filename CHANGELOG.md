@@ -4,9 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+_Nothing yet — changes for the next release will be listed here._
+
+## [0.5.0]
+
 ### Added
 
-- **0.5.0** `POST /preview` — mapping decisions JSON without writing a PDF
+- `POST /preview` — mapping decisions JSON without writing a PDF
 - Optional `flatten` form flag on `/fill` (and local `fill()` / `run_fill_pipeline`)
 - Choice (`/Ch`) field write path; document that `/Sig` is unsupported
 - Playground **Preview Mapping** button
@@ -17,6 +21,15 @@ All notable changes to this project will be documented in this file.
 - Security headers middleware (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`)
 - CI `docker-smoke` job (build image, curl `/health`)
 - OpenAPI documents `/fill` `200 application/pdf`
+- `docs/ROADMAP.md` — phased adoption and best-practices plan
+- `POST /inspect` — list AcroForm fields as JSON
+- `GET /samples/sample_form.pdf` — bundled demo form for the playground
+- Playground: Use sample PDF, Inspect fields, password API-key field, structured errors
+- `docker-compose.yml` and sample PDF in the Docker image
+- `py.typed` marker; pinned Ruff `0.16.6` with explicit lint select
+- README hero images (`docs/assets/social-preview.png`, `playground-preview.png`) for discoverability
+- `scripts/apply-repo-metadata.sh` to set GitHub description and topics (run locally with admin `gh`)
+- Expanded `pyproject.toml` keywords for search
 
 ### Fixed
 
@@ -45,18 +58,6 @@ All notable changes to this project will be documented in this file.
 - Docs index and asset README updated
 - Field-name fallback semantics canonicalize onto alias-pack keys when possible
 - HR alias pack expanded for corpus field names (`employee_name`, `startdate`, consent)
-
-### Previously in Unreleased (Phase 0)
-
-- `docs/ROADMAP.md` — phased adoption and best-practices plan
-- `POST /inspect` — list AcroForm fields as JSON
-- `GET /samples/sample_form.pdf` — bundled demo form for the playground
-- Playground: Use sample PDF, Inspect fields, password API-key field, structured errors
-- `docker-compose.yml` and sample PDF in the Docker image
-- `py.typed` marker; pinned Ruff `0.16.6` with explicit lint select
-- README hero images (`docs/assets/social-preview.png`, `playground-preview.png`) for discoverability
-- `scripts/apply-repo-metadata.sh` to set GitHub description and topics (run locally with admin `gh`)
-- Expanded `pyproject.toml` keywords for search
 
 ## [0.4.3]
 

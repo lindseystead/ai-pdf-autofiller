@@ -161,6 +161,7 @@
           <label><input type="checkbox" id="strict" checked /> Strict mapping</label>
           <label><input type="checkbox" id="fallback" /> AI fallback</label>
           <label><input type="checkbox" id="semantic" /> Semantic inference</label>
+          <label><input type="checkbox" id="flatten" /> Flatten PDF</label>
         </div>
       </section>
     </div>
@@ -388,6 +389,7 @@
       form.append('strict', document.getElementById('strict').checked ? 'true' : 'false');
       form.append('allow_fallback_mapping', document.getElementById('fallback').checked ? 'true' : 'false');
       form.append('use_semantic_inference', document.getElementById('semantic').checked ? 'true' : 'false');
+      form.append('flatten', document.getElementById('flatten').checked ? 'true' : 'false');
 
       try {
         const response = await fetch('/fill', { method: 'POST', body: form, headers: authHeaders() });
@@ -406,11 +408,21 @@
         download.style.display = 'inline-block';
 
         const written = response.headers.get('X-PDF-Fields-Written') || '?';
-        const skipped = response.headers.get('X-PDF-Fields-Skipped-Review') || '';
-        let msg = 'Success! Wrote ' + written + ' fields.';
-        if (skipped) msg += ' Skipped review fields: ' + skipped + '.';
-        msg += ' Click Download filled PDF.';
-        setStatus(msg, 'ok');
+        const skippedReview = response.headers.get('X-PDF-Fields-Skipped-Review') || '(none)';
+        const skippedEmpty = response.headers.get('X-PDF-Fields-Skipped-Empty') || '(none)';
+        const report =
+          'Fill report\n'
+          + 'Written: ' + written + '\n'
+          + 'Skipped (review): ' + skippedReview + '\n'
+          + 'Skipped (empty): ' + skippedEmpty;
+        inspectOut.style.display = 'block';
+        inspectOut.textContent = report;
+        setStatus(
+          'Success! Wrote ' + written + ' fields. Skipped review: '
+          + skippedReview + '. Skipped empty: ' + skippedEmpty
+          + '. Click Download filled PDF.',
+          'ok'
+        );
       } catch (err) {
         setStatus('Network error: ' + err.message, 'err');
       } finally {

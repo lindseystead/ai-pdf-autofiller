@@ -5,7 +5,7 @@ This module owns request validation, authentication, and response contracts.
 Core PDF logic remains in the reader/mapping/writer modules.
 
 Security posture (this service accepts untrusted uploads from the public):
-- Authentication on POST /fill is enabled by default and fails closed.
+- Authentication on POST /fill, /preview, and /inspect is enabled by default and fails closed.
 - Per-client rate limiting protects against request floods.
 - Uploads are size-, signature-, and page-count-checked, and PDF parsing runs
   off the event loop under a wall-clock timeout to bound DoS from hostile PDFs.
