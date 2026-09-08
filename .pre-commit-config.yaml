@@ -1,0 +1,19 @@
+# Pre-commit hooks — same gates as CI, run locally before push.
+# Install once: pre-commit install
+# Run all: pre-commit run --all-files
+
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.6
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy
+        entry: mypy src/
+        language: system
+        pass_filenames: false
+        types: [python]

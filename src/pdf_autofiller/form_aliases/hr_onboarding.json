@@ -7,5 +7,5 @@
   "employee_id": ["emp_id", "badge_number", "staff_id"],
   "marital_status": ["marriage_status", "filing_status"],
   "citizenship_status": ["work_authorization", "visa_status"],
-  "consent": ["chkconsent", "agree", "acknowledgment", "consent_checkbox"]
+  "consent": ["chkconsent", "chk_consent", "agree", "acknowledgment", "consent_checkbox"]
 }

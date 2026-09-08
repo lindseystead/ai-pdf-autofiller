@@ -114,10 +114,18 @@ Manual PDF field mapping does not scale. AI-only fillers are hard to audit. **PD
 
 - FastAPI HTTP API with structured error codes
 - Browser playground at `/playground`
-- Python SDK (`fill()` + `PDFAutofillerClient`)
-- W-9 and HR alias packs + [recipes](recipes/)
+- Python library: `fill`, `fill_detailed`, `inspect`, `preview` (+ HTTP `PDFAutofillerClient`)
+- Deterministic alias packs (W-9-shaped / HR) + [recipes](recipes/) — synthetic corpus in CI
 - Docker on GHCR · Render blueprint · GitHub Release wheels
 - Auth, rate limits, and upload guards on by default
+
+```python
+from pdf_autofiller import fill, inspect, preview
+
+print(inspect("form.pdf").field_count)
+print(preview("form.pdf", {"firstname": "Jane"}).mapping.decisions)
+fill("form.pdf", {"firstname": "Jane", "lastname": "Doe"}, "filled.pdf")
+```
 
 ## Architecture
 
@@ -160,7 +168,7 @@ flowchart LR
 make test && make lint && make smoke-check
 ```
 
-126 tests · 85%+ coverage · Python 3.11 & 3.12
+136 tests · 85%+ coverage · Python 3.11 & 3.12 · synthetic corpus 30/30
 
 ## License
 

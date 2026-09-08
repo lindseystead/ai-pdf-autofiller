@@ -120,3 +120,34 @@ class FillReport(BaseModel):
         default_factory=list,
         description="Field names skipped because the mapped value was empty"
     )
+
+
+class InspectResult(BaseModel):
+    """Library/API inventory of AcroForm fields in a PDF."""
+
+    pages: int = Field(description="Page count")
+    field_count: int = Field(description="Number of fillable fields")
+    fields: list[FormField] = Field(
+        default_factory=list,
+        description="AcroForm fields in document order",
+    )
+
+
+class PreviewResult(BaseModel):
+    """Mapping decisions without writing a PDF."""
+
+    pages: int = Field(description="Page count")
+    field_count: int = Field(description="Number of enriched fields considered")
+    mapping: MappingResult = Field(description="Full mapping result")
+
+
+class FillOutcome(BaseModel):
+    """Full local fill result: write report + mapping + field count."""
+
+    report: FillReport
+    mapping: MappingResult
+    field_count: int = Field(description="Number of enriched fields considered")
+    pages: int | None = Field(
+        default=None,
+        description="Page count when known (API paths always set this)",
+    )
