@@ -85,7 +85,7 @@ The landing page source is in `docs/site/`. A repo admin must enable Pages once:
 2. Set **Source** to **GitHub Actions**
 3. Merge or push to `main` (the deploy workflow runs when `docs/site/` changes)
 
-Published URL: `https://lindseystead.github.io/ai-pdf-autofiller/`
+Until Pages is enabled, `.github/workflows/pages.yml` **skips the deploy with a warning** instead of failing CI. After enablement, the same workflow publishes to `https://lindseystead.github.io/ai-pdf-autofiller/`.
 
 ## PyPI publish
 
