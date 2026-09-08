@@ -226,12 +226,44 @@ def create_hr_hire_date_alias_form(output_path: Path) -> None:
     print(f"Created HR hire-date alias sample: {output_path}")
 
 
+def create_vendor_opaque_form(output_path: Path) -> None:
+    """Blank page with field names taken from an anonymized vendor inspect dump.
+
+    Layout is synthetic (not the vendor PDF). Names are preserved as evidence that
+    mapping works on opaque export-style widgets, not only our ``txt*`` demos.
+    """
+    writer, acro_form, page = _new_writer_with_acroform()
+    annotations = ArrayObject()
+    for field_def in (
+        {"name": "EmployeeFirstName_AF_text", "y": 700, "required": True, "width": 280},
+        {"name": "EmployeeLastName_AF_text", "y": 650, "required": True, "width": 280},
+        {"name": "DateOfBirth_AF_date", "y": 600, "required": True, "width": 160},
+        {"name": "EmailAddress_AF_text", "y": 550, "required": False, "width": 280},
+        {"name": "PrimaryPhone_AF_text", "y": 500, "required": False, "width": 180},
+    ):
+        _add_text_field(
+            writer,
+            acro_form,
+            annotations,
+            name=field_def["name"],
+            y=field_def["y"],
+            width=field_def["width"],
+            required=field_def["required"],
+        )
+    page[NameObject("/Annots")] = annotations
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with output_path.open("wb") as handle:
+        writer.write(handle)
+    print(f"Created vendor-opaque sample: {output_path}")
+
+
 def main() -> None:
     samples_dir = Path(__file__).resolve().parent.parent / "samples"
     create_hr_intake_form(samples_dir / "hr_intake_sample.pdf")
     create_w9_shaped_form(samples_dir / "w9_shaped_sample.pdf")
     create_address_contact_form(samples_dir / "address_contact_sample.pdf")
     create_hr_hire_date_alias_form(samples_dir / "hr_hire_alias_sample.pdf")
+    create_vendor_opaque_form(samples_dir / "vendor_opaque_sample.pdf")
 
 
 if __name__ == "__main__":

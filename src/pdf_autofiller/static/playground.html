@@ -410,16 +410,19 @@
         const written = response.headers.get('X-PDF-Fields-Written') || '?';
         const skippedReview = response.headers.get('X-PDF-Fields-Skipped-Review') || '(none)';
         const skippedEmpty = response.headers.get('X-PDF-Fields-Skipped-Empty') || '(none)';
+        const skippedUnwritable = response.headers.get('X-PDF-Fields-Skipped-Unwritable') || '(none)';
         const report =
           'Fill report\n'
           + 'Written: ' + written + '\n'
           + 'Skipped (review): ' + skippedReview + '\n'
-          + 'Skipped (empty): ' + skippedEmpty;
+          + 'Skipped (empty): ' + skippedEmpty + '\n'
+          + 'Skipped (unwritable): ' + skippedUnwritable;
         inspectOut.style.display = 'block';
         inspectOut.textContent = report;
         setStatus(
           'Success! Wrote ' + written + ' fields. Skipped review: '
           + skippedReview + '. Skipped empty: ' + skippedEmpty
+          + '. Unwritable: ' + skippedUnwritable
           + '. Click Download filled PDF.',
           'ok'
         );

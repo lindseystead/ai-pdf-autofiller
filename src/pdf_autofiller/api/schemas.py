@@ -56,6 +56,10 @@ class FillReportResponse(BaseModel):
     written_fields: list[str]
     skipped_review_fields: list[str]
     skipped_empty_fields: list[str]
+    skipped_unwritable_fields: list[str] = Field(
+        default_factory=list,
+        description="Mapped fields that could not be written (see FillReport)",
+    )
     missing_required: list[str]
     unmapped_user_keys: list[str]
     decisions: list[PreviewDecision]

@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.6.2]
+
+### Added
+
+- `FillReport.skipped_unwritable_fields` (+ `X-PDF-Fields-Skipped-Unwritable`) for missing widgets, `/Sig`, and unresolved checkbox/radio states — no silent drops
+- Corpus fixture `vendor_opaque_sample.pdf`: opaque widget names from an anonymized inspect dump (blank synthetic page); recipe `recipes/vendor-opaque.md`
+- Corpus now **6 cases / 35** expected field writes
+
+### Changed
+
+- Removed planning `docs/ROADMAP.md`; docs indexes and site footer point at evidence-based docs only
+- Recipes README no longer labels the W-9-shaped fixture as “IRS Form W-9”
+
 ## [0.6.1]
 
 ### Added
