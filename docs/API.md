@@ -43,6 +43,36 @@ Example:
 curl -s http://localhost:8000/version
 ```
 
+
+### `GET /samples/sample_form.pdf`
+
+Returns the bundled sample AcroForm used by the playground one-click demo.
+
+### `POST /inspect`
+
+Accepts a PDF upload and returns AcroForm field metadata so clients can draft JSON.
+
+Example:
+
+```bash
+curl -s -X POST http://localhost:8000/inspect \
+  -F "pdf_file=@samples/sample_form.pdf;type=application/pdf"
+```
+
+Example response:
+
+```json
+{
+  "pages": 1,
+  "field_count": 5,
+  "fields": [
+    {"name": "txtFirstName", "field_type": "text", "required": true, "page_number": 1, "current_value": null}
+  ]
+}
+```
+
+Authentication and rate limits match `POST /fill`.
+
 ### `POST /fill`
 
 Accepts a multipart form upload and returns a filled PDF.

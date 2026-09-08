@@ -12,6 +12,7 @@ RUN pip install --no-cache-dir --upgrade pip \
     && adduser --disabled-password --gecos "" appuser
 
 COPY --chown=appuser:appuser src ./src
+COPY --chown=appuser:appuser samples ./samples
 
 USER appuser
 

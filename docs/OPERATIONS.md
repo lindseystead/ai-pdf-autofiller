@@ -8,10 +8,10 @@
 - `API_KEY_HEADER`: header name used for the incoming token
 - `MAX_UPLOAD_BYTES`: maximum accepted PDF size in bytes (default 5 MiB)
 - `MAX_PDF_PAGES`: maximum accepted page count, rejected before extraction (default `200`)
-- `PDF_READ_TIMEOUT_SECONDS`: wall-clock budget for PDF parsing/extraction (default `20`)
+- `PDF_READ_TIMEOUT_SECONDS`: wall-clock budget for PDF processing on `/fill` and `/inspect` (default `20`)
 - `MAX_PDF_TEXT_CHARS`: cap on total extracted text retained/forwarded (default `2000000`)
 - `RATE_LIMIT_PER_MINUTE`: per-client request budget for `POST /fill`; `0` disables (default `60`)
-- `TRUST_PROXY_HEADERS`: when `true`, rate limiting uses `X-Forwarded-For` / `X-Real-IP` from a trusted reverse proxy (default `false`)
+- `TRUST_PROXY_HEADERS`: when `true`, rate limiting uses the first `X-Forwarded-For` hop from a trusted reverse proxy (default `false`)
 - `FORM_ALIASES_DIR`: optional directory of JSON alias packs for deterministic field mapping; must exist and be readable when set
 - `LOG_LEVEL`: process log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`)
 

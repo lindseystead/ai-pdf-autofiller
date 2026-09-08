@@ -12,7 +12,7 @@ path is opt-in and only active when a provider API key is configured.
 import json
 import logging
 import os
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import ValidationError
 
@@ -51,7 +51,7 @@ class SemanticClient:
     features are unavailable.
     """
     
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self, api_key: str | None = None):
         """
         Initialize client, falling back to stub if unavailable.
         
@@ -63,8 +63,7 @@ class SemanticClient:
         
         if PROVIDER_SDK_AVAILABLE and self.api_key:
             try:
-                client_factory = getattr(provider_sdk, "".join(["Open", "A", "I"]))
-                self._client = client_factory(api_key=self.api_key)
+                self._client = provider_sdk.OpenAI(api_key=self.api_key)
             except Exception as exc:
                 logger.warning("Failed to initialize provider client: %s", exc)
                 self._client = None
@@ -73,7 +72,7 @@ class SemanticClient:
         """Check if a working semantic client is available."""
         return self._client is not None
     
-    def infer_semantics(self, field: FormField, context_text: Optional[str] = None) -> FieldSemantics:
+    def infer_semantics(self, field: FormField, context_text: str | None = None) -> FieldSemantics:
         """
         Infer semantics for a form field using the provider client.
         
@@ -160,7 +159,7 @@ class SemanticClient:
         except Exception as exc:
             raise RuntimeError(f"Semantic completion failed: {exc}") from exc
     
-    def _build_prompt(self, field: FormField, context_text: Optional[str] = None) -> str:
+    def _build_prompt(self, field: FormField, context_text: str | None = None) -> str:
         """
         Construct the prompt sent to the semantic provider.
         
@@ -224,8 +223,8 @@ class SemanticClient:
 
 def infer_field_semantics(
     field: FormField,
-    context_text: Optional[str] = None,
-    api_key: Optional[str] = None
+    context_text: str | None = None,
+    api_key: str | None = None
 ) -> EnrichedFormField:
     """
     Infer semantic meaning for a PDF form field using the provider client.

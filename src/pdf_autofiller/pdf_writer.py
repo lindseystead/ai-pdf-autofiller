@@ -7,11 +7,11 @@ required-field completion before writing.
 
 import logging
 from pathlib import Path
-from typing import Optional
 
 from pypdf import PdfReader, PdfWriter
 
-from .acroform_fields import collect_field_objects, get_field_type as acroform_field_type
+from .acroform_fields import collect_field_objects
+from .acroform_fields import get_field_type as acroform_field_type
 from .field_utils import is_field_required
 from .models import FillReport, MappingResult
 
@@ -40,7 +40,7 @@ class UnresolvedRequiredFieldsError(Exception):
         if missing_fields:
             message_parts.append(f"Missing required fields: {', '.join(missing_fields)}")
         if skipped_fields:
-            message_parts.append(f"Skipped required fields (requires_review=True): {', '.join(skipped_fields)}")
+            message_parts.append(f"Skipped required fields (requires_review=True): {', '.join(skipped_fields)}")  # noqa: E501
         super().__init__("; ".join(message_parts))
 
 
@@ -49,7 +49,7 @@ def _collect_pdf_fields(reader: PdfReader) -> dict[str, object]:
     return collect_field_objects(reader)
 
 
-def _field_type(field_obj) -> Optional[str]:
+def _field_type(field_obj) -> str | None:
     """Return the PDF field type name (e.g. '/Btn', '/Tx') if available."""
     if not hasattr(field_obj, "get"):
         return None
@@ -87,14 +87,14 @@ def _button_states(field_obj) -> list[str]:
         appearance = field_obj.get("/AP")
         normal = appearance.get("/N") if hasattr(appearance, "get") else None
         if normal is not None and hasattr(normal, "keys"):
-            return [str(key) for key in normal.keys()]
+            return [str(key) for key in normal]
     except Exception:
         logger.debug("Failed to read /AP states from button field", exc_info=True)
 
     return []
 
 
-def _resolve_button_value(field_obj, value: str) -> Optional[str]:
+def _resolve_button_value(field_obj, value: str) -> str | None:
     """
     Translate a mapped value into a valid AcroForm button state name.
 
@@ -238,13 +238,20 @@ def fill_pdf(
     if field_values:
         for page in writer.pages:
             try:
-                writer.update_page_form_field_values(page, field_values)
+                writer.update_page_form_field_values(
+                    page, field_values, auto_regenerate=False
+                )
             except Exception:
-                logger.debug("Batch field update failed on page; trying per-field writes", exc_info=True)
+                logger.debug(
+                    "Batch field update failed on page; trying per-field writes",
+                    exc_info=True,
+                )
                 # Fallback: update fields individually
                 for field_name, value in field_values.items():
                     try:
-                        writer.update_page_form_field_values(page, {field_name: value})
+                        writer.update_page_form_field_values(
+                            page, {field_name: value}, auto_regenerate=False
+                        )
                     except Exception:
                         logger.debug(
                             "Failed to update individual field '%s' on a page",
@@ -257,18 +264,20 @@ def fill_pdf(
     
     # Check PDF form fields for any required fields we missed
     for field_name, field_obj in (pdf_fields or {}).items():
-        if is_field_required(field_obj):
-            if field_name not in written_fields and field_name not in missing_required:
-                # Check if it was skipped due to review flag
-                skipped_decisions = [
-                    d for d in mapping_result.decisions
-                    if d.field_name == field_name and d.requires_review
-                ]
-                if skipped_decisions:
-                    if field_name not in skipped_required_fields:
-                        skipped_required_fields.append(field_name)
-                else:
-                    missing_required.append(field_name)
+        if not is_field_required(field_obj):
+            continue
+        if field_name in written_fields or field_name in missing_required:
+            continue
+        # Check if it was skipped due to review flag
+        skipped_decisions = [
+            d for d in mapping_result.decisions
+            if d.field_name == field_name and d.requires_review
+        ]
+        if skipped_decisions:
+            if field_name not in skipped_required_fields:
+                skipped_required_fields.append(field_name)
+        else:
+            missing_required.append(field_name)
     
     # Fail if required fields unresolved
     if missing_required or skipped_required_fields:

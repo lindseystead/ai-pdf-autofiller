@@ -89,7 +89,7 @@ Direct commands:
 ```bash
 ruff check src/ tests/ scripts/
 mypy src/
-pip-audit --ignore-vuln CVE-2026-1703
+pip-audit -r requirements.txt
 PYTHONPATH=src pytest tests/ -v --cov=src --cov-report=term --cov-fail-under=85
 ```
 

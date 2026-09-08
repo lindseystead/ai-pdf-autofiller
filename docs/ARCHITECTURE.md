@@ -7,8 +7,11 @@
 - `src/pdf_autofiller/field_semantics.py`: wraps provider calls and normalizes model responses
 - `src/pdf_autofiller/mapping.py`: performs deterministic matching first and uses fallback mapping only for unresolved high-value fields
 - `src/pdf_autofiller/pdf_writer.py`: writes validated field values and enforces required-field completion
-- `src/pdf_autofiller/pipeline.py`: orchestrates extract → enrich → map → write for API, SDK, and tests
-- `src/pdf_autofiller/api_service.py`: owns the HTTP contract, auth, request validation, and temporary file lifecycle
+- `src/pdf_autofiller/pipeline.py`: orchestrates extract → enrich → map → write; exports local `fill()`
+- `src/pdf_autofiller/client.py`: optional HTTP client for remote `/fill`
+- `src/pdf_autofiller/api_service.py`: owns the HTTP contract (`/inspect`, `/fill`, playground), auth, and temp files
+- `src/pdf_autofiller/playground.py` + `static/`: browser playground UI
+- `src/pdf_autofiller/form_aliases/`: community alias packs (W-9, HR)
 - `src/pdf_autofiller/models.py`: defines the shared data contracts between each stage
 
 ## Data Flow

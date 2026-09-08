@@ -136,7 +136,11 @@
         <p id="fileName" style="margin:10px 0 0; color: var(--muted); font-size:0.9rem;">No file selected</p>
 
         <label for="apiKey" style="margin-top:16px;">API key (if auth enabled)</label>
-        <input id="apiKey" type="text" placeholder="Optional — leave blank for local dev" />
+        <input id="apiKey" type="password" autocomplete="off" placeholder="Optional — leave blank for local dev" />
+        <div class="row" style="margin-top:12px;">
+          <button id="loadSamplePdfBtn" class="ghost" type="button">Use sample PDF</button>
+          <button id="inspectBtn" class="ghost" type="button">Inspect fields</button>
+        </div>
       </section>
 
       <section class="card">
@@ -168,7 +172,8 @@
       </a>
     </div>
 
-    <div id="status" class="status">Ready. Upload a PDF and click <strong>Fill PDF</strong>.</div>
+    <div id="status" class="status">Ready. Upload a PDF (or click Use sample PDF) and click Fill PDF.</div>
+    <pre id="inspectOut" class="status" style="display:none; white-space:pre-wrap; font-family:ui-monospace,monospace;"></pre>
 
     <footer>
       <a href="/docs" target="_blank" rel="noopener">API docs</a> ·
@@ -184,16 +189,44 @@
     const userData = document.getElementById('userData');
     const fillBtn = document.getElementById('fillBtn');
     const sampleBtn = document.getElementById('sampleBtn');
+    const loadSamplePdfBtn = document.getElementById('loadSamplePdfBtn');
+    const inspectBtn = document.getElementById('inspectBtn');
     const statusEl = document.getElementById('status');
+    const inspectOut = document.getElementById('inspectOut');
     const download = document.getElementById('download');
     const apiKey = document.getElementById('apiKey');
 
     let selectedFile = null;
     let filledBlob = null;
 
-    function setStatus(message, kind = '') {
+    function setStatus(message, kind = '', asHtml = false) {
       statusEl.className = 'status' + (kind ? ' ' + kind : '');
-      statusEl.innerHTML = message;
+      if (asHtml) {
+        statusEl.replaceChildren();
+        const allowed = document.createElement('span');
+        // Only allow a tiny set of intentional emphasis tags from our own strings.
+        allowed.innerHTML = message;
+        statusEl.appendChild(allowed);
+      } else {
+        statusEl.textContent = message;
+      }
+    }
+
+    function authHeaders() {
+      const headers = {};
+      if (apiKey.value.trim()) headers['X-API-Key'] = apiKey.value.trim();
+      return headers;
+    }
+
+    function formatApiError(payload, status) {
+      const err = payload?.detail?.error || payload?.detail || payload;
+      if (err && typeof err === 'object') {
+        const code = err.code ? '[' + err.code + '] ' : '';
+        const msg = err.message || JSON.stringify(err);
+        const details = err.details ? ' ' + JSON.stringify(err.details) : '';
+        return code + msg + details;
+      }
+      return 'Request failed (' + status + ')';
     }
 
     drop.addEventListener('click', () => fileInput.click());
@@ -215,7 +248,8 @@
       }
       selectedFile = file;
       fileName.textContent = file.name + ' (' + Math.round(file.size / 1024) + ' KB)';
-      setStatus('PDF ready. Click <strong>Fill PDF</strong> when your JSON looks good.');
+      setStatus('PDF ready. Click Fill PDF when your JSON looks good.');
+      inspectOut.style.display = 'none';
     }
 
     sampleBtn.addEventListener('click', () => {
@@ -224,17 +258,59 @@
         lastname: 'Doe',
         dob: '1990-01-01',
         email: 'jane@example.com',
-        phone: '555-0100',
-        addr1: '123 Main St',
-        town: 'Springfield',
-        province: 'IL',
-        zipcode: '62701'
+        phone: '555-0100'
       }, null, 2);
+      setStatus('Sample JSON loaded for the bundled sample form.');
+    });
+
+    loadSamplePdfBtn.addEventListener('click', async () => {
+      setStatus('Loading sample PDF…');
+      try {
+        const response = await fetch('/samples/sample_form.pdf');
+        if (!response.ok) {
+          setStatus('Sample PDF is not available in this deployment.', 'err');
+          return;
+        }
+        const blob = await response.blob();
+        pickFile(new File([blob], 'sample_form.pdf', { type: 'application/pdf' }));
+        sampleBtn.click();
+      } catch (err) {
+        setStatus('Could not load sample PDF: ' + err.message, 'err');
+      }
+    });
+
+    inspectBtn.addEventListener('click', async () => {
+      if (!selectedFile) {
+        setStatus('Upload a PDF first (or click Use sample PDF).', 'err');
+        return;
+      }
+      inspectBtn.disabled = true;
+      setStatus('Inspecting fields…');
+      const form = new FormData();
+      form.append('pdf_file', selectedFile, selectedFile.name);
+      try {
+        const response = await fetch('/inspect', { method: 'POST', body: form, headers: authHeaders() });
+        const payload = await response.json();
+        if (!response.ok) {
+          setStatus(formatApiError(payload, response.status), 'err');
+          return;
+        }
+        const lines = payload.fields.map(f =>
+          (f.required ? '* ' : '  ') + f.name + ' (' + f.field_type + ', page ' + f.page_number + ')'
+        );
+        inspectOut.style.display = 'block';
+        inspectOut.textContent = 'Fields (' + payload.field_count + '):\n' + lines.join('\n');
+        setStatus('Inspect complete. Required fields are marked with *.');
+      } catch (err) {
+        setStatus('Network error: ' + err.message, 'err');
+      } finally {
+        inspectBtn.disabled = false;
+      }
     });
 
     fillBtn.addEventListener('click', async () => {
       if (!selectedFile) {
-        setStatus('Upload a PDF first.', 'err');
+        setStatus('Upload a PDF first (or click Use sample PDF).', 'err');
         return;
       }
 
@@ -259,16 +335,12 @@
       form.append('allow_fallback_mapping', document.getElementById('fallback').checked ? 'true' : 'false');
       form.append('use_semantic_inference', document.getElementById('semantic').checked ? 'true' : 'false');
 
-      const headers = {};
-      if (apiKey.value.trim()) headers['X-API-Key'] = apiKey.value.trim();
-
       try {
-        const response = await fetch('/fill', { method: 'POST', body: form, headers });
+        const response = await fetch('/fill', { method: 'POST', body: form, headers: authHeaders() });
         if (!response.ok) {
           let detail = 'Request failed (' + response.status + ')';
           try {
-            const payload = await response.json();
-            detail = payload?.detail?.error?.message || payload?.detail?.message || JSON.stringify(payload);
+            detail = formatApiError(await response.json(), response.status);
           } catch (_) {}
           setStatus(detail, 'err');
           return;
@@ -281,12 +353,10 @@
 
         const written = response.headers.get('X-PDF-Fields-Written') || '?';
         const skipped = response.headers.get('X-PDF-Fields-Skipped-Review') || '';
-        setStatus(
-          'Success! Wrote <strong>' + written + '</strong> fields.' +
-          (skipped ? ' Skipped review fields: ' + skipped + '.' : '') +
-          ' Click <strong>Download filled PDF</strong>.',
-          'ok'
-        );
+        let msg = 'Success! Wrote ' + written + ' fields.';
+        if (skipped) msg += ' Skipped review fields: ' + skipped + '.';
+        msg += ' Click Download filled PDF.';
+        setStatus(msg, 'ok');
       } catch (err) {
         setStatus('Network error: ' + err.message, 'err');
       } finally {

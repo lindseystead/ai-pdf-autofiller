@@ -15,8 +15,7 @@ import os
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
-
+from typing import Any
 
 from .field_semantics import SemanticClient, strip_json_code_fence
 from .models import (
@@ -134,7 +133,7 @@ def normalize_key(key: str) -> str:
     return key
 
 
-def coerce_value(value: Any, expected_type: str) -> tuple[Optional[str], bool]:
+def coerce_value(value: Any, expected_type: str) -> tuple[str | None, bool]:
     """
     Coerce a value to match the expected data type.
     
@@ -227,7 +226,7 @@ def find_deterministic_match(
     semantic_meaning: str,
     user_data: dict[str, Any],
     expected_type: str
-) -> tuple[Optional[str], Optional[str], float, str, bool]:
+) -> tuple[str | None, str | None, float, str, bool]:
     """
     Find a deterministic match for a semantic meaning.
     
@@ -274,8 +273,8 @@ def find_deterministic_match(
 def semantic_fallback_mapping(
     unmapped_fields: list[EnrichedFormField],
     user_data: dict[str, Any],
-    api_key: Optional[str] = None
-) -> dict[str, tuple[str, Optional[str], float, str]]:
+    api_key: str | None = None
+) -> dict[str, tuple[str, str | None, float, str]]:
     """
     Use provider-backed fallback to map unmapped fields when deterministic matching fails.
 
@@ -383,8 +382,8 @@ def map_user_data_to_fields(
     user_data: dict[str, Any],
     *,
     strict: bool = False,
-    allow_fallback_mapping: bool = True,
-    api_key: Optional[str] = None
+    allow_fallback_mapping: bool = False,
+    api_key: str | None = None
 ) -> MappingResult:
     """
     Map user-provided structured data to PDF form fields.
@@ -406,7 +405,11 @@ def map_user_data_to_fields(
         >>> fields = [
         ...     EnrichedFormField(
         ...         field=FormField(name="txtFirstName", field_type="text", required=True, page_number=1),
-        ...         semantics=FieldSemantics(semantic_meaning="first_name", expected_data_type="string", confidence_score=0.95)
+        ...         semantics=FieldSemantics(
+        ...             semantic_meaning="first_name",
+        ...             expected_data_type="string",
+        ...             confidence_score=0.95,
+        ...         )
         ...     )
         ... ]
         >>> user_data = {"firstname": "John", "lastname": "Doe"}
@@ -462,7 +465,10 @@ def map_user_data_to_fields(
                     
                     if matched_key and matched_key not in used_user_keys:
                         used_user_keys.add(matched_key)
-                        coerced_value, requires_review = coerce_value(matched_value, enriched_field.semantics.expected_data_type)
+                        coerced_value, requires_review = coerce_value(
+                            matched_value,
+                            enriched_field.semantics.expected_data_type,
+                        )
                         
                         decisions.append(FieldMappingDecision(
                             field_name=field_name,
@@ -483,7 +489,7 @@ def map_user_data_to_fields(
     ]
     
     unmapped_user_keys = [
-        key for key in user_data.keys()
+        key for key in user_data
         if key not in used_user_keys
     ]
     

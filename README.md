@@ -28,7 +28,7 @@ Open-source FastAPI service · browser playground · Python SDK · Docker image
 
 ## What it does
 
-Turn `{"firstname":"Jane","lastname":"Doe"}` into a filled PDF — even when the form uses `txtFName`, `givenName`, or `field_12`.
+Turn `{"firstname":"Jane","lastname":"Doe"}` into a filled PDF — even when the form uses `txtFirstName`, `given_name`, or other common synonyms. Opaque names like `field_12` use optional AI.
 
 | Input | Output |
 |-------|--------|
@@ -49,29 +49,45 @@ Upload a PDF, paste JSON, download the result — no Postman required.
 ## Try it now
 
 ```bash
-# Docker (fastest local)
+# Docker Compose (includes sample PDF for the playground)
+docker compose up --build
+# → http://localhost:8000/playground → click "Use sample PDF"
+
+# Or one-liner
 docker run --rm -p 8000:8000 -e API_AUTH_ENABLED=false \
   ghcr.io/lindseystead/ai-pdf-autofiller:latest
-# → http://localhost:8000/playground
+```
 
-# Or fill from curl
-curl -s -X POST http://localhost:8000/fill \
-  -F "pdf_file=@samples/sample_form.pdf;type=application/pdf" \
-  -F 'user_data={"firstname":"Jane","lastname":"Doe","dob":"1990-01-01"}' \
-  -F "strict=true" -o filled.pdf
+Offline Python (no server):
+
+```bash
+pip install -e .
+python3 -c 'from pdf_autofiller import fill; fill("samples/sample_form.pdf", {"firstname":"Jane","lastname":"Doe","dob":"1990-01-01"}, "filled.pdf")'
 ```
 
 ## Install
 
 | Method | Command |
 |--------|---------|
+| **Docker Compose** | `docker compose up --build` |
 | **Docker** | `docker run -p 8000:8000 -e API_AUTH_ENABLED=false ghcr.io/lindseystead/ai-pdf-autofiller:latest` |
-| **GitHub Release** | `curl -fsSL .../scripts/install-from-release.sh \| bash` |
-| **From source** | `git clone https://github.com/lindseystead/ai-pdf-autofiller.git && cd ai-pdf-autofiller && pip install -r requirements-dev.txt && make run-api` |
+| **From source** | `git clone https://github.com/lindseystead/ai-pdf-autofiller.git && cd ai-pdf-autofiller && pip install -r requirements-dev.txt && API_AUTH_ENABLED=false make run-api` |
+| **Library (editable)** | `pip install -e .` then `from pdf_autofiller import fill` |
 
 ```python
 from pdf_autofiller import fill
+
+# Local fill — no HTTP server required
 fill("form.pdf", {"firstname": "Jane", "lastname": "Doe"}, "filled.pdf")
+```
+
+Remote HTTP client (when the API is running):
+
+```python
+from pdf_autofiller import PDFAutofillerClient
+
+client = PDFAutofillerClient("http://localhost:8000", api_key="…")
+client.fill_to_file("form.pdf", {"firstname": "Jane"}, "filled.pdf")
 ```
 
 ## API
@@ -80,9 +96,11 @@ fill("form.pdf", {"firstname": "Jane", "lastname": "Doe"}, "filled.pdf")
 |--------|------|-------------|
 | `GET` | `/playground` | Browser UI |
 | `GET` | `/health` | Health + dependency checks |
+| `GET` | `/samples/sample_form.pdf` | Bundled demo form |
+| `POST` | `/inspect` | List AcroForm fields as JSON |
 | `POST` | `/fill` | PDF in, filled PDF out |
 
-Full contract: [docs/API.md](docs/API.md)
+Full contract: [docs/API.md](docs/API.md) · Roadmap: [docs/ROADMAP.md](docs/ROADMAP.md)
 
 ## Why this exists
 

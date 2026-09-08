@@ -7,6 +7,13 @@ with optional semantic inference.
 
 __version__ = "0.4.3"
 
-from .client import PDFAutofillerClient, PDFAutofillError, fill
+from .client import PDFAutofillerClient, PDFAutofillError
+from .pipeline import fill, run_fill_pipeline
 
-__all__ = ["PDFAutofillerClient", "PDFAutofillError", "fill", "__version__"]
+__all__ = [
+    "PDFAutofillError",
+    "PDFAutofillerClient",
+    "__version__",
+    "fill",
+    "run_fill_pipeline",
+]

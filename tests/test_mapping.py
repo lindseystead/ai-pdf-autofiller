@@ -6,9 +6,9 @@ from pdf_autofiller import mapping as mapping_module
 from pdf_autofiller.mapping import (
     coerce_value,
     find_deterministic_match,
-    semantic_fallback_mapping,
     map_user_data_to_fields,
     normalize_key,
+    semantic_fallback_mapping,
 )
 from pdf_autofiller.models import (
     EnrichedFormField,

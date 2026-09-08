@@ -95,3 +95,33 @@ def run_fill_pipeline(
     )
     fill_report = fill_pdf(input_pdf_path, output_pdf_path, mapping_result)
     return fill_report, mapping_result, len(enriched_fields)
+
+
+def fill(
+    pdf: str | Path,
+    user_data: dict[str, Any],
+    output: str | Path,
+    *,
+    strict: bool = True,
+    allow_fallback_mapping: bool = False,
+    use_semantic_inference: bool = False,
+    max_pages: int | None = None,
+) -> FillReport:
+    """
+    Fill a PDF locally (no HTTP server required).
+
+    Example::
+
+        from pdf_autofiller import fill
+        fill("form.pdf", {"firstname": "Jane"}, "filled.pdf")
+    """
+    report, _mapping, _count = run_fill_pipeline(
+        Path(pdf),
+        Path(output),
+        user_data,
+        strict=strict,
+        allow_fallback_mapping=allow_fallback_mapping,
+        use_semantic_inference=use_semantic_inference,
+        max_pages=max_pages,
+    )
+    return report

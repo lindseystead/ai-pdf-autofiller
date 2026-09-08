@@ -36,3 +36,5 @@ bash scripts/apply-repo-metadata.sh
 Requires `gh` CLI logged in as a repo admin.
 
 Optional: upload `docs/assets/social-preview.png` under **Settings → General → Social preview** for link previews on Twitter/Slack/Discord.
+
+- [ROADMAP.md](ROADMAP.md) — adoption and best-practices plan

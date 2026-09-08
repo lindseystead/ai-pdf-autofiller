@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import json
+from contextlib import AbstractContextManager
 from pathlib import Path
-from typing import Any, ContextManager
+from typing import Any
 
 import httpx
 
@@ -122,7 +123,7 @@ class PDFAutofillerClient:
 
         return response.content, dict(response.headers)
 
-    def _client(self) -> ContextManager[httpx.Client]:
+    def _client(self) -> AbstractContextManager[httpx.Client]:
         if self._http_client is not None:
             return _BorrowedClient(self._http_client)
         return httpx.Client(timeout=self.timeout_seconds)
@@ -166,24 +167,3 @@ class PDFAutofillerClient:
             "api_error",
             str(detail),
         )
-
-
-def fill(
-    pdf: str | Path,
-    user_data: dict[str, Any],
-    output: str | Path,
-    *,
-    base_url: str = "http://localhost:8000",
-    api_key: str | None = None,
-    strict: bool = True,
-) -> dict[str, str]:
-    """
-    Convenience helper: fill a PDF in three lines.
-
-    Example::
-
-        from pdf_autofiller import fill
-        fill("form.pdf", {"firstname": "Jane"}, "filled.pdf")
-    """
-    client = PDFAutofillerClient(base_url=base_url, api_key=api_key)
-    return client.fill_to_file(pdf, user_data, output, strict=strict)

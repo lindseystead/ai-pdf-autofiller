@@ -1,6 +1,7 @@
 """Tests for FastAPI service wrapper."""
 
 import io
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -8,7 +9,6 @@ from pypdf import PdfWriter
 
 from pdf_autofiller import api_service
 from pdf_autofiller.models import EnrichedFormField, FieldSemantics, FormField, TextRegion
-
 
 client = TestClient(api_service.app)
 
@@ -203,6 +203,51 @@ def test_fill_endpoint_rate_limited(monkeypatch):
     assert first.status_code == 200
     assert second.status_code == 429
     assert second.json()["detail"]["error"]["code"] == "rate_limited"
+    assert second.headers.get("retry-after") == "60"
+
+
+def test_unauthorized_does_not_consume_rate_limit(monkeypatch):
+    """Auth failures must not burn the per-client fill budget."""
+    monkeypatch.setattr(api_service, "API_AUTH_ENABLED", True)
+    monkeypatch.setattr(api_service, "API_AUTH_TOKEN", "secret-token")
+    monkeypatch.setattr(api_service, "RATE_LIMIT_PER_MINUTE", 1)
+    api_service._reset_rate_limit_state()
+
+    payload = {
+        "files": {"pdf_file": ("input.pdf", _minimal_pdf_bytes(), "application/pdf")},
+        "data": {"user_data": '{"firstname":"John","lastname":"Doe"}'},
+    }
+    denied = client.post("/fill", **payload)
+    assert denied.status_code == 401
+
+    allowed = client.post("/fill", headers={"X-API-Key": "secret-token"}, **payload)
+    assert allowed.status_code == 200
+
+
+def test_inspect_endpoint_lists_sample_fields(monkeypatch):
+    monkeypatch.setattr(api_service, "API_AUTH_ENABLED", False)
+    sample = Path("samples/sample_form.pdf")
+    if not sample.exists():
+        pytest.skip("sample PDF not present")
+
+    response = client.post(
+        "/inspect",
+        files={"pdf_file": (sample.name, sample.read_bytes(), "application/pdf")},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["field_count"] >= 3
+    names = {field["name"] for field in payload["fields"]}
+    assert "txtFirstName" in names
+
+
+def test_sample_form_route_serves_pdf():
+    response = client.get("/samples/sample_form.pdf")
+    if response.status_code == 404:
+        pytest.skip("sample PDF not bundled")
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/pdf"
+    assert response.content.startswith(b"%PDF-")
 
 
 def test_fill_endpoint_rejects_too_many_pages(monkeypatch):

@@ -11,15 +11,28 @@ All notable changes to this project will be documented in this file.
   profile keys such as `given_name` / `birthdate` without AI
 - Health API docs now document the real `alias_directory` /
   `alias_pack_count` checks instead of a non-existent `alias_packs` key
+- `fill()` is a local offline helper again (HTTP is `PDFAutofillerClient`)
+- Form writes set `auto_regenerate=False` (pypdf best practice)
+- Auth runs before rate-limit accounting; `429` includes `Retry-After`
+- Docs drift: proxy header wording, pip-audit command, timeout description
 
 ### Added
 
+- `docs/ROADMAP.md` — phased adoption and best-practices plan
+- `POST /inspect` — list AcroForm fields as JSON
+- `GET /samples/sample_form.pdf` — bundled demo form for the playground
+- Playground: Use sample PDF, Inspect fields, password API-key field, structured errors
+- `docker-compose.yml` and sample PDF in the Docker image
+- `py.typed` marker; pinned Ruff `0.16.6` with explicit lint select
 - README hero images (`docs/assets/social-preview.png`, `playground-preview.png`) for discoverability
 - `scripts/apply-repo-metadata.sh` to set GitHub description and topics (run locally with admin `gh`)
 - Expanded `pyproject.toml` keywords for search
 
 ### Changed
 
+- Library `allow_fallback_mapping` default aligned to `False` (matches API)
+- Makefile format uses `ruff format`; commands prefer `python3`
+- PyPI publish no longer swallows failures with `continue-on-error`
 - README restructured for discovery: keywords, use cases, playground screenshot, stars badge
 - GitHub Pages landing (`docs/site/`) updated with Open Graph / Twitter meta tags
 - Docs index and asset README updated

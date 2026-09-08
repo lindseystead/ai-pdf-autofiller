@@ -384,7 +384,7 @@ def test_fill_pdf_raises_when_required_field_is_skipped(tmp_path, monkeypatch):
             return None
 
         @staticmethod
-        def update_page_form_field_values(_page, _values):
+        def update_page_form_field_values(_page, _values, **_kwargs):
             return None
 
         @staticmethod
@@ -460,7 +460,7 @@ def test_fill_pdf_uses_annotation_fallback_metadata(tmp_path, monkeypatch):
         def clone_reader_document_root(_reader):
             return None
 
-        def update_page_form_field_values(self, _page, values):
+        def update_page_form_field_values(self, _page, values, **_kwargs):
             self.calls.append(values.copy())
 
         @staticmethod

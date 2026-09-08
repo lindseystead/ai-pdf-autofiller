@@ -35,7 +35,7 @@ from starlette.background import BackgroundTask
 from . import __version__
 from .mapping import alias_pack_status
 from .models import FillReport
-from .pdf_reader import PdfPageLimitError
+from .pdf_reader import PdfPageLimitError, read_pdf
 from .pdf_writer import UnresolvedRequiredFieldsError
 from .pipeline import enrich_fields, page_context_by_number, run_fill_pipeline
 from .playground import PLAYGROUND_HTML
@@ -57,6 +57,13 @@ RATE_LIMIT_PER_MINUTE = int(os.getenv("RATE_LIMIT_PER_MINUTE", "60"))
 TRUST_PROXY_HEADERS = os.getenv("TRUST_PROXY_HEADERS", "false").lower() == "true"
 UPLOAD_CHUNK_BYTES = 64 * 1024
 
+# Prefer packaged samples next to the install, then repo-root samples/ for local dev.
+_PACKAGE_ROOT = Path(__file__).resolve().parent
+_REPO_ROOT = _PACKAGE_ROOT.parents[1]
+_SAMPLE_CANDIDATES = (
+    _REPO_ROOT / "samples" / "sample_form.pdf",
+    Path("/app/samples/sample_form.pdf"),
+)
 
 def _resolve_log_level() -> int:
     """Resolve the configured log level without mutating global logging state."""
@@ -102,13 +109,15 @@ def _api_error(
     code: str,
     message: str,
     details: dict[str, Any] | None = None,
+    headers: dict[str, str] | None = None,
 ) -> HTTPException:
+    """Build a consistent API exception payload."""
     # Centralize API error formatting so clients can rely on one contract
     # regardless of which endpoint raised the error.
-    """Build a consistent API exception payload."""
     return HTTPException(
         status_code=status_code,
         detail=_api_error_payload(code=code, message=message, details=details),
+        headers=headers,
     )
 
 
@@ -304,6 +313,7 @@ def _enforce_rate_limit(request: Request) -> None:
             code="rate_limited",
             message="Too many requests",
             details={"limit_per_minute": RATE_LIMIT_PER_MINUTE},
+            headers={"Retry-After": "60"},
         )
 
     window.append(now)
@@ -367,6 +377,124 @@ def version() -> VersionResponse:
     return VersionResponse(service="pdf-autofiller", version=__version__)
 
 
+def _sample_form_path() -> Path | None:
+    for candidate in _SAMPLE_CANDIDATES:
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+@app.get("/samples/sample_form.pdf")
+def sample_form_pdf() -> FileResponse:
+    """Serve the bundled sample AcroForm for playground one-click demos."""
+    sample = _sample_form_path()
+    if sample is None:
+        raise _api_error(
+            status_code=404,
+            code="sample_not_found",
+            message="Sample PDF is not bundled in this deployment",
+        )
+    return FileResponse(
+        path=sample,
+        media_type="application/pdf",
+        filename="sample_form.pdf",
+    )
+
+
+class InspectField(BaseModel):
+    name: str
+    field_type: str
+    required: bool
+    page_number: int
+    current_value: str | None = None
+
+
+class InspectResponse(BaseModel):
+    pages: int
+    field_count: int
+    fields: list[InspectField]
+
+
+@app.post("/inspect", response_model=InspectResponse)
+async def inspect_pdf(
+    request: Request,
+    pdf_file: UploadFile = File(...),
+) -> InspectResponse:
+    """List AcroForm fields so clients can draft matching JSON without guessing."""
+    temp_dir = None
+    try:
+        _require_api_key(request)
+        _enforce_rate_limit(request)
+
+        if pdf_file.content_type not in ("application/pdf", "application/octet-stream"):
+            raise _api_error(
+                status_code=415,
+                code="unsupported_media_type",
+                message="Expected a PDF upload",
+            )
+
+        content = await _read_bounded_upload(pdf_file, MAX_UPLOAD_BYTES)
+        if not content.startswith(b"%PDF-"):
+            raise _api_error(
+                status_code=415,
+                code="invalid_pdf_signature",
+                message="Uploaded file is not a valid PDF",
+            )
+
+        temp_dir = tempfile.TemporaryDirectory(prefix="pdf-autofiller-inspect-")
+        input_path = Path(temp_dir.name) / "input.pdf"
+        input_path.write_bytes(content)
+
+        try:
+            structure = await asyncio.wait_for(
+                asyncio.to_thread(lambda: read_pdf(input_path, max_pages=MAX_PDF_PAGES)),
+                timeout=PDF_READ_TIMEOUT_SECONDS,
+            )
+        except TimeoutError as exc:
+            raise _api_error(
+                status_code=503,
+                code="pdf_processing_timeout",
+                message="PDF processing exceeded the time limit",
+                details={"timeout_seconds": PDF_READ_TIMEOUT_SECONDS},
+            ) from exc
+        except PdfPageLimitError as exc:
+            raise _api_error(
+                status_code=413,
+                code="pdf_too_many_pages",
+                message="PDF exceeds the maximum allowed page count",
+                details={"max_pages": exc.max_pages, "num_pages": exc.num_pages},
+            ) from exc
+
+        fields = [
+            InspectField(
+                name=field.name,
+                field_type=field.field_type,
+                required=field.required,
+                page_number=field.page_number,
+                current_value=field.value,
+            )
+            for field in structure.form_fields
+        ]
+        return InspectResponse(
+            pages=structure.metadata.num_pages,
+            field_count=len(fields),
+            fields=fields,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("PDF inspect request failed")
+        raise _api_error(
+            status_code=500,
+            code="pdf_inspect_failed",
+            message="PDF inspect failed",
+        ) from exc
+    finally:
+        if temp_dir is not None:
+            temp_dir.cleanup()
+        await pdf_file.close()
+
+
 @app.post("/fill")
 async def fill(
     request: Request,
@@ -394,8 +522,10 @@ async def fill(
     response_started = False
 
     try:
-        _enforce_rate_limit(request)
+        # Authenticate before counting against the rate-limit budget so
+        # unauthenticated scans cannot exhaust a client's quota.
         _require_api_key(request)
+        _enforce_rate_limit(request)
 
         if pdf_file.content_type not in ("application/pdf", "application/octet-stream"):
             raise _api_error(
@@ -440,7 +570,7 @@ async def fill(
                 ),
                 timeout=PDF_READ_TIMEOUT_SECONDS,
             )
-        except asyncio.TimeoutError as exc:
+        except TimeoutError as exc:
             raise _api_error(
                 status_code=503,
                 code="pdf_processing_timeout",

@@ -19,6 +19,9 @@ def test_playground_page_renders_html():
     assert "text/html" in response.headers["content-type"]
     assert "Fill any PDF from JSON" in response.text
     assert 'id="fillBtn"' in response.text
+    assert 'id="loadSamplePdfBtn"' in response.text
+    assert 'id="inspectBtn"' in response.text
+    assert 'type="password"' in response.text
 
 
 def test_playground_default_json_is_valid():
