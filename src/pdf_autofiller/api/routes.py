@@ -32,6 +32,7 @@ from .errors import (
     api_error,
     openapi_error_responses,
 )
+from .jobs import execute_pdf_job
 from .schemas import (
     FillReportResponse,
     HealthResponse,
@@ -68,9 +69,7 @@ def _fill_report_headers(report: FillReport) -> dict[str, str]:
         "X-PDF-Fields-Written": str(len(report.written_fields)),
         "X-PDF-Fields-Skipped-Review": _safe_header_value(report.skipped_review_fields),
         "X-PDF-Fields-Skipped-Empty": _safe_header_value(report.skipped_empty_fields),
-        "X-PDF-Fields-Skipped-Unwritable": _safe_header_value(
-            report.skipped_unwritable_fields
-        ),
+        "X-PDF-Fields-Skipped-Unwritable": _safe_header_value(report.skipped_unwritable_fields),
     }
 
 
@@ -158,11 +157,7 @@ def health() -> HealthResponse:
             else "misconfigured"
         ),
         "semantic_provider": semantic_provider_status(),
-        "rate_limit": (
-            "in_process"
-            if config.RATE_LIMIT_PER_MINUTE > 0
-            else "disabled"
-        ),
+        "rate_limit": ("in_process" if config.RATE_LIMIT_PER_MINUTE > 0 else "disabled"),
         **alias_pack_status(),
     }
     status = "ok" if checks["auth"] != "misconfigured" else "degraded"
@@ -221,11 +216,12 @@ async def inspect_pdf(
         input_path.write_bytes(content)
 
         try:
-            structure = await asyncio.wait_for(
-                asyncio.to_thread(
-                    lambda: read_pdf(input_path, max_pages=config.MAX_PDF_PAGES)
-                ),
-                timeout=config.PDF_READ_TIMEOUT_SECONDS,
+            structure = await asyncio.to_thread(
+                execute_pdf_job,
+                read_pdf,
+                input_path,
+                timeout_seconds=config.PDF_READ_TIMEOUT_SECONDS,
+                max_pages=config.MAX_PDF_PAGES,
             )
         except TimeoutError as exc:
             raise api_error(
@@ -286,7 +282,12 @@ async def preview_pdf(
     request: Request,
     pdf_file: UploadFile = File(...),
     user_data: str = Form(...),
-    strict: bool = Form(True),
+    strict: bool = Form(
+        True,
+        description=(
+            "When true, disables AI fallback mapping only. Required fields are still enforced on /fill."
+        ),
+    ),
     allow_fallback_mapping: bool = Form(False),
     use_semantic_inference: bool = Form(False),
 ) -> PreviewResponse:
@@ -304,17 +305,16 @@ async def preview_pdf(
         input_path.write_bytes(content)
 
         try:
-            mapping_result, field_count, page_count = await asyncio.wait_for(
-                asyncio.to_thread(
-                    run_preview_pipeline,
-                    input_path,
-                    parsed_user_data,
-                    strict=strict,
-                    allow_fallback_mapping=allow_fallback_mapping,
-                    use_semantic_inference=use_semantic_inference,
-                    max_pages=config.MAX_PDF_PAGES,
-                ),
-                timeout=config.PDF_READ_TIMEOUT_SECONDS,
+            mapping_result, field_count, page_count = await asyncio.to_thread(
+                execute_pdf_job,
+                run_preview_pipeline,
+                input_path,
+                parsed_user_data,
+                timeout_seconds=config.PDF_READ_TIMEOUT_SECONDS,
+                strict=strict,
+                allow_fallback_mapping=allow_fallback_mapping,
+                use_semantic_inference=use_semantic_inference,
+                max_pages=config.MAX_PDF_PAGES,
             )
         except TimeoutError as exc:
             raise api_error(
@@ -372,8 +372,7 @@ async def preview_pdf(
                 "application/pdf": {"description": "Filled PDF binary"},
                 "application/json": {
                     "description": (
-                        "Fill report JSON including base64 PDF when "
-                        "Accept prefers application/json"
+                        "Fill report JSON including base64 PDF when Accept prefers application/json"
                     ),
                     "schema": FillReportResponse.model_json_schema(),
                 },
@@ -392,7 +391,13 @@ async def fill(
     request: Request,
     pdf_file: UploadFile = File(...),
     user_data: str = Form(...),
-    strict: bool = Form(True),
+    strict: bool = Form(
+        True,
+        description=(
+            "When true, disables AI fallback mapping only. "
+            "Required fields are still enforced before a PDF is returned."
+        ),
+    ),
     allow_fallback_mapping: bool = Form(False),
     use_semantic_inference: bool = Form(False),
     flatten: bool = Form(False),
@@ -416,19 +421,18 @@ async def fill(
         input_path.write_bytes(content)
 
         try:
-            fill_report, mapping_result, fields_total, page_count = await asyncio.wait_for(
-                asyncio.to_thread(
-                    run_fill_pipeline,
-                    input_path,
-                    output_path,
-                    parsed_user_data,
-                    strict=strict,
-                    allow_fallback_mapping=allow_fallback_mapping,
-                    use_semantic_inference=use_semantic_inference,
-                    max_pages=config.MAX_PDF_PAGES,
-                    flatten=flatten,
-                ),
-                timeout=config.PDF_READ_TIMEOUT_SECONDS,
+            fill_report, mapping_result, fields_total, page_count = await asyncio.to_thread(
+                execute_pdf_job,
+                run_fill_pipeline,
+                input_path,
+                output_path,
+                parsed_user_data,
+                timeout_seconds=config.PDF_READ_TIMEOUT_SECONDS,
+                strict=strict,
+                allow_fallback_mapping=allow_fallback_mapping,
+                use_semantic_inference=use_semantic_inference,
+                max_pages=config.MAX_PDF_PAGES,
+                flatten=flatten,
             )
         except TimeoutError as exc:
             raise api_error(

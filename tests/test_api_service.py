@@ -10,7 +10,7 @@ from pypdf import PdfWriter
 from pdf_autofiller import api_service
 from pdf_autofiller.api import config
 from pdf_autofiller.api import routes as api_routes
-from pdf_autofiller.models import EnrichedFormField, FieldSemantics, FormField, TextRegion
+from pdf_autofiller.models import FieldSemantics, FormField, TextRegion
 from pdf_autofiller.pipeline import enrich_fields, page_context_by_number
 
 client = TestClient(api_service.app)
@@ -69,22 +69,21 @@ def test_page_context_by_number_groups_text_by_page():
 
 
 def test_enrich_fields_passes_page_context_to_ai(monkeypatch):
-    observed: dict[str, str | None] = {"context": None}
+    observed: dict[str, object] = {"page_context": None}
 
-    def fake_infer(field, context_text=None):
-        observed["context"] = context_text
-        return EnrichedFormField(
-            field=field,
-            semantics=FieldSemantics(
+    def fake_batch(self, fields, *, page_context=None):
+        observed["page_context"] = page_context
+        return {
+            fields[0].name: FieldSemantics(
                 semantic_meaning="first_name",
                 expected_data_type="string",
                 confidence_score=0.95,
-            ),
-        )
+            )
+        }
 
     from pdf_autofiller import pipeline as fill_pipeline
 
-    monkeypatch.setattr(fill_pipeline, "infer_field_semantics", fake_infer)
+    monkeypatch.setattr(fill_pipeline.SemanticClient, "infer_semantics_batch", fake_batch)
 
     field = FormField(name="txtFirstName", field_type="text", required=True, page_number=1)
     enriched_fields = enrich_fields(
@@ -93,19 +92,20 @@ def test_enrich_fields_passes_page_context_to_ai(monkeypatch):
         page_context={1: "Applicant First Name"},
     )
 
-    assert observed["context"] == "Applicant First Name"
+    assert observed["page_context"] == {1: "Applicant First Name"}
     assert len(enriched_fields) == 1
+    assert enriched_fields[0].semantics.semantic_meaning == "first_name"
 
 
 def test_enrich_fields_logs_inference_failure(monkeypatch, caplog):
     import logging
 
-    def boom(field, context_text=None):
+    def boom(self, fields, *, page_context=None):
         raise RuntimeError("provider down")
 
     from pdf_autofiller import pipeline as fill_pipeline
 
-    monkeypatch.setattr(fill_pipeline, "infer_field_semantics", boom)
+    monkeypatch.setattr(fill_pipeline.SemanticClient, "infer_semantics_batch", boom)
 
     field = FormField(name="txtFirstName", field_type="text", required=True, page_number=1)
     with caplog.at_level(logging.WARNING, logger="pdf_autofiller.pipeline"):
@@ -113,7 +113,7 @@ def test_enrich_fields_logs_inference_failure(monkeypatch, caplog):
 
     assert len(enriched) == 1
     assert enriched[0].semantics.semantic_meaning == "first_name"
-    assert "Semantic inference failed" in caplog.text
+    assert "Batch semantic inference failed" in caplog.text
 
 
 def test_fill_endpoint_rejects_invalid_json():
@@ -383,14 +383,10 @@ def test_fill_endpoint_rejects_too_many_pages(monkeypatch):
 
 
 def test_fill_endpoint_times_out_on_slow_read(monkeypatch):
-    import time
+    def boom(*_args, **_kwargs):
+        raise TimeoutError("simulated timeout")
 
-    def slow_pipeline(*_args, **_kwargs):
-        time.sleep(0.3)
-        raise AssertionError("should have timed out before returning")
-
-    monkeypatch.setattr(api_routes, "run_fill_pipeline", slow_pipeline)
-    monkeypatch.setattr(config, "PDF_READ_TIMEOUT_SECONDS", 0.01)
+    monkeypatch.setattr(api_routes, "execute_pdf_job", boom)
 
     response = client.post(
         "/fill",

@@ -42,7 +42,85 @@ def test_build_prompt_does_not_leak_field_value():
     )
     prompt = client._build_prompt(field, None)
     assert "123-45-6789" not in prompt
-    assert "Has Value: yes" in prompt
+    assert '"has_value": true' in prompt
+
+
+def test_parse_batch_response_maps_fields():
+    client = field_semantics.SemanticClient(api_key=None)
+    raw = """
+{
+  "fields": {
+    "txtFirstName": {
+      "semantic_meaning": "first_name",
+      "expected_data_type": "string",
+      "confidence_score": 0.91
+    },
+    "txtDOB": {
+      "semantic_meaning": "date_of_birth",
+      "expected_data_type": "date",
+      "confidence_score": 0.88
+    }
+  }
+}
+"""
+    parsed = client._parse_batch_response(raw, expected_names={"txtFirstName", "txtDOB", "other"})
+    assert parsed["txtFirstName"].semantic_meaning == "first_name"
+    assert parsed["txtDOB"].expected_data_type == "date"
+    assert "other" not in parsed
+
+
+def test_infer_semantics_batch_single_round_trip(monkeypatch):
+    calls: list[int] = []
+
+    class FakeCompletions:
+        @staticmethod
+        def create(**kwargs):
+            calls.append(len(kwargs["messages"]))
+            return type(
+                "Resp",
+                (),
+                {
+                    "choices": [
+                        type(
+                            "Choice",
+                            (),
+                            {
+                                "message": type(
+                                    "Msg",
+                                    (),
+                                    {
+                                        "content": (
+                                            '{"fields":{"txtFirstName":{"semantic_meaning":'
+                                            '"first_name","expected_data_type":"string",'
+                                            '"confidence_score":0.9},"txtLastName":'
+                                            '{"semantic_meaning":"last_name",'
+                                            '"expected_data_type":"string",'
+                                            '"confidence_score":0.9}}}'
+                                        )
+                                    },
+                                )()
+                            },
+                        )()
+                    ]
+                },
+            )()
+
+    fake_client = type(
+        "FakeClient",
+        (),
+        {"chat": type("Chat", (), {"completions": FakeCompletions()})()},
+    )()
+
+    client = field_semantics.SemanticClient(api_key=None)
+    client._client = fake_client
+    fields = [
+        sample_field(),
+        FormField(name="txtLastName", field_type="text", required=True, page_number=1),
+    ]
+    result = client.infer_semantics_batch(fields)
+    assert len(calls) == 1
+    assert result["txtFirstName"].semantic_meaning == "first_name"
+    assert result["txtLastName"].semantic_meaning == "last_name"
 
 
 def test_parse_response_accepts_json_and_code_fence():

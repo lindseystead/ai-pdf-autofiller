@@ -11,10 +11,12 @@ Environment variables are read at process start (plain `os.getenv`). A Pydantic 
 - `MAX_UPLOAD_BYTES`: maximum accepted PDF size in bytes (default 5 MiB)
 - `MAX_PDF_PAGES`: maximum accepted page count, rejected before extraction (default `200`)
 - `PDF_READ_TIMEOUT_SECONDS`: wall-clock budget for **full pipeline processing** on `/fill`, `/preview`, and `/inspect` — not only PDF parsing; covers enrich/map/write as well (default `20`)
+- `PDF_JOB_BACKEND`: `process` (default) runs PDF work in a child process and **terminates** it on timeout; `thread` uses a soft timeout (test suite default)
+- `PDF_MAX_CONCURRENT`: max in-flight PDF jobs per process (default `2`)
 - `MAX_PDF_TEXT_CHARS`: cap on total extracted text retained/forwarded (default `2000000`)
 - `RATE_LIMIT_PER_MINUTE`: per-client request budget for authenticated PDF POSTs; `0` disables (default `60`)
 - `TRUST_PROXY_HEADERS`: when `true`, rate limiting uses the first `X-Forwarded-For` hop from a trusted reverse proxy (default `false`)
-- `FORM_ALIASES_DIR`: optional directory of JSON alias packs for deterministic field mapping; must exist and be readable when set. **Caveat:** alias packs are loaded once at import time of `mapping.py`. Changing the directory or JSON files requires a **process restart** (or re-import) to take effect — there is no hot reload.
+- `FORM_ALIASES_DIR`: optional directory of JSON alias packs for deterministic field mapping; must exist and be readable when set. **Caveat:** packs load lazily into the process-wide `AliasRegistry` on first use (`get_default_registry()`). Changing the directory or JSON files requires a **process restart** (or `set_default_registry(AliasRegistry.load())`) — there is no file watcher / hot reload.
 - `LOG_LEVEL`: process log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`)
 - `LOG_FORMAT`: `text` (default) or `json` for one JSON object per log line (useful for aggregators)
 
@@ -23,7 +25,7 @@ Environment variables are read at process start (plain `os.getenv`). A Pydantic 
 - Authentication is **enabled by default** and fails closed: if `API_AUTH_ENABLED` is true but `API_AUTH_TOKEN` is unset, protected POSTs return `500 server_auth_config_error` rather than serving openly.
 - Unauthenticated: `GET /`, `/playground`, `/health`, `/version`, `/samples/sample_form.pdf`.
 - Protected: `POST /fill`, `/preview`, `/inspect`.
-- Protected POSTs are rate limited per client and reject PDFs over the page limit or that exceed the processing time budget.
+- Protected POSTs are rate limited per client and reject PDFs over the page limit or that exceed the processing time budget. Timed-out jobs are killed when `PDF_JOB_BACKEND=process` (the default).
 - Uploads are read in bounded chunks so oversized files are rejected before the full body is buffered in memory.
 - `GET /health` reports dependency checks (`auth`, alias packs) and returns `degraded` when auth is misconfigured.
 - `POST /fill` writes uploads to a temporary working directory and returns the generated PDF directly.

@@ -17,6 +17,10 @@ MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(5 * 1024 * 1024)))
 MAX_PDF_PAGES = int(os.getenv("MAX_PDF_PAGES", "200"))
 # Wall-clock budget for full pipeline processing on /fill, /preview, and /inspect.
 PDF_READ_TIMEOUT_SECONDS = float(os.getenv("PDF_READ_TIMEOUT_SECONDS", "20"))
+# process = terminate worker on timeout (default in production).
+# thread = soft timeout (used by the test suite).
+PDF_JOB_BACKEND = os.getenv("PDF_JOB_BACKEND", "process").lower()
+PDF_MAX_CONCURRENT = max(1, int(os.getenv("PDF_MAX_CONCURRENT", "2")))
 RATE_LIMIT_PER_MINUTE = int(os.getenv("RATE_LIMIT_PER_MINUTE", "60"))
 TRUST_PROXY_HEADERS = os.getenv("TRUST_PROXY_HEADERS", "false").lower() == "true"
 UPLOAD_CHUNK_BYTES = 64 * 1024

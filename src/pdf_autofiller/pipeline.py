@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from .aliases import AliasRegistry
-from .field_semantics import SemanticClient, infer_field_semantics
+from .field_semantics import SemanticClient
 from .mapping import canonicalize_semantic, map_user_data_to_fields, normalize_key
 from .models import (
     EnrichedFormField,
@@ -84,24 +84,36 @@ def enrich_fields(
 ) -> list[EnrichedFormField]:
     """Enrich extracted fields with semantic inference or deterministic fallback.
 
-    When inference is requested but fails, the failure is logged and the field
-    falls back to deterministic name-based semantics. Failures are never silent.
+    When inference is requested, fields are sent in a **single** provider call.
+    Partial or total failure logs a warning and falls back to deterministic
+    name-based semantics per field — never silent.
     """
-    enriched_fields: list[EnrichedFormField] = []
+    inferred: dict[str, FieldSemantics] = {}
+    batch_failed = False
+    if use_semantic_inference and fields:
+        try:
+            client = SemanticClient()
+            inferred = client.infer_semantics_batch(fields, page_context=page_context)
+        except (RuntimeError, ValueError) as exc:
+            batch_failed = True
+            logger.warning(
+                "Batch semantic inference failed for %d fields; using deterministic fallback: %s",
+                len(fields),
+                exc,
+            )
 
+    enriched_fields: list[EnrichedFormField] = []
     for field in fields:
-        context_text = page_context.get(field.page_number) if page_context else None
-        if use_semantic_inference:
-            try:
-                enriched_fields.append(infer_field_semantics(field, context_text=context_text))
-                continue
-            except (RuntimeError, ValueError) as exc:
+        semantics = inferred.get(field.name)
+        if semantics is not None:
+            enriched_fields.append(EnrichedFormField(field=field, semantics=semantics))
+        else:
+            if use_semantic_inference and not batch_failed:
                 logger.warning(
-                    "Semantic inference failed for field=%s; using deterministic fallback: %s",
+                    "Semantic inference missing for field=%s; using deterministic fallback",
                     field.name,
-                    exc,
                 )
-        enriched_fields.append(fallback_semantics(field, registry=registry))
+            enriched_fields.append(fallback_semantics(field, registry=registry))
 
     return enriched_fields
 
@@ -200,9 +212,7 @@ def run_fill_pipeline(
         allow_fallback_mapping=allow_fallback_mapping,
         registry=registry,
     )
-    fill_report = fill_pdf(
-        input_pdf_path, output_pdf_path, mapping_result, flatten=flatten
-    )
+    fill_report = fill_pdf(input_pdf_path, output_pdf_path, mapping_result, flatten=flatten)
     return (
         fill_report,
         mapping_result,

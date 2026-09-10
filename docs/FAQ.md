@@ -44,9 +44,13 @@ Local `fill()` and the server `POST /fill` path share `run_fill_pipeline` (same 
 
 ## Signatures and choice fields
 
-- Choice (`/Ch`) fields are written (value as-is or matched to `/Opt` when present).
+- Choice (`/Ch`) fields are written when the value matches a declared `/Opt` (case-insensitive). Unmatched options are reported in `skipped_unwritable_fields` with reason `unresolved_choice_option`.
 - Signature (`/Sig`) fields are **not** filled — they appear in `skipped_unwritable_fields` / `X-PDF-Fields-Skipped-Unwritable` with reason `signature_field`.
-- Missing widgets and unresolved checkbox/radio states are reported the same way (`missing_widget`, `unresolved_button_state`) — never silent.
+- Missing widgets, unresolved checkbox/radio states, and confirmed write failures are reported the same way (`missing_widget`, `unresolved_button_state`, `write_failed`) — never silent.
+
+## What does `strict` mean?
+
+`strict=true` (default) turns off **AI fallback mapping** only. It does **not** allow incomplete required fields. `/fill` still returns `required_fields_unresolved` when required widgets cannot be mapped or written.
 
 ## More docs
 

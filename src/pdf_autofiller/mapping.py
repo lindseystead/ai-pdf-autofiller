@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import json
 import logging
-import re
 from datetime import datetime
 from typing import Any
 
@@ -63,6 +62,8 @@ def coerce_value(value: Any, expected_type: str) -> tuple[str | None, bool]:
     Coerce a value to match the expected data type.
 
     Returns ``(coerced_value, requires_review)``.
+    Dates are normalized to ``YYYY-MM-DD`` when a known format parses cleanly
+    (ISO and common US/EU slash or dash forms).
     """
     if value is None:
         return None, False
@@ -73,12 +74,23 @@ def coerce_value(value: Any, expected_type: str) -> tuple[str | None, bool]:
         return str_value, False
 
     if expected_type == "date":
-        if re.match(r"^\d{4}-\d{2}-\d{2}$", str_value):
+        date_formats = (
+            "%Y-%m-%d",
+            "%m/%d/%Y",
+            "%m-%d-%Y",
+            "%m/%d/%y",
+            "%d/%m/%Y",
+            "%d-%m-%Y",
+            "%Y/%m/%d",
+            "%b %d, %Y",
+            "%B %d, %Y",
+        )
+        for fmt in date_formats:
             try:
-                datetime.strptime(str_value, "%Y-%m-%d")
-                return str_value, False
+                parsed = datetime.strptime(str_value, fmt)
+                return parsed.strftime("%Y-%m-%d"), False
             except ValueError:
-                return str_value, True
+                continue
         return str_value, True
 
     if expected_type == "number":
@@ -129,10 +141,7 @@ def find_deterministic_match(
         if normalized_key in equivalence:
             coerced_value, requires_review = coerce_value(user_value, expected_type)
             confidence = 0.90 if not requires_review else 0.65
-            reason = (
-                f"Alias match: '{user_key}' matches semantic "
-                f"'{semantic_meaning}' via alias cluster"
-            )
+            reason = f"Alias match: '{user_key}' matches semantic '{semantic_meaning}' via alias cluster"
             return user_key, coerced_value, confidence, reason, requires_review
 
     return None, None, 0.0, "No deterministic match found", False
@@ -200,8 +209,7 @@ Example response:
     try:
         content = client.create_json_completion(
             system_prompt=(
-                "You are a data mapping assistant. "
-                "Map form fields to user data keys. Return ONLY valid JSON."
+                "You are a data mapping assistant. Map form fields to user data keys. Return ONLY valid JSON."
             ),
             user_prompt=prompt,
             model="gpt-4o-mini",
@@ -255,13 +263,11 @@ def map_user_data_to_fields(
         semantic = enriched_field.semantics.semantic_meaning
         expected_type = enriched_field.semantics.expected_data_type
 
-        matched_key, matched_value, confidence, reason, requires_review = (
-            find_deterministic_match(
-                semantic,
-                user_data,
-                expected_type,
-                registry=active,
-            )
+        matched_key, matched_value, confidence, reason, requires_review = find_deterministic_match(
+            semantic,
+            user_data,
+            expected_type,
+            registry=active,
         )
 
         if matched_key:
@@ -281,37 +287,28 @@ def map_user_data_to_fields(
 
     if not strict and allow_fallback_mapping and unmapped_fields:
         high_value_fields = [
-            f
-            for f in unmapped_fields
-            if f.field.required or f.semantics.confidence_score > 0.8
+            f for f in unmapped_fields if f.field.required or f.semantics.confidence_score > 0.8
         ]
 
         if high_value_fields:
-            fallback_mappings = semantic_fallback_mapping(
-                high_value_fields, user_data, api_key
-            )
+            fallback_mappings = semantic_fallback_mapping(high_value_fields, user_data, api_key)
 
             for enriched_field in high_value_fields[:]:
                 field_name = enriched_field.field.name
                 if field_name not in fallback_mappings:
                     continue
-                matched_key, matched_value, confidence, reason = fallback_mappings[
-                    field_name
-                ]
+                matched_key, matched_value, confidence, reason = fallback_mappings[field_name]
                 if matched_key and matched_key not in used_user_keys:
                     used_user_keys.add(matched_key)
-                    coerced_value, requires_review = coerce_value(
-                        matched_value,
-                        enriched_field.semantics.expected_data_type,
-                    )
+                    # matched_value is already coerced in semantic_fallback_mapping.
                     decisions.append(
                         FieldMappingDecision(
                             field_name=field_name,
                             semantic_meaning=enriched_field.semantics.semantic_meaning,
-                            selected_value=coerced_value,
+                            selected_value=matched_value,
                             confidence=confidence,
                             reason=reason,
-                            requires_review=requires_review or confidence < 0.80,
+                            requires_review=confidence < 0.80,
                         )
                     )
                     unmapped_fields.remove(enriched_field)
