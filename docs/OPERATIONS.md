@@ -4,7 +4,7 @@
 
 Environment variables are read at process start (plain `os.getenv`). A Pydantic Settings refactor is intentionally deferred — keep configuration as documented here.
 
-- `MODEL_PROVIDER_API_KEY`: enables semantic inference and fallback mapping
+- `MODEL_PROVIDER_API_KEY`: makes the optional OpenAI-compatible client available. Does **not** turn AI on by itself — callers must also pass `use_semantic_inference=true` and/or `strict=false` with `allow_fallback_mapping=true`
 - `API_AUTH_ENABLED`: enables API key enforcement on `POST /fill`, `/preview`, and `/inspect` (**default `true`**; set `false` only for trusted/local use)
 - `API_AUTH_TOKEN`: expected token value when auth is enabled
 - `API_KEY_HEADER`: header name used for the incoming token
@@ -16,7 +16,7 @@ Environment variables are read at process start (plain `os.getenv`). A Pydantic 
 - `MAX_PDF_TEXT_CHARS`: cap on total extracted text retained/forwarded (default `2000000`)
 - `RATE_LIMIT_PER_MINUTE`: per-client request budget for authenticated PDF POSTs; `0` disables (default `60`)
 - `TRUST_PROXY_HEADERS`: when `true`, rate limiting uses the first `X-Forwarded-For` hop from a trusted reverse proxy (default `false`)
-- `FORM_ALIASES_DIR`: optional directory of JSON alias packs for deterministic field mapping; must exist and be readable when set. **Caveat:** packs load lazily into the process-wide `AliasRegistry` on first use (`get_default_registry()`). Changing the directory or JSON files requires a **process restart** (or `set_default_registry(AliasRegistry.load())`) — there is no file watcher / hot reload.
+- `FORM_ALIASES_DIR`: optional directory of JSON alias packs for deterministic field mapping. When set to a real directory it **replaces** (does not merge with) the packaged packs. If the path is missing or not a directory, the process logs a warning and falls back to package defaults. Packs load lazily via `get_default_registry()`; changing files requires a **process restart** (or `set_default_registry(AliasRegistry.load())`) — there is no file watcher / hot reload.
 - `LOG_LEVEL`: process log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`)
 - `LOG_FORMAT`: `text` (default) or `json` for one JSON object per log line (useful for aggregators)
 
