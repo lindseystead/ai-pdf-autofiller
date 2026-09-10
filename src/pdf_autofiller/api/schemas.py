@@ -23,12 +23,19 @@ class InspectField(BaseModel):
     required: bool
     page_number: int
     current_value: str | None = None
+    name_quality: str = Field(
+        default="readable",
+        description="readable or opaque — opaque names are hard to alias from JSON keys",
+    )
 
 
 class InspectResponse(BaseModel):
     pages: int
     field_count: int
     fields: list[InspectField]
+    opaque_field_count: int = 0
+    opaque_fields: list[str] = Field(default_factory=list)
+    mapping_hints: list[str] = Field(default_factory=list)
 
 
 class PreviewDecision(BaseModel):
@@ -46,6 +53,7 @@ class PreviewResponse(BaseModel):
     decisions: list[PreviewDecision]
     missing_required: list[str]
     unmapped_user_keys: list[str]
+    mapping_hints: list[str] = Field(default_factory=list)
 
 
 class FillReportResponse(BaseModel):
@@ -63,6 +71,7 @@ class FillReportResponse(BaseModel):
     missing_required: list[str]
     unmapped_user_keys: list[str]
     decisions: list[PreviewDecision]
+    mapping_hints: list[str] = Field(default_factory=list)
     pdf_base64: str = Field(
         description="Filled PDF encoded as standard base64 (not URL-safe)"
     )

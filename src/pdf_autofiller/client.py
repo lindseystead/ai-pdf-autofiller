@@ -142,6 +142,7 @@ class PDFAutofillerClient:
         allow_fallback_mapping: bool = False,
         use_semantic_inference: bool = False,
         flatten: bool = False,
+        need_appearances: bool = True,
         filename: str | None = None,
         accept: str = "application/pdf",
     ) -> tuple[bytes | dict[str, Any], dict[str, str]]:
@@ -159,6 +160,7 @@ class PDFAutofillerClient:
             "allow_fallback_mapping": str(allow_fallback_mapping).lower(),
             "use_semantic_inference": str(use_semantic_inference).lower(),
             "flatten": str(flatten).lower(),
+            "need_appearances": str(need_appearances).lower(),
         }
         headers = self._headers()
         headers["Accept"] = accept

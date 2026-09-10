@@ -10,7 +10,7 @@ Redirects to `/playground` (temporary redirect).
 
 Serves the browser playground UI for trying fills without curl.
 
-The playground exposes checkboxes for `strict`, `allow_fallback_mapping` (AI fallback), `use_semantic_inference`, and `flatten`. Use curl (or the SDK) when you need full control over form flags and headers.
+The playground exposes checkboxes for `strict`, `allow_fallback_mapping` (AI fallback), `use_semantic_inference`, `flatten`, and `need_appearances`. Use curl (or the SDK) when you need full control over form flags and headers.
 
 ### `GET /health`
 
@@ -39,7 +39,7 @@ Example response:
 }
 ```
 
-`status` is `degraded` when auth is enabled but `API_AUTH_TOKEN` is unset (`checks.auth` = `misconfigured`). Alias pack availability is reported via `checks.alias_directory` and `checks.alias_pack_count`. `semantic_provider` is one of `available` | `unconfigured` | `sdk_missing` — it does not claim inference succeeded on a request.
+`status` is `degraded` when auth is enabled but `API_AUTH_TOKEN` is unset (`checks.auth` = `misconfigured`). Alias pack availability is reported via `checks.alias_directory` and `checks.alias_pack_count`. `semantic_provider` is one of `available` | `unconfigured` | `sdk_missing` — it does not claim inference succeeded on a request. `rate_limit` is `in_process`, `shared_file`, or `disabled` depending on `RATE_LIMIT_PER_MINUTE` / `RATE_LIMIT_BACKEND`.
 
 ### `GET /version`
 
@@ -60,6 +60,9 @@ This endpoint is **unauthenticated** (same as `/health`, `/version`, and `/playg
 ### `POST /inspect`
 
 Accepts a PDF upload and returns AcroForm field metadata so clients can draft JSON.
+Each field includes `name_quality` (`readable` or `opaque`). When names look
+machine-generated, the response also includes `opaque_field_count`,
+`opaque_fields`, and `mapping_hints` (exact widget keys, alias packs, or semantic inference).
 
 Example:
 
@@ -74,8 +77,18 @@ Example response:
 {
   "pages": 1,
   "field_count": 5,
+  "opaque_field_count": 0,
+  "opaque_fields": [],
+  "mapping_hints": [],
   "fields": [
-    {"name": "txtFirstName", "field_type": "text", "required": true, "page_number": 1, "current_value": null}
+    {
+      "name": "txtFirstName",
+      "field_type": "text",
+      "required": true,
+      "page_number": 1,
+      "current_value": null,
+      "name_quality": "readable"
+    }
   ]
 }
 ```
@@ -148,6 +161,7 @@ Optional form fields:
 - `allow_fallback_mapping`: when `true`, allows fallback mapping for unresolved high-value fields (default `false`; also requires `strict=false`)
 - `use_semantic_inference`: when `true`, enables a single batched semantic inference call before mapping (default `false`)
 - `flatten`: when `true`, burns field appearances into page content and removes widget annotations (default `false`)
+- `need_appearances`: when `true` (default), sets AcroForm `/NeedAppearances` so PDF viewers regenerate visible glyphs from written `/V` values. pypdf's `auto_regenerate` flag only toggles this bit — it does not embed new appearance streams. Use `flatten=true` when you need burned-in visuals without relying on the viewer.
 
 Example (PDF):
 

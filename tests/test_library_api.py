@@ -17,6 +17,46 @@ def test_inspect_lists_fields():
     assert result.field_count >= 3
     names = {field.name for field in result.fields}
     assert "txtFirstName" in names
+    assert result.opaque_field_count == 0
+    assert result.mapping_hints == []
+
+
+def test_inspect_flags_opaque_names(tmp_path: Path):
+    from pypdf import PdfWriter
+    from pypdf.generic import (
+        ArrayObject,
+        DictionaryObject,
+        NameObject,
+        NumberObject,
+        TextStringObject,
+    )
+
+    pdf_path = tmp_path / "opaque.pdf"
+    writer = PdfWriter()
+    page = writer.add_blank_page(width=300, height=300)
+    field = DictionaryObject(
+        {
+            NameObject("/Type"): NameObject("/Annot"),
+            NameObject("/Subtype"): NameObject("/Widget"),
+            NameObject("/FT"): NameObject("/Tx"),
+            NameObject("/T"): TextStringObject("field_12"),
+            NameObject("/Rect"): ArrayObject(
+                [NumberObject(10), NumberObject(10), NumberObject(100), NumberObject(30)]
+            ),
+        }
+    )
+    ref = writer._add_object(field)
+    page[NameObject("/Annots")] = ArrayObject([ref])
+    writer._root_object[NameObject("/AcroForm")] = DictionaryObject(
+        {NameObject("/Fields"): ArrayObject([ref])}
+    )
+    with pdf_path.open("wb") as handle:
+        writer.write(handle)
+
+    result = inspect(pdf_path)
+    assert result.opaque_field_count == 1
+    assert "field_12" in result.opaque_fields
+    assert result.mapping_hints
 
 
 @pytest.mark.skipif(not SAMPLE.exists(), reason="sample PDF not present")

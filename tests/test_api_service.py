@@ -254,6 +254,27 @@ def test_fill_endpoint_rate_limited(monkeypatch):
     assert second.headers.get("retry-after") == "60"
 
 
+def test_fill_endpoint_file_rate_limit_shared(monkeypatch, tmp_path):
+    store = tmp_path / "rate-limit.json"
+    monkeypatch.setattr(config, "RATE_LIMIT_PER_MINUTE", 1)
+    monkeypatch.setattr(config, "RATE_LIMIT_BACKEND", "file")
+    monkeypatch.setattr(config, "RATE_LIMIT_STORE_PATH", str(store))
+    api_service._reset_rate_limit_state()
+
+    payload = {
+        "files": {"pdf_file": ("input.pdf", _minimal_pdf_bytes(), "application/pdf")},
+        "data": {"user_data": '{"firstname":"John","lastname":"Doe"}', "strict": "true"},
+    }
+    first = client.post("/fill", **payload)
+    second = client.post("/fill", **payload)
+
+    assert first.status_code == 200
+    assert second.status_code == 429
+    assert second.json()["detail"]["error"]["details"]["backend"] == "file"
+    health = client.get("/health").json()
+    assert health["checks"]["rate_limit"] == "shared_file"
+
+
 def test_unauthorized_does_not_consume_rate_limit(monkeypatch):
     """Auth failures must not burn the per-client fill budget."""
     monkeypatch.setattr(config, "API_AUTH_ENABLED", True)
@@ -359,6 +380,9 @@ def test_inspect_endpoint_lists_sample_fields():
     assert payload["field_count"] >= 3
     names = {field["name"] for field in payload["fields"]}
     assert "txtFirstName" in names
+    assert payload["opaque_field_count"] == 0
+    assert all(field["name_quality"] == "readable" for field in payload["fields"])
+    assert payload["mapping_hints"] == []
 
 
 def test_sample_form_route_serves_pdf():

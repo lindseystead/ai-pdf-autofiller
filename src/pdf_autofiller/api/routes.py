@@ -15,10 +15,14 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Redirect
 from starlette.background import BackgroundTask
 
 from pdf_autofiller import __version__
+from pdf_autofiller.field_utils import is_opaque_field_name
 from pdf_autofiller.mapping import alias_pack_status
 from pdf_autofiller.models import FillReport
-from pdf_autofiller.pdf_reader import PdfPageLimitError, read_pdf
+from pdf_autofiller.pdf_reader import PdfPageLimitError
 from pdf_autofiller.pdf_writer import UnresolvedRequiredFieldsError
+from pdf_autofiller.pipeline import (
+    inspect as inspect_local,
+)
 from pdf_autofiller.pipeline import (
     run_fill_pipeline,
     run_preview_pipeline,
@@ -42,7 +46,7 @@ from .schemas import (
     PreviewResponse,
     VersionResponse,
 )
-from .security import guard_mutating_request
+from .security import guard_mutating_request, rate_limit_health_status
 from .uploads import read_bounded_upload, require_pdf_signature, require_pdf_upload
 
 logger = logging.getLogger(__name__)
@@ -157,7 +161,7 @@ def health() -> HealthResponse:
             else "misconfigured"
         ),
         "semantic_provider": semantic_provider_status(),
-        "rate_limit": ("in_process" if config.RATE_LIMIT_PER_MINUTE > 0 else "disabled"),
+        "rate_limit": rate_limit_health_status(),
         **alias_pack_status(),
     }
     status = "ok" if checks["auth"] != "misconfigured" else "degraded"
@@ -216,9 +220,9 @@ async def inspect_pdf(
         input_path.write_bytes(content)
 
         try:
-            structure = await asyncio.to_thread(
+            inventory = await asyncio.to_thread(
                 execute_pdf_job,
-                read_pdf,
+                inspect_local,
                 input_path,
                 timeout_seconds=config.PDF_READ_TIMEOUT_SECONDS,
                 max_pages=config.MAX_PDF_PAGES,
@@ -245,13 +249,19 @@ async def inspect_pdf(
                 required=field.required,
                 page_number=field.page_number,
                 current_value=field.value,
+                name_quality=(
+                    "opaque" if is_opaque_field_name(field.name) else "readable"
+                ),
             )
-            for field in structure.form_fields
+            for field in inventory.fields
         ]
         return InspectResponse(
-            pages=structure.metadata.num_pages,
-            field_count=len(fields),
+            pages=inventory.pages,
+            field_count=inventory.field_count,
             fields=fields,
+            opaque_field_count=inventory.opaque_field_count,
+            opaque_fields=list(inventory.opaque_fields),
+            mapping_hints=list(inventory.mapping_hints),
         )
     except HTTPException:
         raise
@@ -348,6 +358,7 @@ async def preview_pdf(
             decisions=decisions,
             missing_required=list(mapping_result.missing_required),
             unmapped_user_keys=list(mapping_result.unmapped_user_keys),
+            mapping_hints=list(mapping_result.mapping_hints),
         )
     except HTTPException:
         raise
@@ -401,6 +412,13 @@ async def fill(
     allow_fallback_mapping: bool = Form(False),
     use_semantic_inference: bool = Form(False),
     flatten: bool = Form(False),
+    need_appearances: bool = Form(
+        True,
+        description=(
+            "When true (default), set AcroForm /NeedAppearances so viewers "
+            "regenerate visible field appearances from written values."
+        ),
+    ),
 ) -> Response:
     """Fill a PDF form from uploaded file and user data."""
     temp_dir = None
@@ -433,6 +451,7 @@ async def fill(
                 use_semantic_inference=use_semantic_inference,
                 max_pages=config.MAX_PDF_PAGES,
                 flatten=flatten,
+                need_appearances=need_appearances,
             )
         except TimeoutError as exc:
             raise api_error(
@@ -483,6 +502,7 @@ async def fill(
                 missing_required=list(mapping_result.missing_required),
                 unmapped_user_keys=list(mapping_result.unmapped_user_keys),
                 decisions=decisions,
+                mapping_hints=list(mapping_result.mapping_hints),
                 pdf_base64=base64.b64encode(pdf_bytes).decode("ascii"),
             )
             response_started = True
