@@ -28,7 +28,7 @@ Example response:
 {
   "status": "ok",
   "service": "pdf-autofiller",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "checks": {
     "auth": "disabled",
     "semantic_provider": "unconfigured",

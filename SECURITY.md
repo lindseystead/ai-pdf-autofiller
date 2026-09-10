@@ -7,12 +7,13 @@ Security fixes are applied to the latest code only.
 
 ## Reporting a Vulnerability
 
-If you discover a security issue, please do not open a public issue.
+Do **not** open a public issue for security reports.
 
-1. Email the maintainer at `wysel17@mytru.ca`.
-2. Include a clear description of the issue, reproduction steps or proof of concept, and an impact assessment.
-3. Expect an initial response within 5 business days.
-4. Allow a reasonable remediation window before public disclosure.
+Use [GitHub Private Vulnerability Reporting](https://github.com/lindseystead/ai-pdf-autofiller/security/advisories/new):
+
+1. Open a private advisory with a clear description, reproduction steps or proof of concept, and an impact assessment.
+2. Expect an initial response within 5 business days.
+3. Allow a reasonable remediation window before public disclosure.
 
 ## Security Baseline
 

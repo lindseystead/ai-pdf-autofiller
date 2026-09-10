@@ -119,10 +119,10 @@
   <div class="wrap">
     <header>
       <div class="badge">Live Playground</div>
-      <h1>Fill any PDF from JSON</h1>
+      <h1>Fill AcroForm PDFs from JSON</h1>
       <p class="subtitle">
-        Upload a fillable AcroForm PDF, paste your profile JSON, and download the completed form in seconds.
-        No field mapping required.
+        Upload a fillable AcroForm PDF, paste a JSON profile, and download the completed form.
+        Deterministic aliases first — optional AI for opaque field names.
       </p>
     </header>
 
@@ -136,7 +136,7 @@
         <p id="fileName" style="margin:10px 0 0; color: var(--muted); font-size:0.9rem;">No file selected</p>
 
         <label for="apiKey" style="margin-top:16px;">API key (if auth enabled)</label>
-        <input id="apiKey" type="password" autocomplete="off" placeholder="Optional — leave blank for local dev" />
+        <input id="apiKey" type="password" autocomplete="off" placeholder="Optional for local / auth-off" />
         <div class="row" style="margin-top:12px;">
           <button id="loadSamplePdfBtn" class="ghost" type="button">Use sample PDF</button>
           <button id="inspectBtn" class="ghost" type="button">Inspect fields</button>
