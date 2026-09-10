@@ -1,7 +1,7 @@
 $ curl -s http://127.0.0.1:8000/health | jq '{status,version:.version,semantic:.checks.semantic_provider}'
 {
   "status": "ok",
-  "version": "0.6.1",
+  "version": "0.6.3",
   "semantic": "unconfigured"
 }
 
@@ -42,7 +42,8 @@ HTTP/1.1 200 OK
 x-pdf-fields-written: 3
 x-pdf-fields-skipped-review: 
 x-pdf-fields-skipped-empty: 
+x-pdf-fields-skipped-unwritable: 
 content-type: application/pdf
 x-content-type-options: nosniff
 
-filled.pdf written (2177 bytes)
+filled.pdf written (2176 bytes)

@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.6.3]
+
 ### Added
 
 - `/inspect` and `/preview` surface opaque widget-name detection (`name_quality`,
@@ -25,6 +27,12 @@ All notable changes to this project will be documented in this file.
   without AI — matching the intended coerce behavior
 - Doc accuracy: provider-key wording, `FORM_ALIASES_DIR` fallback, unwritable
   reasons, choice-field rules, test count, health version example
+
+### Changed
+
+- Recruiter-facing polish: softened “any PDF” claims, refreshed playground
+  screenshot and social banner, aligned version metadata, issue templates as
+  `.md`, security reports via GitHub advisories only
 
 ## [0.6.2]
 

@@ -5,7 +5,7 @@ set -euo pipefail
 
 REPO="${GITHUB_REPOSITORY:-lindseystead/ai-pdf-autofiller}"
 
-DESCRIPTION="Fill any AcroForm PDF from JSON — open-source API with playground, Docker, and Python SDK. No manual field mapping."
+DESCRIPTION="Fill AcroForm PDFs from JSON — open-source FastAPI API with playground, Docker, and Python SDK. Deterministic-first; no manual field mapping."
 
 TOPICS='[
   "pdf",
@@ -30,8 +30,11 @@ TOPICS='[
   "document-automation"
 ]'
 
-echo "Updating description for ${REPO}..."
-gh api -X PATCH "repos/${REPO}" -f description="${DESCRIPTION}"
+echo "Updating description + homepage for ${REPO}..."
+# Clear broken Pages homepage until Settings → Pages (Actions) is enabled.
+gh api -X PATCH "repos/${REPO}" \
+  -f description="${DESCRIPTION}" \
+  -f homepage=""
 
 echo "Updating topics for ${REPO}..."
 gh api -X PUT "repos/${REPO}/topics" \
