@@ -22,56 +22,28 @@ def sample_enriched_fields():
     """Representative form fields used across mapping tests."""
     return [
         EnrichedFormField(
-            field=FormField(
-                name="txtFirstName",
-                field_type="text",
-                required=True,
-                page_number=1
-            ),
+            field=FormField(name="txtFirstName", field_type="text", required=True, page_number=1),
             semantics=FieldSemantics(
-                semantic_meaning="first_name",
-                expected_data_type="string",
-                confidence_score=0.95
-            )
+                semantic_meaning="first_name", expected_data_type="string", confidence_score=0.95
+            ),
         ),
         EnrichedFormField(
-            field=FormField(
-                name="txtLastName",
-                field_type="text",
-                required=True,
-                page_number=1
-            ),
+            field=FormField(name="txtLastName", field_type="text", required=True, page_number=1),
             semantics=FieldSemantics(
-                semantic_meaning="last_name",
-                expected_data_type="string",
-                confidence_score=0.95
-            )
+                semantic_meaning="last_name", expected_data_type="string", confidence_score=0.95
+            ),
         ),
         EnrichedFormField(
-            field=FormField(
-                name="txtDOB",
-                field_type="text",
-                required=True,
-                page_number=1
-            ),
+            field=FormField(name="txtDOB", field_type="text", required=True, page_number=1),
             semantics=FieldSemantics(
-                semantic_meaning="date_of_birth",
-                expected_data_type="date",
-                confidence_score=0.90
-            )
+                semantic_meaning="date_of_birth", expected_data_type="date", confidence_score=0.90
+            ),
         ),
         EnrichedFormField(
-            field=FormField(
-                name="txtEmail",
-                field_type="text",
-                required=False,
-                page_number=1
-            ),
+            field=FormField(name="txtEmail", field_type="text", required=False, page_number=1),
             semantics=FieldSemantics(
-                semantic_meaning="email_address",
-                expected_data_type="string",
-                confidence_score=0.88
-            )
+                semantic_meaning="email_address", expected_data_type="string", confidence_score=0.88
+            ),
         ),
     ]
 
@@ -102,7 +74,15 @@ def test_coerce_value_date():
     assert requires_review is False
 
     value, requires_review = coerce_value("01/15/2024", "date")
-    assert value == "01/15/2024"
+    assert value == "2024-01-15"
+    assert requires_review is False
+
+    value, requires_review = coerce_value("January 15, 2024", "date")
+    assert value == "2024-01-15"
+    assert requires_review is False
+
+    value, requires_review = coerce_value("not-a-date", "date")
+    assert value == "not-a-date"
     assert requires_review is True
 
 
@@ -143,13 +123,11 @@ def test_coerce_value_boolean():
 def test_find_deterministic_match_direct():
     """Test deterministic matching with direct match."""
     user_data = {"first_name": "John", "lastname": "Doe"}
-    
+
     matched_key, matched_value, confidence, reason, requires_review = find_deterministic_match(
-        "first_name",
-        user_data,
-        "string"
+        "first_name", user_data, "string"
     )
-    
+
     assert matched_key == "first_name"
     assert matched_value == "John"
     assert confidence >= 0.90
@@ -159,13 +137,11 @@ def test_find_deterministic_match_direct():
 def test_find_deterministic_match_alias():
     """Test deterministic matching with alias match."""
     user_data = {"surname": "Smith", "email": "test@example.com"}
-    
+
     matched_key, matched_value, confidence, reason, requires_review = find_deterministic_match(
-        "last_name",
-        user_data,
-        "string"
+        "last_name", user_data, "string"
     )
-    
+
     assert matched_key == "surname"
     assert matched_value == "Smith"
     assert confidence >= 0.85
@@ -175,13 +151,11 @@ def test_find_deterministic_match_alias():
 def test_find_deterministic_match_no_match():
     """Test deterministic matching when no match found."""
     user_data = {"unrelated": "value"}
-    
+
     matched_key, matched_value, confidence, reason, requires_review = find_deterministic_match(
-        "first_name",
-        user_data,
-        "string"
+        "first_name", user_data, "string"
     )
-    
+
     assert matched_key is None
     assert matched_value is None
     assert confidence == 0.0
@@ -189,19 +163,10 @@ def test_find_deterministic_match_no_match():
 
 def test_map_user_data_to_fields_success(sample_enriched_fields):
     """Test successful mapping with deterministic matching."""
-    user_data = {
-        "firstname": "John",
-        "lastname": "Doe",
-        "dob": "1990-05-15",
-        "email": "john@example.com"
-    }
-    
-    result = map_user_data_to_fields(
-        sample_enriched_fields,
-        user_data,
-        strict=True
-    )
-    
+    user_data = {"firstname": "John", "lastname": "Doe", "dob": "1990-05-15", "email": "john@example.com"}
+
+    result = map_user_data_to_fields(sample_enriched_fields, user_data, strict=True)
+
     assert len(result.decisions) == 4
     assert len(result.missing_required) == 0
 
@@ -216,17 +181,10 @@ def test_map_user_data_to_fields_success(sample_enriched_fields):
 
 def test_map_user_data_to_fields_missing_required(sample_enriched_fields):
     """Test mapping with missing required field."""
-    user_data = {
-        "firstname": "John",
-        "email": "john@example.com"
-    }
-    
-    result = map_user_data_to_fields(
-        sample_enriched_fields,
-        user_data,
-        strict=True
-    )
-    
+    user_data = {"firstname": "John", "email": "john@example.com"}
+
+    result = map_user_data_to_fields(sample_enriched_fields, user_data, strict=True)
+
     assert len(result.decisions) == 2
 
     assert len(result.missing_required) == 2
@@ -239,21 +197,34 @@ def test_map_user_data_to_fields_ambiguous_requires_review(sample_enriched_field
     user_data = {
         "firstname": "John",
         "lastname": "Doe",
-        "dob": "05/15/1990",
-        "email": "john@example.com"
+        "dob": "15th of May, 1990",
+        "email": "john@example.com",
     }
-    
-    result = map_user_data_to_fields(
-        sample_enriched_fields,
-        user_data,
-        strict=True
-    )
-    
+
+    result = map_user_data_to_fields(sample_enriched_fields, user_data, strict=True)
+
     assert len(result.decisions) == 4
 
     dob_decision = next(d for d in result.decisions if d.field_name == "txtDOB")
     assert dob_decision.requires_review is True
-    assert dob_decision.selected_value == "05/15/1990"
+    assert dob_decision.selected_value == "15th of May, 1990"
+
+
+def test_map_user_data_to_fields_normalizes_us_dates(sample_enriched_fields):
+    """Common US date forms coerce to ISO without review."""
+    result = map_user_data_to_fields(
+        sample_enriched_fields,
+        {
+            "firstname": "John",
+            "lastname": "Doe",
+            "dob": "05/15/1990",
+            "email": "john@example.com",
+        },
+        strict=True,
+    )
+    dob_decision = next(d for d in result.decisions if d.field_name == "txtDOB")
+    assert dob_decision.requires_review is False
+    assert dob_decision.selected_value == "1990-05-15"
 
 
 def test_map_user_data_to_fields_unmapped_keys(sample_enriched_fields):
@@ -263,15 +234,11 @@ def test_map_user_data_to_fields_unmapped_keys(sample_enriched_fields):
         "lastname": "Doe",
         "dob": "1990-05-15",
         "unused_key": "unused_value",
-        "another_unused": "value"
+        "another_unused": "value",
     }
-    
-    result = map_user_data_to_fields(
-        sample_enriched_fields,
-        user_data,
-        strict=True
-    )
-    
+
+    result = map_user_data_to_fields(sample_enriched_fields, user_data, strict=True)
+
     assert len(result.unmapped_user_keys) == 2
     assert "unused_key" in result.unmapped_user_keys
     assert "another_unused" in result.unmapped_user_keys
@@ -283,15 +250,11 @@ def test_map_user_data_to_fields_normalized_matching(sample_enriched_fields):
         "First-Name": "John",
         "Last Name": "Doe",
         "DOB": "1990-05-15",
-        "Email_Address": "john@example.com"
+        "Email_Address": "john@example.com",
     }
-    
-    result = map_user_data_to_fields(
-        sample_enriched_fields,
-        user_data,
-        strict=True
-    )
-    
+
+    result = map_user_data_to_fields(sample_enriched_fields, user_data, strict=True)
+
     assert len(result.decisions) == 4
     assert len(result.missing_required) == 0
 
@@ -494,7 +457,6 @@ def test_community_w9_alias_pack_loaded():
     assert matched_value == "Jane Doe"
     assert confidence >= 0.85
     assert "Alias match" in reason
-
 
 
 @pytest.mark.parametrize(

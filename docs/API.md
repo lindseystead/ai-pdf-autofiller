@@ -93,9 +93,9 @@ Required form fields:
 
 Optional form fields (same semantics as `/fill`):
 
-- `strict` (default `true`)
+- `strict` (default `true`) — disables AI fallback mapping only
 - `allow_fallback_mapping` (default `false`)
-- `use_semantic_inference` (default `false`)
+- `use_semantic_inference` (default `false`) — one batched provider call when enabled
 
 Example:
 
@@ -144,9 +144,9 @@ Required form fields:
 
 Optional form fields:
 
-- `strict`: when `true`, disables fallback mapping (default `true`)
-- `allow_fallback_mapping`: when `true`, allows fallback mapping for unresolved high-value fields (default `false`)
-- `use_semantic_inference`: when `true`, enables the semantic inference step before mapping (default `false`)
+- `strict`: when `true`, **disables AI fallback mapping only** (default `true`). Required fields are still enforced on `/fill` regardless of this flag.
+- `allow_fallback_mapping`: when `true`, allows fallback mapping for unresolved high-value fields (default `false`; also requires `strict=false`)
+- `use_semantic_inference`: when `true`, enables a single batched semantic inference call before mapping (default `false`)
 - `flatten`: when `true`, burns field appearances into page content and removes widget annotations (default `false`)
 
 Example (PDF):
