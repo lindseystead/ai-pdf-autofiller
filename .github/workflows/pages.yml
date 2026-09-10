@@ -22,7 +22,7 @@ jobs:
   check:
     runs-on: ubuntu-latest
     outputs:
-      ready: ${{ steps.probe.outputs.ready }}
+      ready: ${{ steps.ready.outputs.ready }}
     steps:
       - name: Probe Pages site
         id: probe
