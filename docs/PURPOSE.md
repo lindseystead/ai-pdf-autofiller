@@ -22,7 +22,10 @@ This repository provides a deterministic-first pipeline to:
 ## Safety and Review Behavior
 
 - Deterministic mapping runs without optional provider-backed inference.
-- Ambiguous coercions are flagged with `requires_review`.
+- Ambiguous coercions (unparseable dates/numbers/booleans when the field's
+  expected type is typed) are flagged with `requires_review`.
+- Deterministic enrichment types date/boolean semantics so common date strings
+  can normalize without AI; unknown semantics stay `string`.
 - Missing required fields are surfaced before output is finalized.
 
 ## Scope Notes

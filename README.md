@@ -1,10 +1,10 @@
 <div align="center">
 
-<img src="docs/assets/social-preview.png" alt="PDF Autofiller — Fill any AcroForm PDF from JSON" width="800" />
+<img src="docs/assets/social-preview.png" alt="PDF Autofiller — Fill AcroForm PDFs from JSON" width="800" />
 
 # PDF Autofiller
 
-**Fill any AcroForm PDF from JSON — no manual field mapping.**
+**Fill AcroForm PDFs from JSON — no manual field mapping.**
 
 Open-source FastAPI service · browser playground · Python SDK · Docker image
 
@@ -36,7 +36,7 @@ Turn `{"firstname":"Jane","lastname":"Doe"}` into a filled PDF — even when the
 | JSON user profile | Mapped automatically via aliases + normalization |
 | Optional AI (off by default) | Semantic inference for opaque field names |
 
-**Popular uses:** W-9 / tax forms · HR onboarding packets · government PDFs · insurance intake · workflow automation (n8n, Zapier, curl)
+**Popular uses:** HR onboarding packets · insurance intake · workflow automation (n8n, Zapier, curl) · W-9-**shaped** AcroForms (synthetic fixtures in CI — not IRS-certified)
 
 ## Playground
 
@@ -173,7 +173,7 @@ flowchart LR
 make test && make lint && make smoke-check && make corpus-check
 ```
 
-144 tests · ≥85% coverage · Python 3.11 & 3.12 · corpus **35/35** expected field writes (6 fixtures)
+157 tests · ≥85% coverage · Python 3.11 & 3.12 · corpus **35/35** expected field writes (6 fixtures)
 
 ## License
 

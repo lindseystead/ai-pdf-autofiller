@@ -185,8 +185,9 @@ def fill_pdf(
     Skips fields where requires_review=True or selected_value is None.
     Checkbox and radio (``/Btn``) values are translated to valid PDF state
     names so boolean inputs actually toggle the control. Choice (``/Ch``)
-    fields are written as-is or matched against ``/Opt`` / ``/_States_`` when
-    available. Signature (``/Sig``) fields are never filled. Preserves original
+    fields must match ``/Opt`` / ``/_States_`` when those are present;
+    otherwise the value is written as-is. Signature (``/Sig``) fields are
+    never filled. Preserves original
     formatting and untouched fields unless ``flatten=True``.
 
     Args:
