@@ -2,7 +2,7 @@
 
 ## How is this different from AI-only PDF fillers / SaaS?
 
-PDF Autofiller is **deterministic-first**. Field names are matched via normalization and alias packs (for example `txtFirstName` ↔ `firstname` / `given_name`) with **no API key and no network call**. Optional semantic inference and AI fallback exist for opaque names like `field_12`, but they are **off by default**.
+PDF Autofiller is **deterministic-first**. Field names are matched via normalization and alias packs (for example `txtFirstName` ↔ `firstname` / `given_name`) with **no API key and no network call**. Optional semantic inference and AI fallback exist for opaque names like `field_12`, but they are **off by default**. `/inspect` marks such names with `name_quality: "opaque"` and returns `mapping_hints`.
 
 Compared with typical SaaS / AI-only tools:
 
@@ -55,6 +55,10 @@ Local `fill()` and the server `POST /fill` path share `run_fill_pipeline` (same 
 ## Dates on the default path
 
 Deterministic enrichment types known date semantics (`date_of_birth`, `start_date`, `signature_date`, `*_date`, …) as `date`. Common US/EU forms like `01/15/1990` are normalized to `YYYY-MM-DD` without AI. Unparseable date strings are flagged `requires_review` and skipped on write (required dates then fail `/fill`).
+
+## Filled values missing in a PDF viewer?
+
+By default `/fill` sets AcroForm `/NeedAppearances` so viewers regenerate visible field glyphs from written `/V` values. If a viewer still shows blanks, try `flatten=true` (burns appearances into page content) or open the file in another viewer. Pass `need_appearances=false` only when you intentionally want the prior appearance streams left as-is.
 
 ## More docs
 

@@ -177,6 +177,7 @@ def fill_pdf(
     mapping_result: MappingResult,
     *,
     flatten: bool = False,
+    need_appearances: bool = True,
 ) -> FillReport:
     """
     Fill PDF form fields with mapped values from mapping result.
@@ -196,6 +197,10 @@ def fill_pdf(
         mapping_result: MappingResult containing decisions and validation info
         flatten: When true, burn field appearances into page content and remove
             widget annotations (archival / non-editable output)
+        need_appearances: When true (default), set AcroForm ``/NeedAppearances``
+            so PDF viewers regenerate visible field appearances from ``/V``.
+            pypdf's ``auto_regenerate`` flag only toggles this bit — it does not
+            embed new appearance streams.
 
     Returns:
         FillReport listing the fields that were written and the fields that were
@@ -298,6 +303,8 @@ def fill_pdf(
     # Write field values to PDF. Only fields with at least one successful
     # update_page_form_field_values call are reported as written — failures
     # are never silently counted as success.
+    # pypdf's auto_regenerate only sets /NeedAppearances (viewer regenerates
+    # visible glyphs). Default True so filled /V values show in common viewers.
     if field_values:
         confirmed_writes: set[str] = set()
         for page in writer.pages:
@@ -305,7 +312,7 @@ def fill_pdf(
                 writer.update_page_form_field_values(
                     page,
                     field_values,
-                    auto_regenerate=False,
+                    auto_regenerate=need_appearances,
                     flatten=flatten,
                 )
                 confirmed_writes.update(field_values.keys())
@@ -319,7 +326,7 @@ def fill_pdf(
                         writer.update_page_form_field_values(
                             page,
                             {field_name: value},
-                            auto_regenerate=False,
+                            auto_regenerate=need_appearances,
                             flatten=flatten,
                         )
                         confirmed_writes.add(field_name)
@@ -335,6 +342,11 @@ def fill_pdf(
                 written_fields.add(field_name)
             else:
                 _mark_unwritable(field_name, "write_failed")
+    elif need_appearances:
+        try:
+            writer.set_need_appearances_writer(True)
+        except Exception:
+            logger.debug("Failed to set /NeedAppearances on empty write", exc_info=True)
 
     if flatten:
         try:

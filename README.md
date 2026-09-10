@@ -34,7 +34,7 @@ Turn `{"firstname":"Jane","lastname":"Doe"}` into a filled PDF — even when the
 |-------|--------|
 | Any fillable AcroForm PDF | Completed PDF with fields written |
 | JSON user profile | Mapped automatically via aliases + normalization |
-| Optional AI (off by default) | Semantic inference for opaque field names |
+| Optional AI (off by default) | Semantic inference for opaque field names (`/inspect` flags them) |
 
 **Popular uses:** HR onboarding packets · insurance intake · workflow automation (n8n, Zapier, curl) · W-9-**shaped** AcroForms (synthetic fixtures in CI — not IRS-certified)
 
@@ -173,7 +173,7 @@ flowchart LR
 make test && make lint && make smoke-check && make corpus-check
 ```
 
-157 tests · ≥85% coverage · Python 3.11 & 3.12 · corpus **35/35** expected field writes (6 fixtures)
+164 tests · ≥85% coverage · Python 3.11 & 3.12 · corpus **35/35** expected field writes (6 fixtures)
 
 ## License
 

@@ -98,6 +98,10 @@ class MappingResult(BaseModel):
         default_factory=list,
         description="User data keys that were not mapped to any field"
     )
+    mapping_hints: list[str] = Field(
+        default_factory=list,
+        description="Actionable hints when opaque widget names hinder matching",
+    )
 
 
 class FillReport(BaseModel):
@@ -140,6 +144,18 @@ class InspectResult(BaseModel):
     fields: list[FormField] = Field(
         default_factory=list,
         description="AcroForm fields in document order",
+    )
+    opaque_field_count: int = Field(
+        default=0,
+        description="How many field names look machine-generated / hard to alias",
+    )
+    opaque_fields: list[str] = Field(
+        default_factory=list,
+        description="Opaque widget names (capped sample for large forms)",
+    )
+    mapping_hints: list[str] = Field(
+        default_factory=list,
+        description="Suggested next steps when opaque names are present",
     )
 
 

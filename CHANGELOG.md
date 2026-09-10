@@ -4,8 +4,21 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- `/inspect` and `/preview` surface opaque widget-name detection (`name_quality`,
+  `opaque_field_count`, `mapping_hints`) so clients know when to key JSON by
+  exact names, add alias packs, or enable semantic inference
+- `need_appearances` fill flag (default `true`) sets AcroForm `/NeedAppearances`
+  so common viewers show written values (pypdf `auto_regenerate` only toggles
+  this bit)
+- Shared rate-limit backend: `RATE_LIMIT_BACKEND=file` + `RATE_LIMIT_STORE_PATH`
+  for multi-worker hosts; health reports `shared_file`
+
 ### Fixed
 
+- Fill no longer clears `/NeedAppearances` by default (`auto_regenerate=False`
+  previously forced the flag off, which hid values in some viewers)
 - Deterministic enrichment now assigns `date` / `boolean` expected types from
   field semantics (e.g. `date_of_birth`, `start_date`, checkbox/consent), so
   common US/EU date strings normalize to `YYYY-MM-DD` on the default path

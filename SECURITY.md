@@ -26,9 +26,10 @@ If you discover a security issue, please do not open a public issue.
 
 - **Authentication is enabled by default and fails closed.** Disable only for
   trusted/local use via `API_AUTH_ENABLED=false`.
-- **Rate limiting** per client (`RATE_LIMIT_PER_MINUTE`). The built-in limiter is
-  in-process; multi-worker/multi-instance deployments must enforce limits at the
-  ingress/proxy layer.
+- **Rate limiting** per client (`RATE_LIMIT_PER_MINUTE`). Default backend is
+  in-process (`RATE_LIMIT_BACKEND=memory`). Set `RATE_LIMIT_BACKEND=file` so
+  workers on the same host share a flock-backed store. Multi-host deployments
+  must still enforce limits at the ingress/proxy layer (or Redis).
 - **Upload validation:** content-type, `%PDF-` signature, byte-size cap
   (`MAX_UPLOAD_BYTES`), and page-count cap (`MAX_PDF_PAGES`).
 - **DoS bounds:** PDF parsing runs off the event loop under a wall-clock timeout

@@ -162,6 +162,7 @@
           <label><input type="checkbox" id="fallback" /> AI fallback</label>
           <label><input type="checkbox" id="semantic" /> Semantic inference</label>
           <label><input type="checkbox" id="flatten" /> Flatten PDF</label>
+          <label><input type="checkbox" id="needAppearances" checked /> NeedAppearances</label>
         </div>
       </section>
     </div>
@@ -298,12 +299,21 @@
           setStatus(formatApiError(payload, response.status), 'err');
           return;
         }
-        const lines = payload.fields.map(f =>
-          (f.required ? '* ' : '  ') + f.name + ' (' + f.field_type + ', page ' + f.page_number + ')'
-        );
+        const lines = payload.fields.map(f => {
+          const quality = f.name_quality === 'opaque' ? ' [opaque]' : '';
+          return (f.required ? '* ' : '  ') + f.name + ' (' + f.field_type + ', page ' + f.page_number + ')' + quality;
+        });
+        const hints = (payload.mapping_hints || []).map(h => '- ' + h).join('\n');
         inspectOut.style.display = 'block';
-        inspectOut.textContent = 'Fields (' + payload.field_count + '):\n' + lines.join('\n');
-        setStatus('Inspect complete. Required fields are marked with *.');
+        inspectOut.textContent =
+          'Fields (' + payload.field_count + ', opaque: ' + (payload.opaque_field_count || 0) + '):\n'
+          + lines.join('\n')
+          + (hints ? '\n\nHints:\n' + hints : '');
+        setStatus(
+          payload.opaque_field_count
+            ? 'Inspect complete. Opaque names detected — see hints below.'
+            : 'Inspect complete. Required fields are marked with *.'
+        );
       } catch (err) {
         setStatus('Network error: ' + err.message, 'err');
       } finally {
@@ -349,12 +359,14 @@
         });
         const missing = (payload.missing_required || []).join(', ') || '(none)';
         const unmapped = (payload.unmapped_user_keys || []).join(', ') || '(none)';
+        const hints = (payload.mapping_hints || []).map(h => '- ' + h).join('\n');
         inspectOut.style.display = 'block';
         inspectOut.textContent =
           'Preview (' + payload.field_count + ' fields, ' + payload.pages + ' pages)\n\n'
           + 'Decisions:\n' + (decisionLines.join('\n') || '(none)') + '\n\n'
           + 'Missing required: ' + missing + '\n'
-          + 'Unmapped user keys: ' + unmapped;
+          + 'Unmapped user keys: ' + unmapped
+          + (hints ? '\n\nHints:\n' + hints : '');
         setStatus('Preview complete. Review decisions before filling.', 'ok');
       } catch (err) {
         setStatus('Network error: ' + err.message, 'err');
@@ -390,6 +402,7 @@
       form.append('allow_fallback_mapping', document.getElementById('fallback').checked ? 'true' : 'false');
       form.append('use_semantic_inference', document.getElementById('semantic').checked ? 'true' : 'false');
       form.append('flatten', document.getElementById('flatten').checked ? 'true' : 'false');
+      form.append('need_appearances', document.getElementById('needAppearances').checked ? 'true' : 'false');
 
       try {
         const response = await fetch('/fill', { method: 'POST', body: form, headers: authHeaders() });

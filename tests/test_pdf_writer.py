@@ -215,6 +215,37 @@ def test_fill_pdf_flatten_removes_widget_annotations(tmp_path):
     assert annots in (None, [])
 
 
+def test_fill_pdf_sets_need_appearances_by_default(tmp_path):
+    from pypdf import PdfReader
+    from pypdf.generic import BooleanObject
+
+    input_pdf = tmp_path / "input.pdf"
+    output_pdf = tmp_path / "output.pdf"
+    create_pdf_with_checkbox(input_pdf)
+    fill_pdf(input_pdf, output_pdf, _checkbox_decision("true"))
+
+    acro = PdfReader(str(output_pdf)).trailer["/Root"]["/AcroForm"].get_object()
+    assert acro.get("/NeedAppearances") == BooleanObject(True)
+
+
+def test_fill_pdf_can_clear_need_appearances(tmp_path):
+    from pypdf import PdfReader
+    from pypdf.generic import BooleanObject
+
+    input_pdf = tmp_path / "input.pdf"
+    output_pdf = tmp_path / "output.pdf"
+    create_pdf_with_checkbox(input_pdf)
+    fill_pdf(
+        input_pdf,
+        output_pdf,
+        _checkbox_decision("true"),
+        need_appearances=False,
+    )
+
+    acro = PdfReader(str(output_pdf)).trailer["/Root"]["/AcroForm"].get_object()
+    assert acro.get("/NeedAppearances") == BooleanObject(False)
+
+
 @pytest.mark.parametrize("value", ["true", "Yes", "1", "on", "/Yes"])
 def test_fill_pdf_checks_checkbox_for_truthy_values(tmp_path, value):
     """Truthy values must set the checkbox to its on-state, not leave it /Off."""
