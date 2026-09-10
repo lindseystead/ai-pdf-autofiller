@@ -31,17 +31,5 @@ Supporting documentation for the PDF Autofiller service. Claims in these docs ma
 
 Static site: [docs/site/](site/). Source images live in [assets/](assets/).
 
-**Claude / admin handoff:** remaining GitHub About / homepage / social-preview /
-stale-PR work is documented in
-[GITHUB_STOREFRONT_HANDOFF.md](GITHUB_STOREFRONT_HANDOFF.md). Code polish through
-**v0.6.3** is already on `main`; only Settings/admin steps are left.
-
-Quick admin commands (your `gh` login, not a cloud-agent token):
-
-```bash
-bash scripts/apply-repo-metadata.sh
-bash scripts/fix-github-storefront.sh
-```
-
-Then upload `docs/assets/social-preview.png` under **Settings → General → Social preview**.
-Enable Pages (Actions) before setting a homepage URL, or leave homepage blank.
+Repo description/topics/homepage are kept in sync with `scripts/apply-repo-metadata.sh`
+(run with your own `gh` login, not a cloud-agent token, whenever the storefront copy changes).
