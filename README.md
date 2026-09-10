@@ -12,15 +12,13 @@ Open-source FastAPI service · browser playground · Python SDK · Docker image
 [![Release](https://img.shields.io/github/v/release/lindseystead/ai-pdf-autofiller?label=release)](https://github.com/lindseystead/ai-pdf-autofiller/releases)
 [![GitHub stars](https://img.shields.io/github/stars/lindseystead/ai-pdf-autofiller?style=social)](https://github.com/lindseystead/ai-pdf-autofiller/stargazers)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue.svg)](https://www.python.org/downloads/)
-[![Coverage](https://img.shields.io/badge/coverage-%E2%89%A585%25-brightgreen.svg)](https://github.com/lindseystead/ai-pdf-autofiller)
+[![Coverage](https://img.shields.io/badge/coverage-%E2%89%A585%25-brightgreen.svg)](docs/TESTING.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Docker](https://img.shields.io/badge/docker-ghcr.io-blue)](https://github.com/lindseystead/ai-pdf-autofiller/pkgs/container/ai-pdf-autofiller)
 
-[Try in Codespaces](#try-it-now) · [Install](#install) · [API](#api) · [FAQ](docs/FAQ.md) · [Recipes](recipes/) · [Docs](docs/)
+[Try in Codespaces](#try-it-now) · [Install](#install) · [Demo transcript](docs/assets/demo-terminal.txt) · [API](#api) · [FAQ](docs/FAQ.md) · [Recipes](recipes/) · [Docs](docs/)
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/lindseystead/ai-pdf-autofiller)
-
-**Keywords:** `pdf` · `acroform` · `form-filling` · `fastapi` · `python` · `automation` · `api` · `docker` · `document-processing` · `govtech` · `w9` · `self-hosted`
 
 </div>
 
@@ -28,13 +26,13 @@ Open-source FastAPI service · browser playground · Python SDK · Docker image
 
 ## What it does
 
-Turn `{"firstname":"Jane","lastname":"Doe"}` into a filled PDF — even when the form uses `txtFirstName`, `given_name`, or other common synonyms. Opaque names like `field_12` use optional AI.
+Turn `{"firstname":"Jane","lastname":"Doe"}` into a filled PDF — even when the form uses `txtFirstName`, `given_name`, or other common synonyms. Opaque names like `field_12` use optional AI (off by default); `/inspect` flags them.
 
 | Input | Output |
 |-------|--------|
-| Any fillable AcroForm PDF | Completed PDF with fields written |
-| JSON user profile | Mapped automatically via aliases + normalization |
-| Optional AI (off by default) | Semantic inference for opaque field names (`/inspect` flags them) |
+| Fillable AcroForm PDF | Completed PDF with fields written |
+| JSON user profile | Mapped via aliases + normalization |
+| Optional AI (off by default) | Semantic inference for opaque field names |
 
 **Popular uses:** HR onboarding packets · insurance intake · workflow automation (n8n, Zapier, curl) · W-9-**shaped** AcroForms (synthetic fixtures in CI — not IRS-certified)
 
@@ -65,6 +63,13 @@ pip install -e .
 python3 -c 'from pdf_autofiller import fill; fill("samples/sample_form.pdf", {"firstname":"Jane","lastname":"Doe","dob":"1990-01-01"}, "filled.pdf")'
 ```
 
+<details>
+<summary>Demo transcript (curl inspect → preview → fill)</summary>
+
+See the captured output in [`docs/assets/demo-terminal.txt`](docs/assets/demo-terminal.txt). Regenerate with `scripts/capture_demo_transcript.sh` while the API is running.
+
+</details>
+
 ## Install
 
 | Method | Command |
@@ -72,9 +77,8 @@ python3 -c 'from pdf_autofiller import fill; fill("samples/sample_form.pdf", {"f
 | **Docker Compose** | `docker compose up --build` |
 | **Docker** | `docker run -p 8000:8000 -e API_AUTH_ENABLED=false ghcr.io/lindseystead/ai-pdf-autofiller:latest` |
 | **From source** | `git clone https://github.com/lindseystead/ai-pdf-autofiller.git && cd ai-pdf-autofiller && pip install -r requirements-dev.txt && API_AUTH_ENABLED=false make run-api` |
-| **GitHub Release wheel** | `make install-release` — supported install without PyPI ([Releases](https://github.com/lindseystead/ai-pdf-autofiller/releases)) |
+| **GitHub Release wheel** | `make install-release` — install from [Releases](https://github.com/lindseystead/ai-pdf-autofiller/releases) without PyPI |
 | **Library (editable)** | `pip install -e .` then `from pdf_autofiller import fill` |
-| **PyPI** | Deferred — `pip install pdf-autofiller` is not live yet. Workflow is ready (OIDC / `environment: pypi`) but manual until a one-time [Trusted Publisher](https://pypi.org/manage/account/publishing/) is added. See [docs/RELEASE.md](docs/RELEASE.md). |
 
 ```python
 from pdf_autofiller import fill
@@ -91,6 +95,8 @@ from pdf_autofiller import PDFAutofillerClient
 client = PDFAutofillerClient("http://localhost:8000", api_key="…")
 client.fill_to_file("form.pdf", {"firstname": "Jane"}, "filled.pdf")
 ```
+
+> PyPI (`pip install pdf-autofiller`) is not published yet. Release wheels and Docker cover install today; see [docs/RELEASE.md](docs/RELEASE.md) if you want to enable Trusted Publishing later.
 
 ## API
 
@@ -158,10 +164,11 @@ flowchart LR
 |-----|----------|
 | [docs/FAQ.md](docs/FAQ.md) | vs SaaS, AcroForm vs scan, auth, local vs HTTP |
 | [docs/API.md](docs/API.md) | Endpoints and errors |
-| [docs/RELEASE.md](docs/RELEASE.md) | Tag → GHCR / Release assets (PyPI optional) |
 | [docs/OPERATIONS.md](docs/OPERATIONS.md) | Config and deployment |
+| [SECURITY.md](SECURITY.md) | Reporting, auth, rate limits, data handling |
 | [docs/TESTING.md](docs/TESTING.md) | Tests and CI |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Module boundaries |
+| [docs/RELEASE.md](docs/RELEASE.md) | Tag → GHCR / Release assets |
 | [docs/integrations/](docs/integrations/) | n8n, Zapier, LangChain |
 | [samples/README.md](samples/README.md) | Corpus fixtures |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | How to contribute |

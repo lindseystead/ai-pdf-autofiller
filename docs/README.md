@@ -31,6 +31,13 @@ Supporting documentation for the PDF Autofiller service. Claims in these docs ma
 
 Static site: [docs/site/](site/). Source images live in [assets/](assets/).
 
+**GitHub Pages:** enable Settings → Pages → Source = **GitHub Actions**, then the
+`Deploy GitHub Pages` workflow publishes `docs/site/`. Until then, leave the
+repo homepage blank (a 404 hurts recruiter first impressions).
+
+**Social preview:** upload `docs/assets/social-preview.png` under Settings →
+General → Social preview.
+
 To update GitHub **description** and **topics** (search visibility on GitHub):
 
 ```bash

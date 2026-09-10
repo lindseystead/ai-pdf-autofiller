@@ -17,7 +17,7 @@ def test_playground_page_renders_html():
     response = client.get("/playground")
     assert response.status_code == 200
     assert "text/html" in response.headers["content-type"]
-    assert "Fill any PDF from JSON" in response.text
+    assert "Fill AcroForm PDFs from JSON" in response.text
     assert 'id="fillBtn"' in response.text
     assert 'id="loadSamplePdfBtn"' in response.text
     assert 'id="inspectBtn"' in response.text

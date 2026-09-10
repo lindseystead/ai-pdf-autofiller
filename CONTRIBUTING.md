@@ -36,7 +36,14 @@ The helper targets in `Makefile` are the supported shortcuts for common local wo
 
 ## Pull Requests
 
-- Describe the problem being solved and the behavioral change.
+- Prefer **one focused commit per PR** (or squash before merge). This repo uses
+  **squash merges** onto `main` so history stays linear.
+- Write commit subjects in the imperative mood, ≤72 characters when possible
+  (example: `Polish recruiter packaging for v0.6.3`).
+- Put context in the body: what changed and why — not WIP notes, “fix typo”,
+  or accidental artifact cleanups. Those belong in a rewritten local history
+  before you push, not in the final squash message.
+- Describe the problem being solved and the behavioral change in the PR body.
 - Call out any API contract changes, security implications, or deployment impact.
 - Include the validation commands you ran locally.
 - Update `CHANGELOG.md` when the change materially affects behavior, docs, or operations.
