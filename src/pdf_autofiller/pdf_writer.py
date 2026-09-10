@@ -27,12 +27,12 @@ _BUTTON_FALSY = {"false", "no", "off", "0", "unchecked", "n", ""}
 class UnresolvedRequiredFieldsError(Exception):
     """
     Exception raised when required fields can't be filled.
-    
+
     This happens when required fields are missing from user data or were
     skipped due to requires_review=True. The system won't write incomplete
     forms to avoid producing invalid documents.
     """
-    
+
     def __init__(self, missing_fields: list[str], skipped_fields: list[str]):
         self.missing_fields = missing_fields
         self.skipped_fields = skipped_fields
@@ -40,7 +40,9 @@ class UnresolvedRequiredFieldsError(Exception):
         if missing_fields:
             message_parts.append(f"Missing required fields: {', '.join(missing_fields)}")
         if skipped_fields:
-            message_parts.append(f"Skipped required fields (requires_review=True): {', '.join(skipped_fields)}")  # noqa: E501
+            message_parts.append(
+                f"Skipped required fields (requires_review=True): {', '.join(skipped_fields)}"
+            )
         super().__init__("; ".join(message_parts))
 
 
@@ -108,10 +110,7 @@ def _resolve_button_value(field_obj, value: str) -> str | None:
     value cannot be mapped to a known state.
     """
     raw = value.strip()
-    state_lookup = {
-        state.lstrip("/").lower(): "/" + state.lstrip("/")
-        for state in _button_states(field_obj)
-    }
+    state_lookup = {state.lstrip("/").lower(): "/" + state.lstrip("/") for state in _button_states(field_obj)}
     on_states = [state for key, state in state_lookup.items() if key != "off"]
     normalized = raw.lstrip("/").lower()
 
@@ -125,9 +124,7 @@ def _resolve_button_value(field_obj, value: str) -> str | None:
     if normalized in _BUTTON_FALSY:
         return "/Off"
 
-    logger.debug(
-        "Could not resolve button value %r to a known state; skipping", value
-    )
+    logger.debug("Could not resolve button value %r to a known state; skipping", value)
     return None
 
 
@@ -152,14 +149,14 @@ def _choice_options(field_obj) -> list[str]:
     return options
 
 
-def _resolve_choice_value(field_obj, value: str) -> str:
+def _resolve_choice_value(field_obj, value: str) -> str | None:
     """
     Resolve a mapped value for a choice (``/Ch``) field.
 
     Writes the value as-is when no options are declared. When ``/Opt`` or
-    ``/_States_`` are present, prefers an exact (case-insensitive) option match.
-    Signature fields (``/Sig``) are never filled — callers skip them before
-    reaching this helper.
+    ``/_States_`` are present, requires a case-insensitive option match —
+    unmatched values return ``None`` so callers can report them as unwritable
+    instead of writing an invalid option.
     """
     raw = value.strip()
     options = _choice_options(field_obj)
@@ -168,7 +165,10 @@ def _resolve_choice_value(field_obj, value: str) -> str:
 
     lookup = {opt.lstrip("/").lower(): opt for opt in options}
     matched = lookup.get(raw.lstrip("/").lower())
-    return matched if matched is not None else raw
+    if matched is None:
+        logger.debug("Could not resolve choice value %r to a known option; skipping", value)
+        return None
+    return matched
 
 
 def fill_pdf(
@@ -180,7 +180,7 @@ def fill_pdf(
 ) -> FillReport:
     """
     Fill PDF form fields with mapped values from mapping result.
-    
+
     Writes values from FieldMappingDecision objects into the PDF form fields.
     Skips fields where requires_review=True or selected_value is None.
     Checkbox and radio (``/Btn``) values are translated to valid PDF state
@@ -204,7 +204,7 @@ def fill_pdf(
     Raises:
         FileNotFoundError: If input PDF does not exist
         UnresolvedRequiredFieldsError: If required fields are missing or skipped
-        
+
     Example:
         >>> from pathlib import Path
         >>> from pdf_autofiller.models import MappingResult, FieldMappingDecision
@@ -226,15 +226,15 @@ def fill_pdf(
     """
     if not input_pdf_path.exists():
         raise FileNotFoundError(f"Input PDF not found: {input_pdf_path}")
-    
+
     reader = PdfReader(str(input_pdf_path))
     writer = PdfWriter()
-    
+
     # Clone document structure to preserve formatting
     writer.clone_reader_document_root(reader)
-    
+
     pdf_fields = _collect_pdf_fields(reader)
-    
+
     written_fields: set[str] = set()
     skipped_required_fields: list[str] = []
     skipped_review_fields: list[str] = []
@@ -283,18 +283,22 @@ def fill_pdf(
                     continue
                 value = resolved
             elif field_ft == "/Ch":
-                value = _resolve_choice_value(field_obj, value)
-            written_fields.add(field_name)
+                resolved_choice = _resolve_choice_value(field_obj, value)
+                if resolved_choice is None:
+                    _mark_unwritable(field_name, "unresolved_choice_option")
+                    continue
+                value = resolved_choice
             field_values[field_name] = value
             continue
 
         # If field introspection failed entirely, still let pypdf attempt the write.
-        written_fields.add(field_name)
         field_values[field_name] = decision.selected_value
-    
-    # Write field values to PDF
-    # Try batch update first, fall back to individual updates if needed
+
+    # Write field values to PDF. Only fields with at least one successful
+    # update_page_form_field_values call are reported as written — failures
+    # are never silently counted as success.
     if field_values:
+        confirmed_writes: set[str] = set()
         for page in writer.pages:
             try:
                 writer.update_page_form_field_values(
@@ -303,12 +307,12 @@ def fill_pdf(
                     auto_regenerate=False,
                     flatten=flatten,
                 )
+                confirmed_writes.update(field_values.keys())
             except Exception:
                 logger.debug(
                     "Batch field update failed on page; trying per-field writes",
                     exc_info=True,
                 )
-                # Fallback: update fields individually
                 for field_name, value in field_values.items():
                     try:
                         writer.update_page_form_field_values(
@@ -317,6 +321,7 @@ def fill_pdf(
                             auto_regenerate=False,
                             flatten=flatten,
                         )
+                        confirmed_writes.add(field_name)
                     except Exception:
                         logger.debug(
                             "Failed to update individual field '%s' on a page",
@@ -324,15 +329,21 @@ def fill_pdf(
                             exc_info=True,
                         )
 
+        for field_name in field_values:
+            if field_name in confirmed_writes:
+                written_fields.add(field_name)
+            else:
+                _mark_unwritable(field_name, "write_failed")
+
     if flatten:
         try:
             writer.remove_annotations(subtypes="/Widget")
         except Exception:
             logger.debug("Failed to remove widget annotations after flatten", exc_info=True)
-    
+
     # Validate that all required fields were filled
     missing_required = mapping_result.missing_required.copy()
-    
+
     # Check PDF form fields for any required fields we missed
     for field_name, field_obj in (pdf_fields or {}).items():
         if not is_field_required(field_obj):
@@ -341,22 +352,20 @@ def fill_pdf(
             continue
         # Check if it was skipped due to review flag
         skipped_decisions = [
-            d for d in mapping_result.decisions
-            if d.field_name == field_name and d.requires_review
+            d for d in mapping_result.decisions if d.field_name == field_name and d.requires_review
         ]
         if skipped_decisions:
             if field_name not in skipped_required_fields:
                 skipped_required_fields.append(field_name)
         else:
             missing_required.append(field_name)
-    
+
     # Fail if required fields unresolved
     if missing_required or skipped_required_fields:
         raise UnresolvedRequiredFieldsError(
-            missing_fields=missing_required,
-            skipped_fields=skipped_required_fields
+            missing_fields=missing_required, skipped_fields=skipped_required_fields
         )
-    
+
     # Write output PDF
     output_pdf_path.parent.mkdir(parents=True, exist_ok=True)
     with output_pdf_path.open("wb") as output_file:
@@ -368,5 +377,3 @@ def fill_pdf(
         skipped_empty_fields=skipped_empty_fields,
         skipped_unwritable_fields=skipped_unwritable_fields,
     )
-
-

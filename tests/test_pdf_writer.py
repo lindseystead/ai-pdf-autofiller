@@ -12,14 +12,14 @@ from pdf_autofiller.pdf_writer import UnresolvedRequiredFieldsError, fill_pdf
 def create_minimal_pdf_with_fields(output_path: Path, field_names: list[str]) -> None:
     """
     Create a minimal PDF with form fields for testing.
-    
+
     Note: Keeps PDF structure minimal; tests focus on writer decisions.
     """
     from pypdf import PdfWriter
     from pypdf.generic import NameObject
-    
+
     writer = PdfWriter()
-    
+
     page = writer.add_blank_page(width=612, height=792)
 
     del field_names  # Placeholder for future explicit field construction.
@@ -154,6 +154,52 @@ def test_fill_pdf_writes_choice_field_matching_option(tmp_path):
     assert str(fields["cmbState"].get("/V")) == "NY"
 
 
+def test_fill_pdf_reports_unmatched_choice_as_unwritable(tmp_path):
+    input_pdf = tmp_path / "choice.pdf"
+    output_pdf = tmp_path / "out.pdf"
+    create_pdf_with_choice(input_pdf)
+
+    mapping = MappingResult(
+        decisions=[
+            FieldMappingDecision(
+                field_name="cmbState",
+                semantic_meaning="state",
+                selected_value="ZZ",
+                confidence=0.95,
+                reason="Direct match",
+                requires_review=False,
+            )
+        ],
+        missing_required=[],
+        unmapped_user_keys=[],
+    )
+    report = fill_pdf(input_pdf, output_pdf, mapping)
+    assert "cmbState" not in report.written_fields
+    assert any(
+        item.startswith("cmbState (unresolved_choice_option)") for item in report.skipped_unwritable_fields
+    )
+
+
+def test_fill_pdf_reports_write_failed_when_pypdf_raises(tmp_path, monkeypatch):
+    """Failed pypdf updates must not be reported as written."""
+    input_pdf = tmp_path / "chk.pdf"
+    output_pdf = tmp_path / "out.pdf"
+    create_pdf_with_checkbox(input_pdf)
+
+    def boom(*_args, **_kwargs):
+        raise RuntimeError("simulated write failure")
+
+    monkeypatch.setattr(
+        pdf_writer_module.PdfWriter,
+        "update_page_form_field_values",
+        boom,
+    )
+
+    report = fill_pdf(input_pdf, output_pdf, _checkbox_decision("true"))
+    assert report.written_fields == []
+    assert any(item.startswith("chkAgree (write_failed)") for item in report.skipped_unwritable_fields)
+
+
 def test_fill_pdf_flatten_removes_widget_annotations(tmp_path):
     from pypdf import PdfReader
 
@@ -239,10 +285,7 @@ def test_fill_pdf_reports_missing_widget_as_unwritable(tmp_path):
     )
     report = fill_pdf(input_pdf, output_pdf, mapping)
     assert "GhostField" not in report.written_fields
-    assert any(
-        entry.startswith("GhostField (missing_widget)")
-        for entry in report.skipped_unwritable_fields
-    )
+    assert any(entry.startswith("GhostField (missing_widget)") for entry in report.skipped_unwritable_fields)
 
 
 def test_fill_pdf_reports_unresolved_button_state(tmp_path):
@@ -268,8 +311,7 @@ def test_fill_pdf_reports_unresolved_button_state(tmp_path):
     report = fill_pdf(input_pdf, output_pdf, mapping)
     assert "chkAgree" not in report.written_fields
     assert any(
-        entry.startswith("chkAgree (unresolved_button_state)")
-        for entry in report.skipped_unwritable_fields
+        entry.startswith("chkAgree (unresolved_button_state)") for entry in report.skipped_unwritable_fields
     )
 
 
@@ -284,7 +326,7 @@ def sample_mapping_result():
                 selected_value="John",
                 confidence=0.95,
                 reason="Direct match",
-                requires_review=False
+                requires_review=False,
             ),
             FieldMappingDecision(
                 field_name="txtLastName",
@@ -292,11 +334,11 @@ def sample_mapping_result():
                 selected_value="Doe",
                 confidence=0.95,
                 reason="Direct match",
-                requires_review=False
+                requires_review=False,
             ),
         ],
         missing_required=[],
-        unmapped_user_keys=[]
+        unmapped_user_keys=[],
     )
 
 
@@ -311,7 +353,7 @@ def sample_mapping_result_with_review():
                 selected_value="John",
                 confidence=0.95,
                 reason="Direct match",
-                requires_review=False
+                requires_review=False,
             ),
             FieldMappingDecision(
                 field_name="txtDOB",
@@ -319,11 +361,11 @@ def sample_mapping_result_with_review():
                 selected_value="1990-05-15",
                 confidence=0.65,
                 reason="Ambiguous date format",
-                requires_review=True
+                requires_review=True,
             ),
         ],
         missing_required=[],
-        unmapped_user_keys=[]
+        unmapped_user_keys=[],
     )
 
 
@@ -338,28 +380,20 @@ def sample_mapping_result_missing_required():
                 selected_value="John",
                 confidence=0.95,
                 reason="Direct match",
-                requires_review=False
+                requires_review=False,
             ),
         ],
         missing_required=["txtLastName"],
-        unmapped_user_keys=[]
+        unmapped_user_keys=[],
     )
 
 
 def test_fill_pdf_nonexistent_input():
     """Test fill_pdf raises FileNotFoundError for nonexistent input."""
-    result = MappingResult(
-        decisions=[],
-        missing_required=[],
-        unmapped_user_keys=[]
-    )
-    
+    result = MappingResult(decisions=[], missing_required=[], unmapped_user_keys=[])
+
     with pytest.raises(FileNotFoundError):
-        fill_pdf(
-            Path("nonexistent.pdf"),
-            Path("output.pdf"),
-            result
-        )
+        fill_pdf(Path("nonexistent.pdf"), Path("output.pdf"), result)
 
 
 def test_fill_pdf_skips_requires_review_fields(tmp_path, sample_mapping_result_with_review):
@@ -368,6 +402,7 @@ def test_fill_pdf_skips_requires_review_fields(tmp_path, sample_mapping_result_w
     output_pdf = tmp_path / "output.pdf"
 
     from pypdf import PdfWriter
+
     writer = PdfWriter()
     writer.add_blank_page(width=612, height=792)
     with open(input_pdf, "wb") as f:
@@ -381,8 +416,9 @@ def test_fill_pdf_missing_required_fields(tmp_path, sample_mapping_result_missin
     """Test that fill_pdf raises UnresolvedRequiredFieldsError for missing required fields."""
     input_pdf = tmp_path / "input.pdf"
     output_pdf = tmp_path / "output.pdf"
-    
+
     from pypdf import PdfWriter
+
     writer = PdfWriter()
     writer.add_blank_page(width=612, height=792)
     with open(input_pdf, "wb") as f:
@@ -390,7 +426,7 @@ def test_fill_pdf_missing_required_fields(tmp_path, sample_mapping_result_missin
 
     with pytest.raises(UnresolvedRequiredFieldsError) as exc_info:
         fill_pdf(input_pdf, output_pdf, sample_mapping_result_missing_required)
-    
+
     assert "txtLastName" in str(exc_info.value)
     assert "Missing required fields" in str(exc_info.value)
 
@@ -405,7 +441,7 @@ def test_fill_pdf_skips_none_values(tmp_path):
                 selected_value=None,
                 confidence=0.95,
                 reason="Direct match",
-                requires_review=False
+                requires_review=False,
             ),
             FieldMappingDecision(
                 field_name="txtLastName",
@@ -413,17 +449,18 @@ def test_fill_pdf_skips_none_values(tmp_path):
                 selected_value="Doe",
                 confidence=0.95,
                 reason="Direct match",
-                requires_review=False
+                requires_review=False,
             ),
         ],
         missing_required=[],
-        unmapped_user_keys=[]
+        unmapped_user_keys=[],
     )
-    
+
     input_pdf = tmp_path / "input.pdf"
     output_pdf = tmp_path / "output.pdf"
-    
+
     from pypdf import PdfWriter
+
     writer = PdfWriter()
     writer.add_blank_page(width=612, height=792)
     with open(input_pdf, "wb") as f:
@@ -436,11 +473,8 @@ def test_fill_pdf_skips_none_values(tmp_path):
 
 def test_unresolved_required_fields_error():
     """Test UnresolvedRequiredFieldsError exception."""
-    error = UnresolvedRequiredFieldsError(
-        missing_fields=["field1", "field2"],
-        skipped_fields=["field3"]
-    )
-    
+    error = UnresolvedRequiredFieldsError(missing_fields=["field1", "field2"], skipped_fields=["field3"])
+
     assert "field1" in str(error)
     assert "field2" in str(error)
     assert "field3" in str(error)
@@ -458,18 +492,19 @@ def test_fill_pdf_creates_output_directory(tmp_path):
                 selected_value="John",
                 confidence=0.95,
                 reason="Direct match",
-                requires_review=False
+                requires_review=False,
             ),
         ],
         missing_required=[],
-        unmapped_user_keys=[]
+        unmapped_user_keys=[],
     )
-    
+
     input_pdf = tmp_path / "input.pdf"
     output_dir = tmp_path / "nested" / "output"
     output_pdf = output_dir / "output.pdf"
-    
+
     from pypdf import PdfWriter
+
     writer = PdfWriter()
     writer.add_blank_page(width=612, height=792)
     with open(input_pdf, "wb") as f:
