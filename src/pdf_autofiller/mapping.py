@@ -22,6 +22,7 @@ from .aliases import (
     normalize_key,
 )
 from .field_semantics import SemanticClient, strip_json_code_fence
+from .field_utils import opaque_mapping_hints
 from .models import (
     EnrichedFormField,
     FieldMappingDecision,
@@ -299,6 +300,7 @@ def map_user_data_to_fields(
     allow_fallback_mapping: bool = False,
     api_key: str | None = None,
     registry: AliasRegistry | None = None,
+    use_semantic_inference: bool = False,
 ) -> MappingResult:
     """
     Map user-provided structured data to PDF form fields.
@@ -367,9 +369,16 @@ def map_user_data_to_fields(
 
     missing_required = [f.field.name for f in unmapped_fields if f.field.required]
     unmapped_user_keys = [key for key in user_data if key not in used_user_keys]
+    all_names = [f.field.name for f in enriched_fields]
+    unmatched_opaque = [f.field.name for f in unmapped_fields]
 
     return MappingResult(
         decisions=decisions,
         missing_required=missing_required,
         unmapped_user_keys=unmapped_user_keys,
+        mapping_hints=opaque_mapping_hints(
+            all_names,
+            unmatched_opaque=unmatched_opaque,
+            use_semantic_inference=use_semantic_inference,
+        ),
     )

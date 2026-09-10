@@ -22,6 +22,14 @@ PDF_READ_TIMEOUT_SECONDS = float(os.getenv("PDF_READ_TIMEOUT_SECONDS", "20"))
 PDF_JOB_BACKEND = os.getenv("PDF_JOB_BACKEND", "process").lower()
 PDF_MAX_CONCURRENT = max(1, int(os.getenv("PDF_MAX_CONCURRENT", "2")))
 RATE_LIMIT_PER_MINUTE = int(os.getenv("RATE_LIMIT_PER_MINUTE", "60"))
+# memory = per-process (default). file = flock-backed store shared by workers on one host.
+RATE_LIMIT_BACKEND = os.getenv("RATE_LIMIT_BACKEND", "memory").strip().lower()
+if RATE_LIMIT_BACKEND not in {"memory", "file"}:
+    RATE_LIMIT_BACKEND = "memory"
+RATE_LIMIT_STORE_PATH = os.getenv(
+    "RATE_LIMIT_STORE_PATH",
+    "/tmp/pdf-autofiller-rate-limit.json",
+)
 TRUST_PROXY_HEADERS = os.getenv("TRUST_PROXY_HEADERS", "false").lower() == "true"
 UPLOAD_CHUNK_BYTES = 64 * 1024
 

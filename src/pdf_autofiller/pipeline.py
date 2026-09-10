@@ -10,6 +10,7 @@ from typing import Any
 
 from .aliases import AliasRegistry
 from .field_semantics import SemanticClient
+from .field_utils import is_opaque_field_name, opaque_mapping_hints
 from .mapping import (
     canonicalize_semantic,
     expected_type_for_semantic,
@@ -47,13 +48,16 @@ def fallback_semantics(
     # (firstname) so alias clusters and recipes stay consistent.
     semantic = canonicalize_semantic(normalized, registry=registry) if normalized else "unknown_field"
     expected_type = expected_type_for_semantic(semantic, field_type=field.field_type)
+    # Opaque widget names rarely match JSON keys via normalize alone — keep
+    # confidence low so callers prefer exact keys, aliases, or semantic inference.
+    confidence = 0.35 if is_opaque_field_name(field.name) else 0.5
 
     return EnrichedFormField(
         field=field,
         semantics=FieldSemantics(
             semantic_meaning=semantic,
             expected_data_type=expected_type,
-            confidence_score=0.5,
+            confidence_score=confidence,
         ),
     )
 
@@ -127,10 +131,15 @@ def enrich_fields(
 def inspect(pdf: str | Path, *, max_pages: int | None = None) -> InspectResult:
     """List AcroForm fields locally (no HTTP server)."""
     structure = read_pdf(Path(pdf), max_pages=max_pages)
+    fields = list(structure.form_fields)
+    opaque_names = [field.name for field in fields if is_opaque_field_name(field.name)]
     return InspectResult(
         pages=structure.metadata.num_pages,
-        field_count=len(structure.form_fields),
-        fields=list(structure.form_fields),
+        field_count=len(fields),
+        fields=fields,
+        opaque_field_count=len(opaque_names),
+        opaque_fields=opaque_names[:50],
+        mapping_hints=opaque_mapping_hints([field.name for field in fields]),
     )
 
 
@@ -160,6 +169,7 @@ def run_preview_pipeline(
         user_data,
         strict=strict,
         allow_fallback_mapping=allow_fallback_mapping,
+        use_semantic_inference=use_semantic_inference,
         registry=registry,
     )
     return mapping_result, len(enriched_fields), structure.metadata.num_pages
@@ -198,6 +208,7 @@ def run_fill_pipeline(
     use_semantic_inference: bool = False,
     max_pages: int | None = None,
     flatten: bool = False,
+    need_appearances: bool = True,
     registry: AliasRegistry | None = None,
 ) -> tuple[FillReport, MappingResult, int, int]:
     """Run extract → enrich → map → write.
@@ -216,9 +227,16 @@ def run_fill_pipeline(
         user_data,
         strict=strict,
         allow_fallback_mapping=allow_fallback_mapping,
+        use_semantic_inference=use_semantic_inference,
         registry=registry,
     )
-    fill_report = fill_pdf(input_pdf_path, output_pdf_path, mapping_result, flatten=flatten)
+    fill_report = fill_pdf(
+        input_pdf_path,
+        output_pdf_path,
+        mapping_result,
+        flatten=flatten,
+        need_appearances=need_appearances,
+    )
     return (
         fill_report,
         mapping_result,
@@ -237,6 +255,7 @@ def fill(
     use_semantic_inference: bool = False,
     max_pages: int | None = None,
     flatten: bool = False,
+    need_appearances: bool = True,
     registry: AliasRegistry | None = None,
 ) -> FillReport:
     """
@@ -256,6 +275,7 @@ def fill(
         use_semantic_inference=use_semantic_inference,
         max_pages=max_pages,
         flatten=flatten,
+        need_appearances=need_appearances,
         registry=registry,
     )
     return report
@@ -271,6 +291,7 @@ def fill_detailed(
     use_semantic_inference: bool = False,
     max_pages: int | None = None,
     flatten: bool = False,
+    need_appearances: bool = True,
     registry: AliasRegistry | None = None,
 ) -> FillOutcome:
     """Fill a PDF and return write report + mapping decisions together."""
@@ -283,6 +304,7 @@ def fill_detailed(
         use_semantic_inference=use_semantic_inference,
         max_pages=max_pages,
         flatten=flatten,
+        need_appearances=need_appearances,
         registry=registry,
     )
     return FillOutcome(

@@ -15,6 +15,8 @@ Environment variables are read at process start (plain `os.getenv`). A Pydantic 
 - `PDF_MAX_CONCURRENT`: max in-flight PDF jobs per process (default `2`)
 - `MAX_PDF_TEXT_CHARS`: cap on total extracted text retained/forwarded (default `2000000`)
 - `RATE_LIMIT_PER_MINUTE`: per-client request budget for authenticated PDF POSTs; `0` disables (default `60`)
+- `RATE_LIMIT_BACKEND`: `memory` (default, per-process) or `file` (flock-backed JSON store shared by workers on the **same host**/volume)
+- `RATE_LIMIT_STORE_PATH`: path for the file backend (default `/tmp/pdf-autofiller-rate-limit.json`)
 - `TRUST_PROXY_HEADERS`: when `true`, rate limiting uses the first `X-Forwarded-For` hop from a trusted reverse proxy (default `false`)
 - `FORM_ALIASES_DIR`: optional directory of JSON alias packs for deterministic field mapping. When set to a real directory it **replaces** (does not merge with) the packaged packs. If the path is missing or not a directory, the process logs a warning and falls back to package defaults. Packs load lazily via `get_default_registry()`; changing files requires a **process restart** (or `set_default_registry(AliasRegistry.load())`) — there is no file watcher / hot reload.
 - `LOG_LEVEL`: process log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`)
@@ -35,15 +37,24 @@ Environment variables are read at process start (plain `os.getenv`). A Pydantic 
 
 ## Rate limiting (single worker vs multi-worker)
 
-The in-process sliding-window limiter is suitable for a **single uvicorn worker**. It does **not** share state across workers or replicas.
+Backends:
 
-For multi-worker or multi-instance deployments, enforce limits **outside** the app:
+| `RATE_LIMIT_BACKEND` | Scope | When to use |
+|----------------------|-------|-------------|
+| `memory` (default) | One process | Single uvicorn worker |
+| `file` | All workers sharing `RATE_LIMIT_STORE_PATH` | Multi-worker **on one host** (same volume) |
+
+The file backend uses an exclusive `fcntl` lock around a small JSON sliding window. It does **not** replace ingress limits across replicas or regions.
+
+For multi-instance / multi-host deployments, still enforce limits **outside** the app:
 
 1. **Ingress / reverse proxy** — nginx `limit_req`, Envoy rate limits, Cloudflare, AWS API Gateway, etc.
 2. **Shared store** — Redis (or similar) token bucket / sliding window in front of or beside the app.
-3. Keep `RATE_LIMIT_PER_MINUTE` as a last-resort per-process guard, or set it to `0` when ingress already enforces a global budget.
+3. Keep `RATE_LIMIT_PER_MINUTE` as a last-resort guard (`memory` or `file`), or set it to `0` when ingress already enforces a global budget.
 
 Also set `TRUST_PROXY_HEADERS=true` only when a trusted proxy strips/spoofs `X-Forwarded-For` correctly; otherwise clients can bypass per-IP limits.
+
+`GET /health` reports `rate_limit` as `in_process`, `shared_file`, or `disabled`.
 
 ## Audit Logging
 

@@ -114,6 +114,21 @@ def test_client_fill_sends_flatten_flag():
     assert call_kwargs["data"]["flatten"] == "true"
 
 
+def test_client_fill_sends_need_appearances_flag():
+    http = Mock(spec=httpx.Client)
+    http.post.return_value = _pdf_response()
+
+    sdk = PDFAutofillerClient("http://testserver", http_client=http)
+    sdk.fill(
+        b"%PDF-1.4",
+        {"firstname": "Jane"},
+        need_appearances=False,
+        filename="demo.pdf",
+    )
+    call_kwargs = http.post.call_args.kwargs
+    assert call_kwargs["data"]["need_appearances"] == "false"
+
+
 def test_client_fill_to_file(tmp_path):
     http = Mock(spec=httpx.Client)
     http.post.return_value = _pdf_response(b"%PDF-filled")
