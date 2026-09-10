@@ -14,7 +14,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from .aliases import (
     AliasRegistry,
@@ -33,6 +33,58 @@ logger = logging.getLogger(__name__)
 # Backward-compatible module alias: live view of the default registry.
 # Prefer AliasRegistry / get_default_registry() in new code.
 FIELD_ALIASES: dict[str, list[str]] = get_default_registry().aliases
+
+# Deterministic expected-type hints for known semantics (and name patterns).
+# Used by fallback enrichment so coerce_value runs on the default (non-AI) path.
+_DATE_SEMANTICS = frozenset(
+    {
+        "date_of_birth",
+        "signature_date",
+        "start_date",
+        "end_date",
+        "hire_date",
+        "termination_date",
+        "effective_date",
+        "signed_date",
+    }
+)
+_BOOLEAN_SEMANTICS = frozenset(
+    {
+        "consent",
+        "agree",
+        "acknowledgment",
+    }
+)
+
+
+def expected_type_for_semantic(
+    semantic: str,
+    *,
+    field_type: str | None = None,
+) -> Literal["string", "date", "number", "boolean"]:
+    """
+    Infer a coerce target for deterministic enrichment.
+
+    Button widgets default to ``boolean``. Known date/boolean semantics (and
+    ``*_date`` / ``date_*`` name patterns) get typed so US/common date strings
+    normalize on the default path without AI.
+    """
+    if field_type == "button":
+        return "boolean"
+
+    normalized = normalize_key(semantic)
+    if (
+        normalized in _DATE_SEMANTICS
+        or normalized.endswith("_date")
+        or normalized.startswith("date_")
+    ):
+        return "date"
+    if (
+        normalized in _BOOLEAN_SEMANTICS
+        or normalized.startswith(("is_", "has_", "chk_"))
+    ):
+        return "boolean"
+    return "string"
 
 
 def alias_pack_status() -> dict[str, str]:

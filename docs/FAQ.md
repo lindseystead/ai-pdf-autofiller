@@ -52,6 +52,10 @@ Local `fill()` and the server `POST /fill` path share `run_fill_pipeline` (same 
 
 `strict=true` (default) turns off **AI fallback mapping** only. It does **not** allow incomplete required fields. `/fill` still returns `required_fields_unresolved` when required widgets cannot be mapped or written.
 
+## Dates on the default path
+
+Deterministic enrichment types known date semantics (`date_of_birth`, `start_date`, `signature_date`, `*_date`, …) as `date`. Common US/EU forms like `01/15/1990` are normalized to `YYYY-MM-DD` without AI. Unparseable date strings are flagged `requires_review` and skipped on write (required dates then fail `/fill`).
+
 ## More docs
 
 - [API.md](API.md) — HTTP contract  

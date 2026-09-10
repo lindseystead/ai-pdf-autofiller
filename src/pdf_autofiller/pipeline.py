@@ -10,7 +10,12 @@ from typing import Any
 
 from .aliases import AliasRegistry
 from .field_semantics import SemanticClient
-from .mapping import canonicalize_semantic, map_user_data_to_fields, normalize_key
+from .mapping import (
+    canonicalize_semantic,
+    expected_type_for_semantic,
+    map_user_data_to_fields,
+    normalize_key,
+)
 from .models import (
     EnrichedFormField,
     FieldSemantics,
@@ -41,12 +46,13 @@ def fallback_semantics(
     # Prefer the canonical alias-pack key (first_name) over a stripped synonym
     # (firstname) so alias clusters and recipes stay consistent.
     semantic = canonicalize_semantic(normalized, registry=registry) if normalized else "unknown_field"
+    expected_type = expected_type_for_semantic(semantic, field_type=field.field_type)
 
     return EnrichedFormField(
         field=field,
         semantics=FieldSemantics(
             semantic_meaning=semantic,
-            expected_data_type="string",
+            expected_data_type=expected_type,
             confidence_score=0.5,
         ),
     )

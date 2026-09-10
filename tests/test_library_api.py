@@ -34,6 +34,18 @@ def test_preview_returns_mapping_without_writing(tmp_path: Path):
 
 
 @pytest.mark.skipif(not SAMPLE.exists(), reason="sample PDF not present")
+def test_preview_normalizes_us_dob_without_ai():
+    result = preview(
+        SAMPLE,
+        {"firstname": "Jane", "lastname": "Doe", "dob": "01/15/1990"},
+        strict=True,
+    )
+    dob = next(d for d in result.mapping.decisions if d.field_name == "txtDOB")
+    assert dob.selected_value == "1990-01-15"
+    assert dob.requires_review is False
+
+
+@pytest.mark.skipif(not SAMPLE.exists(), reason="sample PDF not present")
 def test_fill_detailed_includes_report_and_mapping(tmp_path: Path):
     outcome = fill_detailed(
         SAMPLE,

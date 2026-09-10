@@ -28,7 +28,7 @@ Example response:
 {
   "status": "ok",
   "service": "pdf-autofiller",
-  "version": "0.6.0",
+  "version": "0.6.2",
   "checks": {
     "auth": "disabled",
     "semantic_provider": "unconfigured",
@@ -176,13 +176,14 @@ fields that were dropped instead of silently losing them:
 - `X-PDF-Fields-Written`: count of fields that received a value
 - `X-PDF-Fields-Skipped-Review`: comma-separated field names skipped because the mapping was flagged for review
 - `X-PDF-Fields-Skipped-Empty`: comma-separated field names skipped because the mapped value was empty
-- `X-PDF-Fields-Skipped-Unwritable`: comma-separated entries `field (reason)` when a mapped value could not be written (missing widget, signature field, or unresolved checkbox/radio state)
+- `X-PDF-Fields-Skipped-Unwritable`: comma-separated entries `field (reason)` when a mapped value could not be written (`missing_widget`, `signature_field`, `unresolved_button_state`, `unresolved_choice_option`, or `write_failed`)
 
 Checkbox and radio (`/Btn`) fields are written using their PDF state names, so
 boolean-style inputs (`true`/`yes`/`1`/`on`) correctly toggle the control.
 
-Choice (`/Ch`) fields are written with the mapped value as-is, or matched to an
-option from `/Opt` / `/_States_` when available.
+Choice (`/Ch`) fields: when `/Opt` or `/_States_` are present, the value must
+match an option (case-insensitive) or it is skipped as `unresolved_choice_option`.
+When no options are declared, the mapped value is written as-is.
 
 **Signature (`/Sig`) fields are not filled** — digital signature widgets are unsupported.
 

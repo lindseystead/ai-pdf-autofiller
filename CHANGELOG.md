@@ -4,21 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-### Added
-
-- Hard-timeout PDF job isolation (`PDF_JOB_BACKEND=process` by default) with `PDF_MAX_CONCURRENT`
-- Batched semantic inference (one provider call per document instead of per field)
-- US/common date coercion to `YYYY-MM-DD` in deterministic mapping
-
 ### Fixed
 
-- Fill reports no longer count failed pypdf writes as `written_fields` (`write_failed`)
-- Choice fields with declared `/Opt` no longer accept unmatched values (`unresolved_choice_option`)
-- Documented that `strict` disables AI fallback only — required fields stay enforced
-
-### Changed
-
-- `FORM_ALIASES_DIR` docs describe lazy `AliasRegistry` load (not import-time `mapping.py` mutation)
+- Deterministic enrichment now assigns `date` / `boolean` expected types from
+  field semantics (e.g. `date_of_birth`, `start_date`, checkbox/consent), so
+  common US/EU date strings normalize to `YYYY-MM-DD` on the default path
+  without AI — matching the intended coerce behavior
+- Doc accuracy: provider-key wording, `FORM_ALIASES_DIR` fallback, unwritable
+  reasons, choice-field rules, test count, health version example
 
 ## [0.6.2]
 

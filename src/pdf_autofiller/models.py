@@ -107,7 +107,8 @@ class FillReport(BaseModel):
     callers can detect non-required fields that were dropped (for example because
     they were flagged ``requires_review``) instead of silently losing them.
     Unwritable mapped values (missing widget, signature field, unresolved
-    checkbox/radio state) are listed in ``skipped_unwritable_fields`` — never silent.
+    checkbox/radio/choice state, or confirmed write failure) are listed in
+    ``skipped_unwritable_fields`` — never silent.
     """
 
     written_fields: list[str] = Field(

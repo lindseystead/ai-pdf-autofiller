@@ -5,6 +5,7 @@ import pytest
 from pdf_autofiller import mapping as mapping_module
 from pdf_autofiller.mapping import (
     coerce_value,
+    expected_type_for_semantic,
     find_deterministic_match,
     map_user_data_to_fields,
     normalize_key,
@@ -15,6 +16,7 @@ from pdf_autofiller.models import (
     FieldSemantics,
     FormField,
 )
+from pdf_autofiller.pipeline import enrich_fields, fallback_semantics
 
 
 @pytest.fixture
@@ -500,3 +502,41 @@ def test_canonicalize_semantic_maps_synonyms_to_pack_keys():
     assert canonicalize_semantic("given_name") == "first_name"
     assert canonicalize_semantic("birthdate") == "date_of_birth"
     assert canonicalize_semantic("mystery_field") == "mystery_field"
+
+
+def test_expected_type_for_semantic_dates_and_booleans():
+    assert expected_type_for_semantic("date_of_birth") == "date"
+    assert expected_type_for_semantic("start_date") == "date"
+    assert expected_type_for_semantic("custom_expiry_date") == "date"
+    assert expected_type_for_semantic("consent") == "boolean"
+    assert expected_type_for_semantic("first_name") == "string"
+    assert expected_type_for_semantic("anything", field_type="button") == "boolean"
+
+
+def test_fallback_semantics_types_dob_and_checkbox():
+    dob = fallback_semantics(FormField(name="txtDOB", field_type="text", required=True, page_number=1))
+    assert dob.semantics.semantic_meaning == "date_of_birth"
+    assert dob.semantics.expected_data_type == "date"
+
+    consent = fallback_semantics(
+        FormField(name="chkConsent", field_type="button", required=False, page_number=1)
+    )
+    assert consent.semantics.semantic_meaning == "consent"
+    assert consent.semantics.expected_data_type == "boolean"
+
+
+def test_enrich_fields_normalizes_us_dates_without_ai():
+    """Default path (no AI) must coerce US dates for date_of_birth fields."""
+    fields = [
+        FormField(name="txtFirstName", field_type="text", required=True, page_number=1),
+        FormField(name="txtDOB", field_type="text", required=True, page_number=1),
+    ]
+    enriched = enrich_fields(fields, use_semantic_inference=False)
+    result = map_user_data_to_fields(
+        enriched,
+        {"firstname": "Jane", "dob": "01/15/1990"},
+        strict=True,
+    )
+    dob = next(d for d in result.decisions if d.field_name == "txtDOB")
+    assert dob.selected_value == "1990-01-15"
+    assert dob.requires_review is False
