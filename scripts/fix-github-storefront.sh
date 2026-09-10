@@ -13,6 +13,7 @@ bash "${ROOT}/scripts/apply-repo-metadata.sh"
 # Close stale polish / abandoned review PRs if still open
 gh pr view 31 --json state -q .state 2>/dev/null | grep -q OPEN && gh pr close 31 -c "Superseded by v0.6.3 recruiter polish on main." || true
 gh pr view 32 --json state -q .state 2>/dev/null | grep -q OPEN && gh pr close 32 -c "Stale — superseded by later hardening on main." || true
+gh pr view 48 --json state -q .state 2>/dev/null | grep -q OPEN && gh pr close 48 -c "Superseded by #49 (handoff docs on main)." || true
 
 echo
 echo "Manual (UI only):"
