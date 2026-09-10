@@ -24,7 +24,7 @@ Verify: https://github.com/lindseystead/ai-pdf-autofiller
 | About **description** | Still says “Fill **any** AcroForm PDF…” | Softened copy (no “any”) — see script below |
 | **Homepage** URL | `https://lindseystead.github.io/ai-pdf-autofiller/` (**404** — Pages not enabled) | Clear to empty **or** enable Pages then set URL |
 | **Social preview** | Not uploaded in Settings | Upload `docs/assets/social-preview.png` |
-| Stale open PRs | #31 (draft recruiter polish), #32 (stale model-path review) | Close as superseded by v0.6.3 / later hardening |
+| Stale open PRs | #31 (draft recruiter polish), #32 (stale model-path review), #48 (superseded by #49 handoff) | Close as superseded |
 
 ## What you should run (repo admin `gh` login)
 
