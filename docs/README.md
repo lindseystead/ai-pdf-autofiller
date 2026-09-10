@@ -27,23 +27,21 @@ Supporting documentation for the PDF Autofiller service. Claims in these docs ma
 | [../samples/README.md](../samples/README.md) | Sample PDFs and corpus notes |
 | [../recipes/](../recipes/) | Worked examples against shipped fixtures |
 
-## Landing page
+## Landing page / GitHub storefront
 
 Static site: [docs/site/](site/). Source images live in [assets/](assets/).
 
-**GitHub Pages:** enable Settings → Pages → Source = **GitHub Actions**, then the
-`Deploy GitHub Pages` workflow publishes `docs/site/`. Until then, leave the
-repo homepage blank (a 404 hurts recruiter first impressions).
+**Claude / admin handoff:** remaining GitHub About / homepage / social-preview /
+stale-PR work is documented in
+[GITHUB_STOREFRONT_HANDOFF.md](GITHUB_STOREFRONT_HANDOFF.md). Code polish through
+**v0.6.3** is already on `main`; only Settings/admin steps are left.
 
-**Social preview:** upload `docs/assets/social-preview.png` under Settings →
-General → Social preview.
-
-To update GitHub **description** and **topics** (search visibility on GitHub):
+Quick admin commands (your `gh` login, not a cloud-agent token):
 
 ```bash
 bash scripts/apply-repo-metadata.sh
+bash scripts/fix-github-storefront.sh
 ```
 
-Requires `gh` CLI logged in as a repo admin.
-
-Optional: upload `docs/assets/social-preview.png` under **Settings → General → Social preview** for link previews on Twitter/Slack/Discord.
+Then upload `docs/assets/social-preview.png` under **Settings → General → Social preview**.
+Enable Pages (Actions) before setting a homepage URL, or leave homepage blank.
