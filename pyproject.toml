@@ -52,6 +52,7 @@ Issues = "https://github.com/lindseystead/ai-pdf-autofiller/issues"
 Changelog = "https://github.com/lindseystead/ai-pdf-autofiller/blob/main/CHANGELOG.md"
 
 [project.scripts]
+pdf-autofiller = "pdf_autofiller.cli:main"
 pdf-autofiller-api = "pdf_autofiller.api_service:run"
 
 [tool.poetry]
