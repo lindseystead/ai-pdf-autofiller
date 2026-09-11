@@ -56,10 +56,17 @@ docker run --rm -p 8000:8000 -e API_AUTH_ENABLED=false \
   ghcr.io/lindseystead/ai-pdf-autofiller:latest
 ```
 
-Offline Python (no server):
+Offline CLI / Python (no server):
 
 ```bash
 pip install -e .
+# CLI — inspect fields, preview mapping, or fill
+pdf-autofiller inspect samples/sample_form.pdf
+pdf-autofiller fill samples/sample_form.pdf \
+  --data '{"firstname":"Jane","lastname":"Doe","dob":"1990-01-01"}' \
+  -o filled.pdf
+
+# Or as a library
 python3 -c 'from pdf_autofiller import fill; fill("samples/sample_form.pdf", {"firstname":"Jane","lastname":"Doe","dob":"1990-01-01"}, "filled.pdf")'
 ```
 
@@ -78,7 +85,11 @@ See the captured output in [`docs/assets/demo-terminal.txt`](docs/assets/demo-te
 | **Docker** | `docker run -p 8000:8000 -e API_AUTH_ENABLED=false ghcr.io/lindseystead/ai-pdf-autofiller:latest` |
 | **From source** | `git clone https://github.com/lindseystead/ai-pdf-autofiller.git && cd ai-pdf-autofiller && pip install -r requirements-dev.txt && API_AUTH_ENABLED=false make run-api` |
 | **GitHub Release wheel** | `make install-release` — install from [Releases](https://github.com/lindseystead/ai-pdf-autofiller/releases) without PyPI |
-| **Library (editable)** | `pip install -e .` then `from pdf_autofiller import fill` |
+| **Library / CLI (editable)** | `pip install -e .` then `pdf-autofiller fill …` or `from pdf_autofiller import fill` |
+
+```bash
+pdf-autofiller fill form.pdf --data '{"firstname":"Jane","lastname":"Doe"}' -o filled.pdf
+```
 
 ```python
 from pdf_autofiller import fill
@@ -122,6 +133,7 @@ Manual PDF field mapping does not scale. AI-only fillers are hard to audit. **PD
 - FastAPI HTTP API with structured error codes
 - Browser playground at `/playground`
 - Python library: `fill`, `fill_detailed`, `inspect`, `preview` (+ HTTP `PDFAutofillerClient`)
+- CLI: `pdf-autofiller inspect|preview|fill` (also `python -m pdf_autofiller`)
 - Deterministic alias packs (W-9-shaped / HR) + [recipes](recipes/) — synthetic corpus in CI
 - Docker on GHCR · Render blueprint · GitHub Release wheels
 - Auth, rate limits, and upload guards on by default
@@ -180,7 +192,7 @@ flowchart LR
 make test && make lint && make smoke-check && make corpus-check
 ```
 
-164 tests · ≥85% coverage · Python 3.11 & 3.12 · corpus **35/35** expected field writes (6 fixtures)
+169 tests · ≥85% coverage · Python 3.11 & 3.12 · corpus **35/35** expected field writes (6 fixtures)
 
 ## License
 

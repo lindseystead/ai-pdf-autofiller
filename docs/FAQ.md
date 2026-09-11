@@ -28,15 +28,21 @@ This tool fills **AcroForm** (and similar interactive) fields — widgets with n
 - Unauthenticated: `GET /`, `/playground`, `/health`, `/version`, `/samples/sample_form.pdf`.
 - Protected when auth is enabled: `POST /fill`, `/preview`, `/inspect`.
 
-## Local `fill()` vs HTTP `/fill`
+## Local `fill()` / CLI vs HTTP `/fill`
 
-| | Local library | HTTP API |
-|--|---------------|----------|
-| Import | `from pdf_autofiller import fill` | `PDFAutofillerClient` or curl |
+| | Local library / CLI | HTTP API |
+|--|---------------------|----------|
+| Invoke | `from pdf_autofiller import fill` or `pdf-autofiller fill …` | `PDFAutofillerClient` or curl |
 | Server | Not required | FastAPI process |
 | Best for | Scripts, CI, offline batch | Playground, n8n/Zapier, multi-language clients |
 
-Local `fill()` and the server `POST /fill` path share `run_fill_pipeline` (same mapping and writer behavior). `PDFAutofillerClient` is an HTTP client that calls the remote `/fill` endpoint.
+```bash
+pdf-autofiller inspect form.pdf
+pdf-autofiller preview form.pdf profile.json
+pdf-autofiller fill form.pdf profile.json -o filled.pdf
+```
+
+Local `fill()` / the CLI and the server `POST /fill` path share `run_fill_pipeline` (same mapping and writer behavior). `PDFAutofillerClient` is an HTTP client that calls the remote `/fill` endpoint.
 
 ## Preview before fill
 
