@@ -2,9 +2,13 @@
 
 Source of truth for versions: `pyproject.toml` + `src/pdf_autofiller/__init__.py` (keep equal).
 
-**Supported install today:** GitHub Release wheels (`make install-release` / [Releases](https://github.com/lindseystead/ai-pdf-autofiller/releases)), editable install, or Docker/GHCR.
+**Supported install today:** GitHub Release wheels (`make install-release` /
+[Releases](https://github.com/lindseystead/ai-pdf-autofiller/releases)), editable
+install (`pip install -e .` → `pdf-autofiller` CLI), or Docker/GHCR.
 
-**PyPI** (`pip install pdf-autofiller`) is **deferred** until a one-time Trusted Publisher is configured. The publish workflow is **manual only** so GitHub Releases stay green without that setup.
+**PyPI** (`pip install pdf-autofiller`) is **one click away** once a Trusted
+Publisher is configured (see below). The publish workflow is **manual only** so
+GitHub Releases stay green without that setup.
 
 ## Prerequisites for a GitHub Release
 
@@ -39,9 +43,15 @@ python -c "import pdf_autofiller; print(pdf_autofiller.__version__)"
 docker pull ghcr.io/lindseystead/ai-pdf-autofiller:latest
 ```
 
-## Enabling PyPI later (optional, ~2 minutes)
+## Enabling PyPI (one-time, ~2 minutes — unlocks `pip install pdf-autofiller`)
 
-1. On [PyPI publishing](https://pypi.org/manage/account/publishing/), add a pending/trusted publisher:
+This is the remaining human step. The workflow already exists; PyPI just needs
+your account linked once.
+
+1. Create / log into a [PyPI](https://pypi.org) account (use the same identity
+   you want as package owner).
+2. Open [Trusted Publishers → Add a new pending publisher](https://pypi.org/manage/account/publishing/)
+   and fill:
 
    | Field | Value |
    |-------|--------|
@@ -51,19 +61,30 @@ docker pull ghcr.io/lindseystead/ai-pdf-autofiller:latest
    | Workflow name | `publish-pypi.yml` |
    | Environment name | `pypi` |
 
-2. Dispatch once from a green `main`:
+3. In GitHub → **Settings → Environments**, create an environment named `pypi`
+   (empty is fine; optional reviewers later).
+4. From a green `main`, publish:
 
 ```bash
 gh workflow run publish-pypi.yml --ref main
+gh run watch   # wait until success
 ```
 
-3. Confirm:
+5. Confirm anyone can install:
 
 ```bash
 pip install -U pdf-autofiller
+pdf-autofiller version
 ```
 
-4. Optionally re-add `on.release.types: [published]` to `.github/workflows/publish-pypi.yml` so future Releases also publish to PyPI. Until then, leave it manual so missing PyPI config cannot fail a Release.
+6. Optionally re-add `on.release.types: [published]` to
+   `.github/workflows/publish-pypi.yml` so future GitHub Releases also push to
+   PyPI. Until then, leave it **manual** so a missing PyPI config cannot fail a
+   Release.
+
+**What this accomplishes:** strangers can `pip install pdf-autofiller` without
+cloning the repo or hunting GitHub Release wheels — the main discovery path for
+Python tools.
 
 ## Requirements sync
 

@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- CLI entry point `pdf-autofiller` (`inspect` / `preview` / `fill`) plus
+  `python -m pdf_autofiller` for local use without starting the API
+
 ## [0.6.3]
 
 ### Added
