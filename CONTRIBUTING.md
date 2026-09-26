@@ -39,7 +39,7 @@ The helper targets in `Makefile` are the supported shortcuts for common local wo
 - Prefer **one focused commit per PR** (or squash before merge). This repo uses
   **squash merges** onto `main` so history stays linear.
 - Write commit subjects in the imperative mood, ≤72 characters when possible
-  (example: `Polish recruiter packaging for v0.6.3`).
+  (example: `Add date typing to the default fill path`).
 - Put context in the body: what changed and why — not WIP notes, “fix typo”,
   or accidental artifact cleanups. Those belong in a rewritten local history
   before you push, not in the final squash message.
