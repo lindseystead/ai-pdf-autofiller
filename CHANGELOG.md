@@ -35,7 +35,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-- Recruiter-facing polish: softened “any PDF” claims, refreshed playground
+- Polish: softened “any PDF” claims, refreshed playground
   screenshot and social banner, aligned version metadata, issue templates as
   `.md`, security reports via GitHub advisories only
 
