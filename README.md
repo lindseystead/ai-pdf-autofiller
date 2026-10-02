@@ -4,7 +4,7 @@
 
 # PDF Autofiller
 
-**Fill AcroForm PDFs from JSON — no manual field mapping.**
+**Fill AcroForm PDFs from JSON. Common field names match by alias. The model stays off unless an API key is set.**
 
 Open-source FastAPI service · browser playground · Python SDK · Docker image
 

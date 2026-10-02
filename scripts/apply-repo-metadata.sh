@@ -5,7 +5,7 @@ set -euo pipefail
 
 REPO="${GITHUB_REPOSITORY:-lindseystead/ai-pdf-autofiller}"
 
-DESCRIPTION="Fill AcroForm PDFs from JSON — open-source FastAPI API with playground, Docker, and Python SDK. Deterministic-first; no manual field mapping."
+DESCRIPTION="Fill AcroForm PDFs from JSON. FastAPI, Docker, playground. Deterministic aliases first. Model stays off unless an API key is set."
 
 TOPICS='[
   "pdf",
