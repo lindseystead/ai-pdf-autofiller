@@ -27,9 +27,8 @@ Supporting documentation for the PDF Autofiller service. Claims in these docs ma
 | [../samples/README.md](../samples/README.md) | Sample PDFs and corpus notes |
 | [../recipes/](../recipes/) | Worked examples against shipped fixtures |
 
-## Landing page / GitHub storefront
+## Landing page
 
 Static site: [docs/site/](site/). Source images live in [assets/](assets/).
 
-Repo description/topics/homepage are kept in sync with `scripts/apply-repo-metadata.sh`
-(run with your own `gh` login, not a cloud-agent token, whenever the storefront copy changes).
+Repo description, topics, and homepage are updated with `scripts/apply-repo-metadata.sh`.
