@@ -56,11 +56,19 @@ Local `fill()` / the CLI and the server `POST /fill` path share `run_fill_pipeli
 
 ## What does `strict` mean?
 
-`strict=true` (default) turns off **AI fallback mapping** only. It does **not** allow incomplete required fields. `/fill` still returns `required_fields_unresolved` when required widgets cannot be mapped or written.
+`strict=true` (default) turns off **AI fallback mapping** only. It does **not** allow incomplete required fields. `/fill` still returns `required_fields_unresolved` when required widgets cannot be mapped or written — unless you pass `allow_partial=true` (CLI `--allow-partial`, library `fill(..., allow_partial=True)`), which returns the PDF and lists the empty required fields in `missing_required_fields`.
 
 ## Dates on the default path
 
-Deterministic enrichment types known date semantics (`date_of_birth`, `start_date`, `signature_date`, `*_date`, …) as `date`. Common US/EU forms like `01/15/1990` are normalized to `YYYY-MM-DD` without AI. Unparseable date strings are flagged `requires_review` and skipped on write (required dates then fail `/fill`).
+Deterministic enrichment types known date semantics (`date_of_birth`, `start_date`, `signature_date`, `*_date`, …) as `date`. Dates are **validated, not rewritten**: `01/15/1990`, `1990-01-15`, and `January 15, 1990` are written exactly as sent, so match the format printed on your form. (Rewriting would have to guess whether `03/04/1990` is March or April.) Unparseable strings and two-digit years (`01/15/90`, ambiguous century) are flagged `requires_review` and skipped on write (required dates then fail `/fill` unless `allow_partial=true`).
+
+## Nested JSON and hierarchical field names
+
+Forms exported from Acrobat/LiveCycle often use dotted names such as `applicant.lastName` or `form1[0].Page1[0].LastName[0]`. You can address them by full name, by nested JSON (`{"applicant": {"lastName": "Doe"}}`), or by semantics (`{"last_name": "Doe"}` matches the `LastName` leaf). See *Matching rules* in [API.md](API.md).
+
+## Which fields did I leave blank?
+
+The fill report's `unfilled_fields` lists every form field that received no value (`X-PDF-Fields-Unfilled` carries the count). Use it as a checklist after a fill.
 
 ## Filled values missing in a PDF viewer?
 

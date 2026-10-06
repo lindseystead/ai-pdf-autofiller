@@ -9,6 +9,8 @@ def test_error_catalog_covers_documented_codes():
         "request_validation_error",
         "invalid_user_data_json",
         "invalid_user_data_type",
+        "user_data_too_deep",
+        "invalid_pdf",
         "unsupported_media_type",
         "invalid_pdf_signature",
         "payload_too_large",

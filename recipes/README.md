@@ -26,6 +26,6 @@ export API_AUTH_TOKEN=your-token
 
 1. Use **strict=true** first — deterministic mapping is free and auditable.
 2. Enable **semantic inference** only when field names are opaque and aliases do not cover them.
-3. Check response headers: `X-PDF-Fields-Written`, `X-PDF-Fields-Skipped-Review`, `X-PDF-Fields-Skipped-Empty`, `X-PDF-Fields-Skipped-Unwritable`.
-4. Missing required fields return `422` with `required_fields_unresolved` — fix your JSON and retry.
+3. Check response headers: `X-PDF-Fields-Written`, `X-PDF-Fields-Skipped-Review`, `X-PDF-Fields-Skipped-Empty`, `X-PDF-Fields-Skipped-Unwritable`, `X-PDF-Fields-Missing-Required`, `X-PDF-Fields-Unfilled`.
+4. Missing required fields return `422` with `required_fields_unresolved` — fix your JSON and retry, or pass `allow_partial=true` to get the PDF plus the list of empty required fields.
 5. Golden fixtures and expectations: `tests/fixtures/corpus/cases.json` (`make corpus-check`).

@@ -17,7 +17,9 @@ Environment variables are read at process start (plain `os.getenv`). A Pydantic 
 - `RATE_LIMIT_PER_MINUTE`: per-client request budget for authenticated PDF POSTs; `0` disables (default `60`)
 - `RATE_LIMIT_BACKEND`: `memory` (default, per-process) or `file` (flock-backed JSON store shared by workers on the **same host**/volume)
 - `RATE_LIMIT_STORE_PATH`: path for the file backend (default `/tmp/pdf-autofiller-rate-limit.json`)
-- `TRUST_PROXY_HEADERS`: when `true`, rate limiting uses the first `X-Forwarded-For` hop from a trusted reverse proxy (default `false`)
+- `TRUST_PROXY_HEADERS`: when `true`, rate limiting keys on `X-Forwarded-For` instead of the socket peer (default `false`)
+- `TRUSTED_PROXY_COUNT`: number of reverse proxies that append to `X-Forwarded-For` (default `1`). The client is the entry this many hops from the **right**; leftward entries are client-supplied and ignored, so callers cannot rotate fake IPs to evade the limit
+- `MAX_USER_DATA_DEPTH`: maximum nesting depth of `user_data` (default `16`); deeper payloads get `422 user_data_too_deep`
 - `FORM_ALIASES_DIR`: optional directory of JSON alias packs for deterministic field mapping. When set to a real directory it **replaces** (does not merge with) the packaged packs. If the path is missing or not a directory, the process logs a warning and falls back to package defaults. Packs load lazily via `get_default_registry()`; changing files requires a **process restart** (or `set_default_registry(AliasRegistry.load())`) — there is no file watcher / hot reload.
 - `LOG_LEVEL`: process log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`)
 - `LOG_FORMAT`: `text` (default) or `json` for one JSON object per log line (useful for aggregators)
@@ -52,7 +54,7 @@ For multi-instance / multi-host deployments, still enforce limits **outside** th
 2. **Shared store** — Redis (or similar) token bucket / sliding window in front of or beside the app.
 3. Keep `RATE_LIMIT_PER_MINUTE` as a last-resort guard (`memory` or `file`), or set it to `0` when ingress already enforces a global budget.
 
-Also set `TRUST_PROXY_HEADERS=true` only when a trusted proxy strips/spoofs `X-Forwarded-For` correctly; otherwise clients can bypass per-IP limits.
+Also set `TRUST_PROXY_HEADERS=true` only when the app is reachable **solely** through your proxies, and set `TRUSTED_PROXY_COUNT` to the number of proxy hops; otherwise clients can forge their identity and bypass per-IP limits.
 
 `GET /health` reports `rate_limit` as `in_process`, `shared_file`, or `disabled`.
 

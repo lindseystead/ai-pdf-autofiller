@@ -8,6 +8,43 @@ All notable changes to this project will be documented in this file.
 
 - CLI entry point `pdf-autofiller` (`inspect` / `preview` / `fill`) plus
   `python -m pdf_autofiller` for local use without starting the API
+- `allow_partial` fill option (API form field, library kwarg, CLI
+  `--allow-partial`, SDK, playground): return the PDF even when required
+  fields are unresolved, listed in `FillReport.missing_required_fields` /
+  `X-PDF-Fields-Missing-Required`
+- `FillReport.unfilled_fields` (+ `X-PDF-Fields-Unfilled` count): form fields
+  that received no value
+- Nested `user_data` is flattened to dotted paths; unique nested leaves also
+  match by semantics. Exact widget-name keys take precedence over semantics
+- Hierarchical field names (`applicant.lastName`, `form1[0].LastName[0]`)
+  match on their leaf segment
+- Error codes `invalid_pdf` (422, corrupt/truncated PDF) and
+  `user_data_too_deep` (422, `MAX_USER_DATA_DEPTH`, default 16)
+- `TRUSTED_PROXY_COUNT` for selecting the client hop in `X-Forwarded-For`
+
+### Fixed
+
+- Radio groups: option names (`"Female"`) are written as their export state
+  instead of being flagged for review — a required radio group previously made
+  the whole form unfillable
+- Text values longer than a field's `/MaxLen` are reported as
+  `exceeds_max_length:N` instead of overfilling the field
+- `flatten=true` removes the AcroForm dictionary, which otherwise kept
+  dangling `/Fields` references (viewer warnings; pypdf could not re-read the
+  output)
+- Corrupt PDFs return `422 invalid_pdf` instead of `500`; deeply nested
+  `user_data` returns `422 user_data_too_deep` instead of `500`
+- Rate limiting behind proxies keyed on the leftmost (client-controlled)
+  `X-Forwarded-For` entry, allowing spoofed IPs to evade the limit; it now
+  uses the trusted hop from the right
+- Fill-report headers drop control characters from field names (untrusted
+  PDFs could otherwise trigger a server error via CR/LF)
+
+### Changed
+
+- **Dates are validated, not rewritten.** Valid dates are written exactly as
+  sent (previously normalized to `YYYY-MM-DD`, which mis-formatted US forms and
+  silently guessed month vs. day order). Two-digit years are flagged for review
 
 ## [0.6.3]
 

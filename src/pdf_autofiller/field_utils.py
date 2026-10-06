@@ -21,6 +21,18 @@ _GENERIC_INDEX_RE = re.compile(
 )
 # Adobe LiveCycle / XFA-style path fragments that are mostly indexes.
 _XFA_LEAF_RE = re.compile(r"(?:^|\.)(?:f|text|txt|field)\d+(?:\[\d+\])?$", re.IGNORECASE)
+_INDEX_SUFFIX_RE = re.compile(r"\[\d+\]")
+
+
+def field_leaf_name(name: str) -> str:
+    """Return the terminal segment of a hierarchical field name.
+
+    ``applicant.firstName`` -> ``firstName``;
+    ``form1[0].Page1[0].LastName[0]`` -> ``LastName``. Flat names are returned
+    unchanged.
+    """
+    segments = [seg for seg in _INDEX_SUFFIX_RE.sub("", name).split(".") if seg.strip()]
+    return segments[-1] if segments else name
 
 
 def is_field_required(field_obj) -> bool:

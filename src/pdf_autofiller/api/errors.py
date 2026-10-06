@@ -41,6 +41,8 @@ ERROR_CATALOG: dict[str, tuple[int, str]] = {
     "invalid_pdf_signature": (415, "Uploaded file is not a valid PDF"),
     "payload_too_large": (413, "PDF exceeds MAX_UPLOAD_BYTES limit"),
     "pdf_too_many_pages": (413, "PDF exceeds the maximum allowed page count"),
+    "invalid_pdf": (422, "PDF could not be parsed"),
+    "user_data_too_deep": (422, "user_data is nested too deeply"),
     "pdf_processing_timeout": (503, "PDF processing exceeded the time limit"),
     "rate_limited": (429, "Too many requests"),
     "unauthorized": (401, "Unauthorized"),
@@ -112,6 +114,7 @@ MUTATING_ERROR_CODES = (
     "invalid_pdf_signature",
     "payload_too_large",
     "pdf_too_many_pages",
+    "invalid_pdf",
     "pdf_processing_timeout",
     "request_validation_error",
 )

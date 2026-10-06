@@ -14,6 +14,7 @@ import os
 from pathlib import Path
 
 from pypdf import PdfReader
+from pypdf.errors import PyPdfError
 
 from . import acroform_fields
 from .models import DocumentMetadata, DocumentStructure, TextRegion
@@ -36,6 +37,10 @@ class PdfPageLimitError(Exception):
         super().__init__(
             f"PDF has {num_pages} pages, exceeding the limit of {max_pages}"
         )
+
+
+class InvalidPdfError(ValueError):
+    """Raised when the input cannot be parsed as a PDF (corrupt or truncated)."""
 
 
 def _metadata_value(metadata: dict[str, object], key: str) -> str | None:
@@ -77,9 +82,13 @@ def read_pdf(pdf_path: Path, *, max_pages: int | None = None) -> DocumentStructu
     if not pdf_path.exists():
         raise FileNotFoundError(f"PDF file not found: {pdf_path}")
 
-    reader = PdfReader(str(pdf_path))
-
-    num_pages = len(reader.pages)
+    try:
+        reader = PdfReader(str(pdf_path))
+        num_pages = len(reader.pages)
+    except (PyPdfError, ValueError, KeyError, TypeError) as exc:
+        # pypdf surfaces malformed structure as assorted exception types;
+        # normalize them so callers can report a client error, not a crash.
+        raise InvalidPdfError(f"Could not parse PDF: {exc}") from exc
     if max_pages is not None and num_pages > max_pages:
         raise PdfPageLimitError(num_pages=num_pages, max_pages=max_pages)
 

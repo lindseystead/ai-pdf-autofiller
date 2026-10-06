@@ -31,6 +31,11 @@ RATE_LIMIT_STORE_PATH = os.getenv(
     "/tmp/pdf-autofiller-rate-limit.json",
 )
 TRUST_PROXY_HEADERS = os.getenv("TRUST_PROXY_HEADERS", "false").lower() == "true"
+# Number of reverse proxies in front of the app that append to X-Forwarded-For.
+# The client IP is the entry that many hops from the right; anything further
+# left is client-supplied and must not be trusted (it would let callers rotate
+# fake IPs to evade the rate limit).
+TRUSTED_PROXY_COUNT = max(1, int(os.getenv("TRUSTED_PROXY_COUNT", "1")))
 UPLOAD_CHUNK_BYTES = 64 * 1024
 
 _PACKAGE_ROOT = Path(__file__).resolve().parents[1]

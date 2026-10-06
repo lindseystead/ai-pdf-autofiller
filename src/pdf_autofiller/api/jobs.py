@@ -59,7 +59,13 @@ def _process_target(
                     "traceback": traceback.format_exc(),
                     "attrs": {
                         key: getattr(exc, key)
-                        for key in ("missing_fields", "skipped_fields", "num_pages", "max_pages")
+                        for key in (
+                            "missing_fields",
+                            "skipped_fields",
+                            "num_pages",
+                            "max_pages",
+                            "max_depth",
+                        )
                         if hasattr(exc, key)
                     },
                 },
@@ -69,7 +75,7 @@ def _process_target(
 
 def _raise_serialized_error(payload: dict[str, Any]) -> None:
     """Re-raise known pipeline errors reconstructed from the child process."""
-    from pdf_autofiller.pdf_reader import PdfPageLimitError
+    from pdf_autofiller.pdf_reader import InvalidPdfError, PdfPageLimitError
     from pdf_autofiller.pdf_writer import UnresolvedRequiredFieldsError
 
     err_type = payload.get("type", "RuntimeError")
@@ -86,6 +92,12 @@ def _raise_serialized_error(payload: dict[str, Any]) -> None:
             num_pages=int(attrs.get("num_pages") or 0),
             max_pages=int(attrs.get("max_pages") or 0),
         )
+    if err_type == "InvalidPdfError":
+        raise InvalidPdfError(message)
+    if err_type == "UserDataTooDeepError":
+        from pdf_autofiller.user_data import UserDataTooDeepError
+
+        raise UserDataTooDeepError(int(attrs.get("max_depth") or 0))
     if err_type == "FileNotFoundError":
         raise FileNotFoundError(message)
     if err_type == "TimeoutError":

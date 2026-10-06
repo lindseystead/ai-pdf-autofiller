@@ -10,7 +10,7 @@ from typing import Any
 
 from .aliases import AliasRegistry
 from .field_semantics import SemanticClient
-from .field_utils import is_opaque_field_name, opaque_mapping_hints
+from .field_utils import field_leaf_name, is_opaque_field_name, opaque_mapping_hints
 from .mapping import (
     canonicalize_semantic,
     expected_type_for_semantic,
@@ -39,7 +39,9 @@ def fallback_semantics(
     registry: AliasRegistry | None = None,
 ) -> EnrichedFormField:
     """Build deterministic semantics from a field name when inference is disabled."""
-    normalized = normalize_key(field.name)
+    # Hierarchical exports (``applicant.firstName``, ``form1[0].LastName[0]``)
+    # carry their meaning in the leaf segment.
+    normalized = normalize_key(field_leaf_name(field.name))
     for prefix in ("txt_", "txt", "fld_", "fld", "chk_", "chk"):
         if normalized.startswith(prefix) and len(normalized) > len(prefix):
             normalized = normalized[len(prefix) :]
@@ -209,6 +211,7 @@ def run_fill_pipeline(
     max_pages: int | None = None,
     flatten: bool = False,
     need_appearances: bool = True,
+    allow_partial: bool = False,
     registry: AliasRegistry | None = None,
 ) -> tuple[FillReport, MappingResult, int, int]:
     """Run extract → enrich → map → write.
@@ -236,6 +239,7 @@ def run_fill_pipeline(
         mapping_result,
         flatten=flatten,
         need_appearances=need_appearances,
+        allow_partial=allow_partial,
     )
     return (
         fill_report,
@@ -256,6 +260,7 @@ def fill(
     max_pages: int | None = None,
     flatten: bool = False,
     need_appearances: bool = True,
+    allow_partial: bool = False,
     registry: AliasRegistry | None = None,
 ) -> FillReport:
     """
@@ -276,6 +281,7 @@ def fill(
         max_pages=max_pages,
         flatten=flatten,
         need_appearances=need_appearances,
+        allow_partial=allow_partial,
         registry=registry,
     )
     return report
@@ -292,6 +298,7 @@ def fill_detailed(
     max_pages: int | None = None,
     flatten: bool = False,
     need_appearances: bool = True,
+    allow_partial: bool = False,
     registry: AliasRegistry | None = None,
 ) -> FillOutcome:
     """Fill a PDF and return write report + mapping decisions together."""
@@ -305,6 +312,7 @@ def fill_detailed(
         max_pages=max_pages,
         flatten=flatten,
         need_appearances=need_appearances,
+        allow_partial=allow_partial,
         registry=registry,
     )
     return FillOutcome(

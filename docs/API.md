@@ -10,7 +10,7 @@ Redirects to `/playground` (temporary redirect).
 
 Serves the browser playground UI for trying fills without curl.
 
-The playground exposes checkboxes for `strict`, `allow_fallback_mapping` (AI fallback), `use_semantic_inference`, `flatten`, and `need_appearances`. Use curl (or the SDK) when you need full control over form flags and headers.
+The playground exposes checkboxes for `strict`, `allow_fallback_mapping` (AI fallback), `use_semantic_inference`, `flatten`, `allow_partial`, and `need_appearances`. Use curl (or the SDK) when you need full control over form flags and headers.
 
 ### `GET /health`
 
@@ -161,6 +161,7 @@ Optional form fields:
 - `allow_fallback_mapping`: when `true`, allows fallback mapping for unresolved high-value fields (default `false`; also requires `strict=false`)
 - `use_semantic_inference`: when `true`, enables a single batched semantic inference call before mapping (default `false`)
 - `flatten`: when `true`, burns field appearances into page content and removes widget annotations (default `false`)
+- `allow_partial`: when `true`, returns the PDF even if required fields are unresolved; they are listed in `missing_required_fields` / `X-PDF-Fields-Missing-Required` (default `false` → `422 required_fields_unresolved`)
 - `need_appearances`: when `true` (default), sets AcroForm `/NeedAppearances` so PDF viewers regenerate visible glyphs from written `/V` values. pypdf's `auto_regenerate` flag only toggles this bit — it does not embed new appearance streams. Use `flatten=true` when you need burned-in visuals without relying on the viewer.
 
 Example (PDF):
@@ -190,10 +191,36 @@ fields that were dropped instead of silently losing them:
 - `X-PDF-Fields-Written`: count of fields that received a value
 - `X-PDF-Fields-Skipped-Review`: comma-separated field names skipped because the mapping was flagged for review
 - `X-PDF-Fields-Skipped-Empty`: comma-separated field names skipped because the mapped value was empty
-- `X-PDF-Fields-Skipped-Unwritable`: comma-separated entries `field (reason)` when a mapped value could not be written (`missing_widget`, `signature_field`, `unresolved_button_state`, `unresolved_choice_option`, or `write_failed`)
+- `X-PDF-Fields-Skipped-Unwritable`: comma-separated entries `field (reason)` when a mapped value could not be written (`missing_widget`, `signature_field`, `unresolved_button_state`, `unresolved_choice_option`, `exceeds_max_length:N`, or `write_failed`)
+- `X-PDF-Fields-Missing-Required`: comma-separated required fields left empty (only non-empty on `allow_partial=true` fills)
+- `X-PDF-Fields-Unfilled`: **count** of form fields that received no value from `user_data` (the full list is `unfilled_fields` in the JSON report)
+
+Header values carry printable ASCII only; non-ASCII and control characters in
+field names are dropped. Use `Accept: application/json` for exact names.
 
 Checkbox and radio (`/Btn`) fields are written using their PDF state names, so
 boolean-style inputs (`true`/`yes`/`1`/`on`) correctly toggle the control.
+Radio groups also accept the option's export name (`{"gender": "Female"}` →
+`/Female`); names that match no declared state are reported as
+`unresolved_button_state`.
+
+Text fields with `/MaxLen` are never overfilled: longer values are skipped and
+reported as `exceeds_max_length:N` rather than truncated.
+
+### Matching rules
+
+1. **Field name** — a `user_data` key equal to the widget's full name
+   (`applicant.lastName`, `txtFirstName`) wins.
+2. **Semantic / alias** — otherwise the widget's leaf name (`lastName` from
+   `form1[0].applicant[0].lastName[0]`) is matched against keys via
+   normalization and alias packs.
+3. **Nested JSON** is flattened to dotted paths: `{"applicant": {"lastName": "Doe"}}`
+   addresses `applicant.lastName`. A nested leaf (`lastName`) also matches by
+   semantics when it is unique in the payload; ambiguous leaves
+   (`home.city` vs `work.city`) are never guessed. Lists flatten to `items.0`.
+   Nesting deeper than `MAX_USER_DATA_DEPTH` (16) is rejected.
+4. **Dates** are validated but written **verbatim** — the form receives the
+   format you send. Unparseable dates and two-digit years are flagged for review.
 
 Choice (`/Ch`) fields: when `/Opt` or `/_States_` are present, the value must
 match an option (case-insensitive) or it is skipped as `unresolved_choice_option`.
@@ -226,10 +253,12 @@ Canonical catalog (also exposed in OpenAPI on `/fill`, `/preview`, `/inspect`):
 | `request_validation_error` | 422 | Missing/invalid multipart fields |
 | `invalid_user_data_json` | 422 | `user_data` is not valid JSON |
 | `invalid_user_data_type` | 422 | `user_data` is not a JSON object |
+| `user_data_too_deep` | 422 | `user_data` nests deeper than `MAX_USER_DATA_DEPTH` (default 16) |
 | `unsupported_media_type` | 415 | Upload is not a PDF content-type |
 | `invalid_pdf_signature` | 415 | Bytes do not start with `%PDF-` |
 | `payload_too_large` | 413 | Over `MAX_UPLOAD_BYTES` |
 | `pdf_too_many_pages` | 413 | Over `MAX_PDF_PAGES` |
+| `invalid_pdf` | 422 | Has a PDF header but cannot be parsed (corrupt/truncated) |
 | `pdf_processing_timeout` | 503 | Over `PDF_READ_TIMEOUT_SECONDS` |
 | `rate_limited` | 429 | Per-client budget exceeded (`Retry-After`) |
 | `unauthorized` | 401 | Missing/wrong API key |

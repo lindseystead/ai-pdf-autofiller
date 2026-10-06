@@ -7,6 +7,8 @@ import base64
 import json
 import logging
 import tempfile
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -18,7 +20,7 @@ from pdf_autofiller import __version__
 from pdf_autofiller.field_utils import is_opaque_field_name
 from pdf_autofiller.mapping import alias_pack_status
 from pdf_autofiller.models import FillReport
-from pdf_autofiller.pdf_reader import PdfPageLimitError
+from pdf_autofiller.pdf_reader import InvalidPdfError, PdfPageLimitError
 from pdf_autofiller.pdf_writer import UnresolvedRequiredFieldsError
 from pdf_autofiller.pipeline import (
     inspect as inspect_local,
@@ -29,6 +31,7 @@ from pdf_autofiller.pipeline import (
     semantic_provider_status,
 )
 from pdf_autofiller.playground import PLAYGROUND_HTML
+from pdf_autofiller.user_data import UserDataTooDeepError, validate_user_data_depth
 
 from . import config
 from .errors import (
@@ -62,9 +65,14 @@ def _sample_form_path() -> Path | None:
 
 
 def _safe_header_value(field_names: list[str]) -> str:
-    """Render field names as an ASCII-safe, comma-separated HTTP header value."""
+    """Render field names as an ASCII-safe, comma-separated HTTP header value.
+
+    Field names come from untrusted PDFs: non-ASCII and control characters
+    (CR/LF would be rejected by the HTTP layer as header injection) are dropped.
+    """
     joined = ",".join(field_names)
-    return joined.encode("ascii", "ignore").decode("ascii")
+    printable = joined.encode("ascii", "ignore").decode("ascii")
+    return "".join(ch for ch in printable if 0x20 <= ord(ch) < 0x7F)
 
 
 def _fill_report_headers(report: FillReport) -> dict[str, str]:
@@ -74,6 +82,9 @@ def _fill_report_headers(report: FillReport) -> dict[str, str]:
         "X-PDF-Fields-Skipped-Review": _safe_header_value(report.skipped_review_fields),
         "X-PDF-Fields-Skipped-Empty": _safe_header_value(report.skipped_empty_fields),
         "X-PDF-Fields-Skipped-Unwritable": _safe_header_value(report.skipped_unwritable_fields),
+        "X-PDF-Fields-Missing-Required": _safe_header_value(report.missing_required_fields),
+        # Count only: the full list can be hundreds of names (see JSON report).
+        "X-PDF-Fields-Unfilled": str(len(report.unfilled_fields)),
     }
 
 
@@ -119,9 +130,44 @@ def _audit_log_fill(
     )
 
 
+@contextmanager
+def _pdf_job_errors() -> Iterator[None]:
+    """Translate pipeline job failures into client-facing API errors."""
+    try:
+        yield
+    except TimeoutError as exc:
+        raise api_error(
+            status_code=503,
+            code="pdf_processing_timeout",
+            message="PDF processing exceeded the time limit",
+            details={"timeout_seconds": config.PDF_READ_TIMEOUT_SECONDS},
+        ) from exc
+    except PdfPageLimitError as exc:
+        raise api_error(
+            status_code=413,
+            code="pdf_too_many_pages",
+            message="PDF exceeds the maximum allowed page count",
+            details={"max_pages": exc.max_pages, "num_pages": exc.num_pages},
+        ) from exc
+    except InvalidPdfError as exc:
+        raise api_error(
+            status_code=422,
+            code="invalid_pdf",
+            message="PDF could not be parsed",
+        ) from exc
+
+
 def _parse_user_data(user_data: str) -> dict[str, Any]:
     try:
         parsed = json.loads(user_data)
+    except RecursionError as exc:
+        # The stdlib parser recurses per nesting level; pathological input
+        # exhausts the stack before any depth check can run.
+        raise api_error(
+            status_code=422,
+            code="user_data_too_deep",
+            message="user_data is nested too deeply",
+        ) from exc
     except json.JSONDecodeError as exc:
         raise api_error(
             status_code=422,
@@ -135,6 +181,15 @@ def _parse_user_data(user_data: str) -> dict[str, Any]:
             code="invalid_user_data_type",
             message="user_data must be a JSON object",
         )
+    try:
+        validate_user_data_depth(parsed)
+    except UserDataTooDeepError as exc:
+        raise api_error(
+            status_code=422,
+            code="user_data_too_deep",
+            message="user_data is nested too deeply",
+            details={"max_depth": exc.max_depth},
+        ) from exc
     return parsed
 
 
@@ -219,7 +274,7 @@ async def inspect_pdf(
         input_path = Path(temp_dir.name) / "input.pdf"
         input_path.write_bytes(content)
 
-        try:
+        with _pdf_job_errors():
             inventory = await asyncio.to_thread(
                 execute_pdf_job,
                 inspect_local,
@@ -227,20 +282,6 @@ async def inspect_pdf(
                 timeout_seconds=config.PDF_READ_TIMEOUT_SECONDS,
                 max_pages=config.MAX_PDF_PAGES,
             )
-        except TimeoutError as exc:
-            raise api_error(
-                status_code=503,
-                code="pdf_processing_timeout",
-                message="PDF processing exceeded the time limit",
-                details={"timeout_seconds": config.PDF_READ_TIMEOUT_SECONDS},
-            ) from exc
-        except PdfPageLimitError as exc:
-            raise api_error(
-                status_code=413,
-                code="pdf_too_many_pages",
-                message="PDF exceeds the maximum allowed page count",
-                details={"max_pages": exc.max_pages, "num_pages": exc.num_pages},
-            ) from exc
 
         fields = [
             InspectField(
@@ -285,6 +326,7 @@ async def inspect_pdf(
         *MUTATING_ERROR_CODES,
         "invalid_user_data_json",
         "invalid_user_data_type",
+        "user_data_too_deep",
         "pdf_preview_failed",
     ),
 )
@@ -314,7 +356,7 @@ async def preview_pdf(
         input_path = Path(temp_dir.name) / "input.pdf"
         input_path.write_bytes(content)
 
-        try:
+        with _pdf_job_errors():
             mapping_result, field_count, page_count = await asyncio.to_thread(
                 execute_pdf_job,
                 run_preview_pipeline,
@@ -326,20 +368,6 @@ async def preview_pdf(
                 use_semantic_inference=use_semantic_inference,
                 max_pages=config.MAX_PDF_PAGES,
             )
-        except TimeoutError as exc:
-            raise api_error(
-                status_code=503,
-                code="pdf_processing_timeout",
-                message="PDF processing exceeded the time limit",
-                details={"timeout_seconds": config.PDF_READ_TIMEOUT_SECONDS},
-            ) from exc
-        except PdfPageLimitError as exc:
-            raise api_error(
-                status_code=413,
-                code="pdf_too_many_pages",
-                message="PDF exceeds the maximum allowed page count",
-                details={"max_pages": exc.max_pages, "num_pages": exc.num_pages},
-            ) from exc
 
         decisions = [
             PreviewDecision(
@@ -393,6 +421,7 @@ async def preview_pdf(
             *MUTATING_ERROR_CODES,
             "invalid_user_data_json",
             "invalid_user_data_type",
+        "user_data_too_deep",
             "required_fields_unresolved",
             "pdf_fill_failed",
         ),
@@ -419,6 +448,13 @@ async def fill(
             "regenerate visible field appearances from written values."
         ),
     ),
+    allow_partial: bool = Form(
+        False,
+        description=(
+            "When true, return the PDF even if required fields are unresolved; "
+            "they are listed in missing_required_fields / X-PDF-Fields-Missing-Required."
+        ),
+    ),
 ) -> Response:
     """Fill a PDF form from uploaded file and user data."""
     temp_dir = None
@@ -438,7 +474,7 @@ async def fill(
         require_pdf_signature(content)
         input_path.write_bytes(content)
 
-        try:
+        with _pdf_job_errors():
             fill_report, mapping_result, fields_total, page_count = await asyncio.to_thread(
                 execute_pdf_job,
                 run_fill_pipeline,
@@ -452,21 +488,8 @@ async def fill(
                 max_pages=config.MAX_PDF_PAGES,
                 flatten=flatten,
                 need_appearances=need_appearances,
+                allow_partial=allow_partial,
             )
-        except TimeoutError as exc:
-            raise api_error(
-                status_code=503,
-                code="pdf_processing_timeout",
-                message="PDF processing exceeded the time limit",
-                details={"timeout_seconds": config.PDF_READ_TIMEOUT_SECONDS},
-            ) from exc
-        except PdfPageLimitError as exc:
-            raise api_error(
-                status_code=413,
-                code="pdf_too_many_pages",
-                message="PDF exceeds the maximum allowed page count",
-                details={"max_pages": exc.max_pages, "num_pages": exc.num_pages},
-            ) from exc
 
         wants_json = _wants_json_fill_report(request)
         _audit_log_fill(
@@ -500,6 +523,8 @@ async def fill(
                 skipped_empty_fields=list(fill_report.skipped_empty_fields),
                 skipped_unwritable_fields=list(fill_report.skipped_unwritable_fields),
                 missing_required=list(mapping_result.missing_required),
+                missing_required_fields=list(fill_report.missing_required_fields),
+                unfilled_fields=list(fill_report.unfilled_fields),
                 unmapped_user_keys=list(mapping_result.unmapped_user_keys),
                 decisions=decisions,
                 mapping_hints=list(mapping_result.mapping_hints),

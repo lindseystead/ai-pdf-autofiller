@@ -69,6 +69,14 @@ class FillReportResponse(BaseModel):
         description="Mapped fields that could not be written (see FillReport)",
     )
     missing_required: list[str]
+    missing_required_fields: list[str] = Field(
+        default_factory=list,
+        description="Required fields left empty in a partial fill (allow_partial=true)",
+    )
+    unfilled_fields: list[str] = Field(
+        default_factory=list,
+        description="Form fields that received no value from user_data",
+    )
     unmapped_user_keys: list[str]
     decisions: list[PreviewDecision]
     mapping_hints: list[str] = Field(default_factory=list)

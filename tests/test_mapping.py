@@ -75,13 +75,19 @@ def test_coerce_value_date():
     assert value == "2024-01-15"
     assert requires_review is False
 
+    # Valid dates are written verbatim (the caller's format is preserved).
     value, requires_review = coerce_value("01/15/2024", "date")
-    assert value == "2024-01-15"
+    assert value == "01/15/2024"
     assert requires_review is False
 
     value, requires_review = coerce_value("January 15, 2024", "date")
-    assert value == "2024-01-15"
+    assert value == "January 15, 2024"
     assert requires_review is False
+
+    # Two-digit years have an ambiguous century and need review.
+    value, requires_review = coerce_value("01/15/30", "date")
+    assert value == "01/15/30"
+    assert requires_review is True
 
     value, requires_review = coerce_value("not-a-date", "date")
     assert value == "not-a-date"
@@ -212,8 +218,8 @@ def test_map_user_data_to_fields_ambiguous_requires_review(sample_enriched_field
     assert dob_decision.selected_value == "15th of May, 1990"
 
 
-def test_map_user_data_to_fields_normalizes_us_dates(sample_enriched_fields):
-    """Common US date forms coerce to ISO without review."""
+def test_map_user_data_to_fields_preserves_us_dates(sample_enriched_fields):
+    """Valid US date strings pass validation and are written verbatim."""
     result = map_user_data_to_fields(
         sample_enriched_fields,
         {
@@ -226,7 +232,7 @@ def test_map_user_data_to_fields_normalizes_us_dates(sample_enriched_fields):
     )
     dob_decision = next(d for d in result.decisions if d.field_name == "txtDOB")
     assert dob_decision.requires_review is False
-    assert dob_decision.selected_value == "1990-05-15"
+    assert dob_decision.selected_value == "05/15/1990"
 
 
 def test_map_user_data_to_fields_unmapped_keys(sample_enriched_fields):
@@ -525,7 +531,7 @@ def test_fallback_semantics_types_dob_and_checkbox():
     assert consent.semantics.expected_data_type == "boolean"
 
 
-def test_enrich_fields_normalizes_us_dates_without_ai():
+def test_enrich_fields_preserves_us_dates_without_ai():
     """Default path (no AI) must coerce US dates for date_of_birth fields."""
     fields = [
         FormField(name="txtFirstName", field_type="text", required=True, page_number=1),
@@ -538,5 +544,5 @@ def test_enrich_fields_normalizes_us_dates_without_ai():
         strict=True,
     )
     dob = next(d for d in result.decisions if d.field_name == "txtDOB")
-    assert dob.selected_value == "1990-01-15"
+    assert dob.selected_value == "01/15/1990"
     assert dob.requires_review is False

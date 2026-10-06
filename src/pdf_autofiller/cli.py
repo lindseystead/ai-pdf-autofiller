@@ -149,6 +149,12 @@ def preview_cmd(
     help="Flatten form fields into page content.",
 )
 @click.option(
+    "--allow-partial/--no-allow-partial",
+    default=False,
+    show_default=True,
+    help="Write the PDF even when required fields are unresolved (listed in the report).",
+)
+@click.option(
     "--json-report",
     is_flag=True,
     default=False,
@@ -162,6 +168,7 @@ def fill_cmd(
     strict: bool,
     use_ai: bool,
     flatten: bool,
+    allow_partial: bool,
     json_report: bool,
 ) -> None:
     """Fill PDF with JSON user data and write an output PDF."""
@@ -176,6 +183,7 @@ def fill_cmd(
             allow_fallback_mapping=not strict,
             use_semantic_inference=use_ai,
             flatten=flatten,
+            allow_partial=allow_partial,
         )
     except UnresolvedRequiredFieldsError as exc:
         raise click.ClickException(str(exc)) from exc
@@ -189,6 +197,11 @@ def fill_cmd(
     else:
         written = len(report.written_fields)
         click.echo(f"Wrote {out} ({written} field{'s' if written != 1 else ''} written)")
+        if report.missing_required_fields:
+            click.echo(
+                "Required fields still empty: " + ", ".join(report.missing_required_fields),
+                err=True,
+            )
 
 
 if __name__ == "__main__":
