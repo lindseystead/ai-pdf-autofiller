@@ -24,9 +24,10 @@ This repository provides a deterministic-first pipeline to:
 - Deterministic mapping runs without optional provider-backed inference.
 - Ambiguous coercions (unparseable dates/numbers/booleans when the field's
   expected type is typed) are flagged with `requires_review`.
-- Deterministic enrichment types date/boolean semantics so common date strings
-  can normalize without AI; unknown semantics stay `string`.
-- Missing required fields are surfaced before output is finalized.
+- Deterministic enrichment types date/boolean semantics so date strings are
+  validated without AI (and written verbatim); unknown semantics stay `string`.
+- Missing required fields are surfaced before output is finalized; callers can
+  opt into a partial fill that returns the PDF plus the list of empty fields.
 
 ## Scope Notes
 

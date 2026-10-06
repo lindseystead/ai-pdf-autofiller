@@ -38,6 +38,10 @@ Pytest coverage currently includes:
 - AcroForm field extraction (`tests/test_acroform_fields.py`)
 - PDF reader extraction flow (`tests/test_pdf_reader.py`)
 - PDF writer behavior and required-field handling (`tests/test_pdf_writer.py`)
+- Real-world form structures — radio groups, hierarchical names, nested JSON,
+  `/MaxLen`, partial fills, flatten output (`tests/test_form_structures.py`,
+  fixtures built by `tests/form_factory.py`)
+- CLI commands (`tests/test_cli.py`)
 - Semantic client wrapper behavior and parsing (`tests/test_field_semantics.py`)
 - Field utilities (`tests/test_field_utils.py`)
 - FastAPI endpoint behavior (`tests/test_api_service.py`)
