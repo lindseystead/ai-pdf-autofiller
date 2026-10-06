@@ -222,3 +222,24 @@ def test_read_pdf_returns_document_structure(monkeypatch, tmp_path):
     assert len(structure.form_fields) == 1
     assert structure.form_fields[0].name == "txtLastName"
     assert len(structure.text_regions) == 1
+
+
+def test_read_pdf_malformed_info_dictionary_raises_invalid_pdf(tmp_path):
+    """A trailer /Info that is not a dictionary is a client error, not a crash."""
+    import io
+    import re
+
+    from pypdf import PdfWriter
+
+    writer = PdfWriter()
+    writer.add_blank_page(width=100, height=100)
+    buffer = io.BytesIO()
+    writer.write(buffer)
+    data = buffer.getvalue()
+    info_obj = re.search(rb"/Info (\d+) 0 R", data).group(1)
+    data = re.sub(rb"(\n" + info_obj + rb" 0 obj\n)<<.*?>>", rb"\g<1>5", data, flags=re.S)
+    path = tmp_path / "bad_info.pdf"
+    path.write_bytes(data)
+
+    with pytest.raises(pdf_reader.InvalidPdfError):
+        pdf_reader.read_pdf(path)

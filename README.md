@@ -195,7 +195,7 @@ flowchart LR
 make test && make lint && make smoke-check && make corpus-check
 ```
 
-193 tests · ≥85% coverage · Python 3.11 & 3.12 · corpus **35/35** expected field writes (6 fixtures)
+194 tests · ≥85% coverage · Python 3.11 & 3.12 · corpus **35/35** expected field writes (6 fixtures)
 
 ## License
 

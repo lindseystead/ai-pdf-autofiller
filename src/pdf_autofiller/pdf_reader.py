@@ -85,6 +85,9 @@ def read_pdf(pdf_path: Path, *, max_pages: int | None = None) -> DocumentStructu
     try:
         reader = PdfReader(str(pdf_path))
         num_pages = len(reader.pages)
+        # pypdf resolves the trailer /Info lazily; a non-dictionary entry
+        # raises here, so it belongs inside the parse guard.
+        metadata_dict: dict[str, object] = dict(reader.metadata or {})
     except (PyPdfError, ValueError, KeyError, TypeError) as exc:
         # pypdf surfaces malformed structure as assorted exception types;
         # normalize them so callers can report a client error, not a crash.
@@ -92,7 +95,6 @@ def read_pdf(pdf_path: Path, *, max_pages: int | None = None) -> DocumentStructu
     if max_pages is not None and num_pages > max_pages:
         raise PdfPageLimitError(num_pages=num_pages, max_pages=max_pages)
 
-    metadata_dict: dict[str, object] = dict(reader.metadata or {})
     metadata = DocumentMetadata(
         num_pages=len(reader.pages),
         title=_metadata_value(metadata_dict, "/Title"),
