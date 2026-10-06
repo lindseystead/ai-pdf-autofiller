@@ -112,7 +112,8 @@ class FillReport(BaseModel):
     they were flagged ``requires_review``) instead of silently losing them.
     Unwritable mapped values (missing widget, signature field, unresolved
     checkbox/radio/choice state, or confirmed write failure) are listed in
-    ``skipped_unwritable_fields`` — never silent.
+    ``skipped_unwritable_fields`` — never silent. Form fields the user data
+    never addressed are listed in ``unfilled_fields``.
     """
 
     written_fields: list[str] = Field(
@@ -133,6 +134,17 @@ class FillReport(BaseModel):
             "Mapped fields that could not be written (missing widget, /Sig, "
             "or unresolved button state). Format: 'field_name (reason)'."
         ),
+    )
+    missing_required_fields: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Required fields left unfilled. Non-empty only for partial fills "
+            "(``allow_partial=True``); otherwise the fill raises instead."
+        ),
+    )
+    unfilled_fields: list[str] = Field(
+        default_factory=list,
+        description="Form fields that received no value (no matching key in user data)",
     )
 
 

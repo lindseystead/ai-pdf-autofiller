@@ -28,6 +28,7 @@ from .models import (
     FieldMappingDecision,
     MappingResult,
 )
+from .user_data import flatten_user_data
 
 logger = logging.getLogger(__name__)
 
@@ -115,8 +116,12 @@ def coerce_value(value: Any, expected_type: str) -> tuple[str | None, bool]:
     Coerce a value to match the expected data type.
 
     Returns ``(coerced_value, requires_review)``.
-    Dates are normalized to ``YYYY-MM-DD`` when a known format parses cleanly
-    (ISO and common US/EU slash or dash forms).
+
+    Dates are validated, never rewritten: the caller's string is written
+    verbatim so the form receives the format the user chose (reformatting to
+    ISO would silently break forms printed as ``MM/DD/YYYY`` and would have to
+    guess between month-first and day-first readings). Unparseable dates and
+    two-digit years (ambiguous century) are flagged for review.
     """
     if value is None:
         return None, False
@@ -131,7 +136,6 @@ def coerce_value(value: Any, expected_type: str) -> tuple[str | None, bool]:
             "%Y-%m-%d",
             "%m/%d/%Y",
             "%m-%d-%Y",
-            "%m/%d/%y",
             "%d/%m/%Y",
             "%d-%m-%Y",
             "%Y/%m/%d",
@@ -140,8 +144,8 @@ def coerce_value(value: Any, expected_type: str) -> tuple[str | None, bool]:
         )
         for fmt in date_formats:
             try:
-                parsed = datetime.strptime(str_value, fmt)
-                return parsed.strftime("%Y-%m-%d"), False
+                datetime.strptime(str_value, fmt)
+                return str_value, False
             except ValueError:
                 continue
         return str_value, True
@@ -166,25 +170,62 @@ def coerce_value(value: Any, expected_type: str) -> tuple[str | None, bool]:
     return str_value, False
 
 
+def coerce_for_field(
+    value: Any,
+    expected_type: str,
+    field_type: str | None = None,
+) -> tuple[str | None, bool]:
+    """Coerce a value for a specific widget type.
+
+    Button widgets accept either a boolean (checkbox) or an export-state name
+    (radio option such as ``Female``). Only the writer knows the widget's
+    declared states, so non-boolean strings pass through unflagged and the
+    writer validates them — reporting ``unresolved_button_state`` when they
+    match no state — instead of the mapper discarding every radio option.
+    """
+    if field_type == "button" and value is not None:
+        coerced, requires_review = coerce_value(value, "boolean")
+        if requires_review and str(value).strip():
+            return str(value).strip(), False
+        return coerced, requires_review
+    return coerce_value(value, expected_type)
+
+
 def find_deterministic_match(
     semantic_meaning: str,
     user_data: dict[str, Any],
     expected_type: str,
     registry: AliasRegistry | None = None,
+    *,
+    field_name: str | None = None,
+    field_type: str | None = None,
 ) -> tuple[str | None, str | None, float, str, bool]:
     """
     Find a deterministic match for a semantic meaning.
 
-    Tries direct normalized matching first, then alias-cluster matching.
+    Tries an exact field-name match first (the caller addressed the widget by
+    its own name, e.g. ``applicant.lastName``), then direct normalized
+    semantic matching, then alias-cluster matching.
     """
     active = registry or get_default_registry()
     normalized_semantic = normalize_key(semantic_meaning)
     equivalence = active.equivalence_set(semantic_meaning)
 
+    if field_name:
+        normalized_field = normalize_key(field_name)
+        for user_key, user_value in user_data.items():
+            if user_key == field_name or normalize_key(user_key) == normalized_field:
+                coerced_value, requires_review = coerce_for_field(
+                    user_value, expected_type, field_type
+                )
+                confidence = 0.98 if not requires_review else 0.70
+                reason = f"Field-name match: '{user_key}' addresses field '{field_name}'"
+                return user_key, coerced_value, confidence, reason, requires_review
+
     for user_key, user_value in user_data.items():
         normalized_key = normalize_key(user_key)
         if normalized_key == normalized_semantic:
-            coerced_value, requires_review = coerce_value(user_value, expected_type)
+            coerced_value, requires_review = coerce_for_field(user_value, expected_type, field_type)
             confidence = 0.95 if not requires_review else 0.70
             reason = f"Direct match: '{user_key}' matches semantic '{semantic_meaning}'"
             return user_key, coerced_value, confidence, reason, requires_review
@@ -192,7 +233,7 @@ def find_deterministic_match(
     for user_key, user_value in user_data.items():
         normalized_key = normalize_key(user_key)
         if normalized_key in equivalence:
-            coerced_value, requires_review = coerce_value(user_value, expected_type)
+            coerced_value, requires_review = coerce_for_field(user_value, expected_type, field_type)
             confidence = 0.90 if not requires_review else 0.65
             reason = f"Alias match: '{user_key}' matches semantic '{semantic_meaning}' via alias cluster"
             return user_key, coerced_value, confidence, reason, requires_review
@@ -281,9 +322,10 @@ Example response:
             reason = match_info.get("reason", "Fallback mapping")
 
             if matched_key and matched_key in user_data:
-                coerced_value, _ = coerce_value(
+                coerced_value, _ = coerce_for_field(
                     user_data[matched_key],
                     field.semantics.expected_data_type,
+                    field.field.field_type,
                 )
                 result[field_name] = (matched_key, coerced_value, confidence, reason)
         return result
@@ -312,6 +354,8 @@ def map_user_data_to_fields(
     unmapped_fields: list[EnrichedFormField] = []
     used_user_keys: set[str] = set()
     active = registry or get_default_registry()
+    flat = flatten_user_data(user_data)
+    candidates = flat.candidates()
 
     for enriched_field in enriched_fields:
         semantic = enriched_field.semantics.semantic_meaning
@@ -319,13 +363,15 @@ def map_user_data_to_fields(
 
         matched_key, matched_value, confidence, reason, requires_review = find_deterministic_match(
             semantic,
-            user_data,
+            candidates,
             expected_type,
             registry=active,
+            field_name=enriched_field.field.name,
+            field_type=enriched_field.field.field_type,
         )
 
         if matched_key:
-            used_user_keys.add(matched_key)
+            used_user_keys.add(flat.source_key(matched_key))
             decisions.append(
                 FieldMappingDecision(
                     field_name=enriched_field.field.name,
@@ -345,7 +391,7 @@ def map_user_data_to_fields(
         ]
 
         if high_value_fields:
-            fallback_mappings = semantic_fallback_mapping(high_value_fields, user_data, api_key)
+            fallback_mappings = semantic_fallback_mapping(high_value_fields, flat.values, api_key)
 
             for enriched_field in high_value_fields[:]:
                 field_name = enriched_field.field.name
@@ -368,7 +414,7 @@ def map_user_data_to_fields(
                     unmapped_fields.remove(enriched_field)
 
     missing_required = [f.field.name for f in unmapped_fields if f.field.required]
-    unmapped_user_keys = [key for key in user_data if key not in used_user_keys]
+    unmapped_user_keys = [key for key in flat.values if key not in used_user_keys]
     all_names = [f.field.name for f in enriched_fields]
     unmatched_opaque = [f.field.name for f in unmapped_fields]
 

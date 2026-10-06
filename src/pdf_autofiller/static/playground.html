@@ -162,6 +162,7 @@
           <label><input type="checkbox" id="fallback" /> AI fallback</label>
           <label><input type="checkbox" id="semantic" /> Semantic inference</label>
           <label><input type="checkbox" id="flatten" /> Flatten PDF</label>
+          <label><input type="checkbox" id="allowPartial" /> Allow partial (download even if required fields are empty)</label>
           <label><input type="checkbox" id="needAppearances" checked /> NeedAppearances</label>
         </div>
       </section>
@@ -402,6 +403,7 @@
       form.append('allow_fallback_mapping', document.getElementById('fallback').checked ? 'true' : 'false');
       form.append('use_semantic_inference', document.getElementById('semantic').checked ? 'true' : 'false');
       form.append('flatten', document.getElementById('flatten').checked ? 'true' : 'false');
+      form.append('allow_partial', document.getElementById('allowPartial').checked ? 'true' : 'false');
       form.append('need_appearances', document.getElementById('needAppearances').checked ? 'true' : 'false');
 
       try {

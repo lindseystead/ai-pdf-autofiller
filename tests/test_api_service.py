@@ -522,3 +522,71 @@ def test_fill_endpoint_validation_error_contract_when_missing_user_data():
     assert response.status_code == 422
     payload = response.json()
     assert payload["detail"]["error"]["code"] == "request_validation_error"
+
+
+@pytest.mark.parametrize("endpoint", ["/fill", "/inspect", "/preview"])
+def test_corrupt_pdf_returns_invalid_pdf(endpoint):
+    response = client.post(
+        endpoint,
+        files={"pdf_file": ("input.pdf", b"%PDF-1.7\ngarbage", "application/pdf")},
+        data={"user_data": "{}"},
+    )
+    assert response.status_code == 422
+    assert response.json()["detail"]["error"]["code"] == "invalid_pdf"
+
+
+@pytest.mark.parametrize("depth", [40, 100_000])
+def test_deeply_nested_user_data_is_rejected(depth):
+    response = client.post(
+        "/preview",
+        files={"pdf_file": ("input.pdf", _minimal_pdf_bytes(), "application/pdf")},
+        data={"user_data": '{"a":' * depth + "1" + "}" * depth},
+    )
+    assert response.status_code == 422
+    assert response.json()["detail"]["error"]["code"] == "user_data_too_deep"
+
+
+def test_fill_allow_partial_returns_pdf_with_missing_required(tmp_path):
+    from .form_factory import FormBuilder
+
+    pdf = FormBuilder().text("first_name").text("last_name", required=True).save(tmp_path / "f.pdf")
+    files = {"pdf_file": ("f.pdf", pdf.read_bytes(), "application/pdf")}
+    data = {"user_data": '{"first_name":"Jane"}'}
+
+    blocked = client.post("/fill", files=files, data=data)
+    assert blocked.status_code == 422
+
+    partial = client.post("/fill", files=files, data={**data, "allow_partial": "true"})
+    assert partial.status_code == 200
+    assert partial.content.startswith(b"%PDF")
+    assert partial.headers["X-PDF-Fields-Missing-Required"] == "last_name"
+    assert partial.headers["X-PDF-Fields-Unfilled"] == "1"
+
+
+def test_safe_header_value_strips_control_characters():
+    assert api_routes._safe_header_value(["a\r\nSet-Cookie: x", "b\x00"]) == "aSet-Cookie: x,b"
+
+
+@pytest.mark.parametrize(
+    ("proxy_count", "forwarded", "expected"),
+    [
+        (1, "6.6.6.6, 203.0.113.9", "203.0.113.9"),  # spoofed left entry ignored
+        (2, "6.6.6.6, 203.0.113.9, 10.0.0.2", "203.0.113.9"),
+        (2, "203.0.113.9", "203.0.113.9"),  # fewer hops than proxies
+    ],
+)
+def test_client_identifier_uses_trusted_hop(monkeypatch, proxy_count, forwarded, expected):
+    from starlette.requests import Request
+
+    from pdf_autofiller.api.security import client_identifier
+
+    monkeypatch.setattr(config, "TRUST_PROXY_HEADERS", True)
+    monkeypatch.setattr(config, "TRUSTED_PROXY_COUNT", proxy_count)
+    request = Request(
+        {
+            "type": "http",
+            "headers": [(b"x-forwarded-for", forwarded.encode())],
+            "client": ("10.0.0.1", 1234),
+        }
+    )
+    assert client_identifier(request) == expected

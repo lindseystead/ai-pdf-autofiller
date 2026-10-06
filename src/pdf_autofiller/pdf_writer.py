@@ -9,6 +9,7 @@ import logging
 from pathlib import Path
 
 from pypdf import PdfReader, PdfWriter
+from pypdf.generic import NameObject
 
 from .acroform_fields import collect_field_objects
 from .acroform_fields import get_field_type as acroform_field_type
@@ -128,6 +129,32 @@ def _resolve_button_value(field_obj, value: str) -> str | None:
     return None
 
 
+def _max_length(field_obj) -> int | None:
+    """Return a text field's ``/MaxLen`` (own or inherited), if declared.
+
+    ``reader.get_fields()`` returns trimmed ``Field`` snapshots without
+    ``/MaxLen``; the full widget dictionary is read from its source object.
+    """
+    node = getattr(field_obj, "indirect_reference", None) or field_obj
+    if hasattr(node, "get_object"):
+        node = node.get_object()
+    for _ in range(32):  # bounded walk: malformed /Parent cycles must not hang
+        if not hasattr(node, "get"):
+            return None
+        try:
+            max_len = node.get("/MaxLen")
+            if max_len is not None:
+                return int(max_len)
+            parent = node.get("/Parent")
+        except Exception:
+            logger.debug("Failed to read /MaxLen from field", exc_info=True)
+            return None
+        if parent is None:
+            return None
+        node = parent.get_object() if hasattr(parent, "get_object") else parent
+    return None
+
+
 def _choice_options(field_obj) -> list[str]:
     """Return display/export option strings for a choice (``/Ch``) field."""
     options: list[str] = []
@@ -178,6 +205,7 @@ def fill_pdf(
     *,
     flatten: bool = False,
     need_appearances: bool = True,
+    allow_partial: bool = False,
 ) -> FillReport:
     """
     Fill PDF form fields with mapped values from mapping result.
@@ -201,6 +229,9 @@ def fill_pdf(
             so PDF viewers regenerate visible field appearances from ``/V``.
             pypdf's ``auto_regenerate`` flag only toggles this bit — it does not
             embed new appearance streams.
+        allow_partial: When true, unresolved required fields do not abort the
+            write; they are listed in ``FillReport.missing_required_fields``
+            so callers still get a usable document plus a to-do list.
 
     Returns:
         FillReport listing the fields that were written and the fields that were
@@ -210,6 +241,7 @@ def fill_pdf(
     Raises:
         FileNotFoundError: If input PDF does not exist
         UnresolvedRequiredFieldsError: If required fields are missing or skipped
+            and ``allow_partial`` is false
 
     Example:
         >>> from pathlib import Path
@@ -288,6 +320,11 @@ def fill_pdf(
                     _mark_unwritable(field_name, "unresolved_button_state")
                     continue
                 value = resolved
+            elif field_ft == "/Tx":
+                max_len = _max_length(field_obj)
+                if max_len is not None and len(value) > max_len:
+                    _mark_unwritable(field_name, f"exceeds_max_length:{max_len}")
+                    continue
             elif field_ft == "/Ch":
                 resolved_choice = _resolve_choice_value(field_obj, value)
                 if resolved_choice is None:
@@ -351,6 +388,9 @@ def fill_pdf(
     if flatten:
         try:
             writer.remove_annotations(subtypes="/Widget")
+            # With every widget gone the AcroForm only holds dangling /Fields
+            # references, which viewers flag and pypdf cannot re-read.
+            writer._root_object.pop(NameObject("/AcroForm"), None)
         except Exception:
             logger.debug("Failed to remove widget annotations after flatten", exc_info=True)
 
@@ -373,11 +413,19 @@ def fill_pdf(
         else:
             missing_required.append(field_name)
 
-    # Fail if required fields unresolved
-    if missing_required or skipped_required_fields:
+    if (missing_required or skipped_required_fields) and not allow_partial:
         raise UnresolvedRequiredFieldsError(
             missing_fields=missing_required, skipped_fields=skipped_required_fields
         )
+
+    decided = {d.field_name for d in mapping_result.decisions}
+    # Only terminal fields (those with a type) can hold values; containers
+    # such as the ``applicant`` parent of ``applicant.firstName`` are skipped.
+    unfilled_fields = [
+        name
+        for name, field_obj in (pdf_fields or {}).items()
+        if name not in decided and _field_type(field_obj) is not None
+    ]
 
     # Write output PDF
     output_pdf_path.parent.mkdir(parents=True, exist_ok=True)
@@ -389,4 +437,6 @@ def fill_pdf(
         skipped_review_fields=skipped_review_fields,
         skipped_empty_fields=skipped_empty_fields,
         skipped_unwritable_fields=skipped_unwritable_fields,
+        missing_required_fields=sorted(set(missing_required) | set(skipped_required_fields)),
+        unfilled_fields=unfilled_fields,
     )

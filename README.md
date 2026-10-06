@@ -135,6 +135,9 @@ Manual PDF field mapping does not scale. AI-only fillers are hard to audit. **PD
 - Python library: `fill`, `fill_detailed`, `inspect`, `preview` (+ HTTP `PDFAutofillerClient`)
 - CLI: `pdf-autofiller inspect|preview|fill` (also `python -m pdf_autofiller`)
 - Deterministic alias packs (W-9-shaped / HR) + [recipes](recipes/) — synthetic corpus in CI
+- Real-world form structures: radio groups by option name, hierarchical field names
+  (`applicant.lastName`), nested JSON input, `/MaxLen` limits — dates written exactly as sent
+- Partial fills (`allow_partial`) plus a report of every field left blank (`unfilled_fields`)
 - Docker on GHCR · Render blueprint · GitHub Release wheels
 - Auth, rate limits, and upload guards on by default
 
@@ -192,7 +195,7 @@ flowchart LR
 make test && make lint && make smoke-check && make corpus-check
 ```
 
-169 tests · ≥85% coverage · Python 3.11 & 3.12 · corpus **35/35** expected field writes (6 fixtures)
+194 tests · ≥85% coverage · Python 3.11 & 3.12 · corpus **35/35** expected field writes (6 fixtures)
 
 ## License
 

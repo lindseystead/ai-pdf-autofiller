@@ -30,12 +30,19 @@ Use [GitHub Private Vulnerability Reporting](https://github.com/lindseystead/ai-
 - **Rate limiting** per client (`RATE_LIMIT_PER_MINUTE`). Default backend is
   in-process (`RATE_LIMIT_BACKEND=memory`). Set `RATE_LIMIT_BACKEND=file` so
   workers on the same host share a flock-backed store. Multi-host deployments
-  must still enforce limits at the ingress/proxy layer (or Redis).
+  must still enforce limits at the ingress/proxy layer (or Redis). Behind a
+  proxy, set `TRUST_PROXY_HEADERS=true` and `TRUSTED_PROXY_COUNT`: the client is
+  read from the trusted right-hand `X-Forwarded-For` hop, so callers cannot
+  forge their identity to evade the limit.
 - **Upload validation:** content-type, `%PDF-` signature, byte-size cap
   (`MAX_UPLOAD_BYTES`), and page-count cap (`MAX_PDF_PAGES`).
 - **DoS bounds:** PDF parsing runs off the event loop under a wall-clock timeout
   (`PDF_READ_TIMEOUT_SECONDS`); retained/forwarded text is capped
-  (`MAX_PDF_TEXT_CHARS`). Set a container memory limit as an additional backstop.
+  (`MAX_PDF_TEXT_CHARS`); `user_data` nesting is capped (`MAX_USER_DATA_DEPTH`).
+  Corrupt PDFs are rejected as `422 invalid_pdf`. Set a container memory limit
+  as an additional backstop.
+- **Header safety:** field names from untrusted PDFs are stripped of control
+  and non-ASCII characters before they are echoed in response headers.
 - **Temporary files** are removed on every code path, including errors, timeouts,
   and client cancellations.
 - **Audit trail:** a structured, PII-free log line is emitted per fill. Shipping

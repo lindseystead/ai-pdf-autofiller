@@ -46,8 +46,13 @@ def client_identifier(request: Request) -> str:
     """Resolve the client key used for rate limiting."""
     if config.TRUST_PROXY_HEADERS:
         forwarded = request.headers.get("X-Forwarded-For")
-        if forwarded:
-            return forwarded.split(",")[0].strip()
+        hops = [hop.strip() for hop in (forwarded or "").split(",") if hop.strip()]
+        if hops:
+            # Proxies append the peer they saw, so the rightmost
+            # TRUSTED_PROXY_COUNT entries are trustworthy; leftward entries
+            # are whatever the client sent.
+            index = max(0, len(hops) - config.TRUSTED_PROXY_COUNT)
+            return hops[index]
     return request.client.host if request.client else "unknown"
 
 

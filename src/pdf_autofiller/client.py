@@ -143,6 +143,7 @@ class PDFAutofillerClient:
         use_semantic_inference: bool = False,
         flatten: bool = False,
         need_appearances: bool = True,
+        allow_partial: bool = False,
         filename: str | None = None,
         accept: str = "application/pdf",
     ) -> tuple[bytes | dict[str, Any], dict[str, str]]:
@@ -161,6 +162,7 @@ class PDFAutofillerClient:
             "use_semantic_inference": str(use_semantic_inference).lower(),
             "flatten": str(flatten).lower(),
             "need_appearances": str(need_appearances).lower(),
+            "allow_partial": str(allow_partial).lower(),
         }
         headers = self._headers()
         headers["Accept"] = accept
