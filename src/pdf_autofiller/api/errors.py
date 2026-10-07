@@ -43,6 +43,7 @@ ERROR_CATALOG: dict[str, tuple[int, str]] = {
     "pdf_too_many_pages": (413, "PDF exceeds the maximum allowed page count"),
     "invalid_pdf": (422, "PDF could not be parsed"),
     "user_data_too_deep": (422, "user_data is nested too deeply"),
+    "conflicting_options": (422, "allow_fallback_mapping=true needs strict=false"),
     "pdf_processing_timeout": (503, "PDF processing exceeded the time limit"),
     "rate_limited": (429, "Too many requests"),
     "unauthorized": (401, "Unauthorized"),

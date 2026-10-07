@@ -145,6 +145,14 @@ def inspect(pdf: str | Path, *, max_pages: int | None = None) -> InspectResult:
     )
 
 
+def require_consistent_options(*, strict: bool, allow_fallback_mapping: bool) -> None:
+    """Strict mode disables the AI key fallback, so asking for both is a caller error."""
+    if strict and allow_fallback_mapping:
+        raise ValueError(
+            "allow_fallback_mapping=True needs strict=False (strict mode disables the AI key fallback)"
+        )
+
+
 def run_preview_pipeline(
     input_pdf_path: Path,
     user_data: dict[str, Any],
@@ -159,6 +167,7 @@ def run_preview_pipeline(
 
     Returns ``(mapping_result, field_count, page_count)``.
     """
+    require_consistent_options(strict=strict, allow_fallback_mapping=allow_fallback_mapping)
     structure = read_pdf(input_pdf_path, max_pages=max_pages)
     enriched_fields = enrich_fields(
         structure.form_fields,
@@ -218,6 +227,7 @@ def run_fill_pipeline(
 
     Returns ``(fill_report, mapping_result, field_count, page_count)``.
     """
+    require_consistent_options(strict=strict, allow_fallback_mapping=allow_fallback_mapping)
     structure = read_pdf(input_pdf_path, max_pages=max_pages)
     enriched_fields = enrich_fields(
         structure.form_fields,

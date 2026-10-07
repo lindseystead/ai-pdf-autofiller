@@ -141,3 +141,13 @@ def test_dict_subclasses_and_non_string_keys_are_accepted():
     selected = {d.field_name: d.selected_value for d in result.mapping.decisions}
     assert selected["txtFirstName"] == "Jane"
     assert "7" in result.mapping.unmapped_user_keys
+
+
+@pytest.mark.parametrize("entry", ["fill", "preview"])
+def test_ai_fallback_with_strict_mode_is_rejected_not_ignored(tmp_path: Path, entry):
+    with pytest.raises(ValueError, match="strict=False"):
+        if entry == "fill":
+            fill(SAMPLE, {"firstname": "Jane"}, tmp_path / "out.pdf", allow_fallback_mapping=True)
+        else:
+            preview(SAMPLE, {"firstname": "Jane"}, allow_fallback_mapping=True)
+    assert not (tmp_path / "out.pdf").exists()

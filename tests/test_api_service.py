@@ -730,3 +730,14 @@ def test_fill_reports_ai_assisted_fields_in_headers_and_json(monkeypatch, tmp_pa
 
     as_json = client.post("/fill", headers={"Accept": "application/json"}, **request)
     assert as_json.json()["ai_assisted_fields"] == ["Text2"]
+
+
+@pytest.mark.parametrize("path", ["/fill", "/preview"])
+def test_ai_fallback_with_strict_mode_returns_422(path):
+    response = client.post(
+        path,
+        files={"pdf_file": ("f.pdf", Path("samples/sample_form.pdf").read_bytes(), "application/pdf")},
+        data={"user_data": '{"firstname": "Jane"}', "strict": "true", "allow_fallback_mapping": "true"},
+    )
+    assert response.status_code == 422
+    assert response.json()["detail"]["error"]["code"] == "conflicting_options"

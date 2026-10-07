@@ -190,6 +190,15 @@ def _pdf_job_errors() -> Iterator[None]:
         ) from exc
 
 
+def _require_consistent_options(*, strict: bool, allow_fallback_mapping: bool) -> None:
+    if strict and allow_fallback_mapping:
+        raise api_error(
+            status_code=422,
+            code="conflicting_options",
+            message=ERROR_CATALOG["conflicting_options"][1],
+        )
+
+
 def _parse_user_data(user_data: str) -> dict[str, Any]:
     try:
         parsed = json.loads(user_data)
@@ -340,6 +349,7 @@ async def inspect_pdf(
         "invalid_user_data_json",
         "invalid_user_data_type",
         "user_data_too_deep",
+        "conflicting_options",
         "pdf_preview_failed",
     ),
 )
@@ -360,6 +370,7 @@ async def preview_pdf(
     temp_dir = tempfile.TemporaryDirectory(prefix="pdf-autofiller-preview-")
     try:
         with _unexpected_errors("pdf_preview_failed"):
+            _require_consistent_options(strict=strict, allow_fallback_mapping=allow_fallback_mapping)
             parsed_user_data = _parse_user_data(user_data)
             input_path = await _save_pdf_upload(pdf_file, temp_dir)
             with _pdf_job_errors():
@@ -406,6 +417,7 @@ async def preview_pdf(
             "invalid_user_data_json",
             "invalid_user_data_type",
             "user_data_too_deep",
+            "conflicting_options",
             "required_fields_unresolved",
             "pdf_fill_failed",
         ),
@@ -445,6 +457,7 @@ async def fill(
     response_started = False  # once a response owns temp_dir, it cleans it up afterwards
     try:
         with _unexpected_errors("pdf_fill_failed"):
+            _require_consistent_options(strict=strict, allow_fallback_mapping=allow_fallback_mapping)
             parsed_user_data = _parse_user_data(user_data)
             input_path = await _save_pdf_upload(pdf_file, temp_dir)
             output_path = input_path.with_name("output_filled.pdf")

@@ -209,6 +209,12 @@
       statusEl.textContent = message;  // messages can echo PDF field names: never parse as HTML
     }
 
+    // Strict mode disables the AI key fallback; keep the two boxes from contradicting.
+    const strictBox = document.getElementById('strict');
+    const fallbackBox = document.getElementById('fallback');
+    strictBox.addEventListener('change', () => { if (strictBox.checked) fallbackBox.checked = false; });
+    fallbackBox.addEventListener('change', () => { if (fallbackBox.checked) strictBox.checked = false; });
+
     function authHeaders() {
       const headers = {};
       if (apiKey.value.trim()) headers['X-API-Key'] = apiKey.value.trim();
