@@ -19,6 +19,8 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- Dropdowns whose options are `[export, display]` pairs (most state and
+  country lists) can be filled by either value; the export value is written
 - Number-typed fields are validated, not rewritten: `"02134"` keeps its
   leading zero and long account numbers keep every digit
 - Forms with roughly 250+ fields no longer time out on the default process

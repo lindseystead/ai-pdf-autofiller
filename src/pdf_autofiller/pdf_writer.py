@@ -155,47 +155,46 @@ def _max_length(field_obj) -> int | None:
     return None
 
 
-def _choice_options(field_obj) -> list[str]:
-    """Return display/export option strings for a choice (``/Ch``) field."""
-    options: list[str] = []
-    try:
-        opt = field_obj.get("/Opt")
-        if opt:
-            for entry in opt:
-                if hasattr(entry, "get"):
-                    # [export, display] pair
-                    export = entry[0] if len(entry) > 0 else entry
-                    options.append(str(export))
-                else:
-                    options.append(str(entry))
-    except Exception:
-        logger.debug("Failed to read /Opt from choice field", exc_info=True)
+def _choice_options(field_obj) -> list[tuple[str, str]]:
+    """Return ``(export, display)`` pairs for a choice (``/Ch``) field.
 
-    for state in _button_states(field_obj):
-        options.append(str(state).lstrip("/"))
-    return options
+    ``/Opt`` entries are either a plain string (export and display are the same)
+    or an ``[export, display]`` array, as used by most state/country dropdowns.
+    """
+    # pypdf's get_fields() mirrors /Opt into /_States_; use it only if /Opt is absent.
+    opt = field_obj.get("/Opt") or field_obj.get("/_States_")
+    opt = opt.get_object() if hasattr(opt, "get_object") else opt
+    options: list[tuple[str, str]] = []
+    for entry in opt if isinstance(opt, list) else []:  # malformed /Opt: no options
+        entry = entry.get_object() if hasattr(entry, "get_object") else entry
+        if isinstance(entry, list) and entry:
+            options.append((str(entry[0]), str(entry[-1])))
+        else:
+            name = str(entry).lstrip("/")
+            options.append((name, name))
+    return list(dict.fromkeys(options))
 
 
 def _resolve_choice_value(field_obj, value: str) -> str | None:
     """
-    Resolve a mapped value for a choice (``/Ch``) field.
+    Resolve a mapped value for a choice (``/Ch``) field to its export value.
 
-    Writes the value as-is when no options are declared. When ``/Opt`` or
-    ``/_States_`` are present, requires a case-insensitive option match —
-    unmatched values return ``None`` so callers can report them as unwritable
-    instead of writing an invalid option.
+    Writes the value as-is when no options are declared. Otherwise the value
+    must match an option's export or display text (case-insensitive); unmatched
+    values return ``None`` so callers report them as unwritable instead of
+    writing an invalid option.
     """
     raw = value.strip()
     options = _choice_options(field_obj)
     if not options:
         return raw
 
-    lookup = {opt.lstrip("/").lower(): opt for opt in options}
-    matched = lookup.get(raw.lstrip("/").lower())
-    if matched is None:
-        logger.debug("Could not resolve choice value %r to a known option; skipping", value)
-        return None
-    return matched
+    wanted = raw.lstrip("/").lower()
+    for export, display in options:
+        if wanted in (export.lstrip("/").lower(), display.lower()):
+            return export
+    logger.debug("Choice value did not match any declared option; skipping")
+    return None
 
 
 def fill_pdf(

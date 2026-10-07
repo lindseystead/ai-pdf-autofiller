@@ -6,7 +6,7 @@ import pytest
 
 from pdf_autofiller import pdf_writer as pdf_writer_module
 from pdf_autofiller.models import FieldMappingDecision, MappingResult
-from pdf_autofiller.pdf_writer import UnresolvedRequiredFieldsError, fill_pdf
+from pdf_autofiller.pdf_writer import UnresolvedRequiredFieldsError, _choice_options, fill_pdf
 
 
 def create_minimal_pdf_with_fields(output_path: Path, field_names: list[str]) -> None:
@@ -89,8 +89,17 @@ def _checkbox_decision(value: str, field_name: str = "chkAgree") -> MappingResul
     )
 
 
-def create_pdf_with_choice(output_path: Path, field_name: str = "cmbState") -> None:
-    """Create a minimal PDF containing a choice field with /Opt options."""
+def create_pdf_with_choice(
+    output_path: Path,
+    field_name: str = "cmbState",
+    options: list[str | tuple[str, str]] | None = None,
+    combo: bool = False,
+) -> None:
+    """Create a minimal PDF containing a choice field with /Opt options.
+
+    Options are plain strings or ``(export, display)`` pairs; ``combo`` makes it
+    a dropdown (combo box) rather than a list box.
+    """
     from pypdf import PdfWriter
     from pypdf.generic import (
         ArrayObject,
@@ -113,9 +122,15 @@ def create_pdf_with_choice(output_path: Path, field_name: str = "cmbState") -> N
                 [NumberObject(10), NumberObject(10), NumberObject(120), NumberObject(30)]
             ),
             NameObject("/Opt"): ArrayObject(
-                [TextStringObject("CA"), TextStringObject("NY"), TextStringObject("TX")]
+                [
+                    ArrayObject([TextStringObject(o[0]), TextStringObject(o[1])])
+                    if isinstance(o, tuple)
+                    else TextStringObject(o)
+                    for o in (options or ["CA", "NY", "TX"])
+                ]
             ),
             NameObject("/V"): TextStringObject(""),
+            NameObject("/Ff"): NumberObject(1 << 17 if combo else 0),
         }
     )
     choice_ref = writer._add_object(choice)
@@ -152,6 +167,32 @@ def test_fill_pdf_writes_choice_field_matching_option(tmp_path):
     assert "cmbState" in report.written_fields
     fields = PdfReader(str(output_pdf)).get_fields()
     assert str(fields["cmbState"].get("/V")) == "NY"
+
+
+@pytest.mark.parametrize("value", ["CA", "ca", "California", "california"])
+def test_fill_pdf_choice_with_export_display_pairs_writes_export_value(tmp_path, value):
+    from pypdf import PdfReader
+
+    input_pdf = tmp_path / "choice.pdf"
+    output_pdf = tmp_path / "out.pdf"
+    create_pdf_with_choice(input_pdf, options=[("CA", "California"), ("NY", "New York")], combo=True)
+
+    mapping = MappingResult(
+        decisions=[
+            FieldMappingDecision(
+                field_name="cmbState",
+                semantic_meaning="state",
+                selected_value=value,
+                confidence=0.95,
+                reason="x",
+            )
+        ]
+    )
+    report = fill_pdf(input_pdf, output_pdf, mapping)
+    assert "cmbState" in report.written_fields
+    field = PdfReader(str(output_pdf)).get_fields()["cmbState"]
+    assert str(field.get("/V")) == "CA"
+    assert _choice_options(field) == [("CA", "California"), ("NY", "New York")]
 
 
 def test_fill_pdf_reports_unmatched_choice_as_unwritable(tmp_path):
@@ -677,3 +718,9 @@ def test_fill_pdf_uses_annotation_fallback_metadata(tmp_path, monkeypatch):
     assert output_pdf.exists()
     assert created_writers
     assert created_writers[0].calls == [{"txtFallback": "value"}]
+
+
+def test_choice_options_ignores_malformed_opt():
+    from pypdf.generic import DictionaryObject, NameObject, NumberObject
+
+    assert _choice_options(DictionaryObject({NameObject("/Opt"): NumberObject(5)})) == []
