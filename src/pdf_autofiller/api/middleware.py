@@ -107,7 +107,8 @@ class UploadGuardMiddleware:
         try:
             guard_mutating_request(request)
             declared = request.headers.get("content-length", "")
-            if declared.isdigit() and int(declared) > limit:
+            # isascii(): str.isdigit() also accepts "²" etc., which int() rejects.
+            if declared.isascii() and declared.isdigit() and int(declared) > limit:
                 raise too_large
         except HTTPException as exc:
             await _error_response(exc)(scope, receive, send)
