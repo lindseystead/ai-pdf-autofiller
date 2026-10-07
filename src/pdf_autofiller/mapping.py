@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from datetime import datetime
 from typing import Any, Literal
 
@@ -104,13 +105,16 @@ def canonicalize_semantic(key: str, registry: AliasRegistry | None = None) -> st
     return (registry or get_default_registry()).canonicalize(key)
 
 
+_DECIMAL_RE = re.compile(r"[+-]?(?:\d+\.?\d*|\.\d+)")
+
+
 def coerce_value(value: Any, expected_type: str) -> tuple[str | None, bool]:
     """
     Coerce a value to match the expected data type.
 
     Returns ``(coerced_value, requires_review)``.
 
-    Dates are validated, never rewritten: the caller's string is written
+    Dates and numbers are validated, never rewritten: the caller's string is written
     verbatim so the form receives the format the user chose (reformatting to
     ISO would silently break forms printed as ``MM/DD/YYYY`` and would have to
     guess between month-first and day-first readings). Unparseable dates and
@@ -144,13 +148,9 @@ def coerce_value(value: Any, expected_type: str) -> tuple[str | None, bool]:
         return str_value, True
 
     if expected_type == "number":
-        try:
-            float_val = float(str_value)
-            if float_val.is_integer():
-                return str(int(float_val)), False
-            return str(float_val), False
-        except (ValueError, OverflowError):
-            return str_value, True
+        # Validated, never rewritten: float() would drop leading zeros (ZIP
+        # "02134") and lose precision on long account numbers.
+        return str_value, _DECIMAL_RE.fullmatch(str_value) is None
 
     if expected_type == "boolean":
         str_lower = str_value.lower()

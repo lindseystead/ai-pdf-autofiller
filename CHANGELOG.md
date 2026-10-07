@@ -19,6 +19,8 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- Number-typed fields are validated, not rewritten: `"02134"` keeps its
+  leading zero and long account numbers keep every digit
 - Forms with roughly 250+ fields no longer time out on the default process
   job backend (the parent read the worker's result only after joining it)
 - Sample PDFs are now readable forms (title, labels, boxed fields in order)
