@@ -46,7 +46,11 @@ ERROR_CATALOG: dict[str, tuple[int, str]] = {
     "pdf_processing_timeout": (503, "PDF processing exceeded the time limit"),
     "rate_limited": (429, "Too many requests"),
     "unauthorized": (401, "Unauthorized"),
-    "server_auth_config_error": (500, "Server authentication configuration error"),
+    "server_auth_config_error": (
+        500,
+        "Authentication is enabled but API_AUTH_TOKEN is not set. "
+        "Set API_AUTH_TOKEN, or API_AUTH_ENABLED=false for local use",
+    ),
     "required_fields_unresolved": (422, "Required fields unresolved"),
     "pdf_fill_failed": (500, "PDF fill failed"),
     "pdf_preview_failed": (500, "PDF preview failed"),
