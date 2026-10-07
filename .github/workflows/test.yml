@@ -25,10 +25,10 @@ jobs:
           pip install -r requirements-dev.txt
       - name: Lint
         run: |
-          ruff check src/ tests/ scripts/
+          ruff check src/ tests/ scripts/ examples/
       - name: Format check
         run: |
-          ruff format --check src/ tests/ scripts/
+          ruff format --check src/ tests/ scripts/ examples/
       - name: Type check
         run: |
           mypy src/

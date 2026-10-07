@@ -42,13 +42,13 @@ corpus-check:
 	PYTHONPATH=src python3 -m scripts.corpus_report
 
 lint:
-	ruff check src/ tests/ scripts/
-	ruff format --check src/ tests/ scripts/
+	ruff check src/ tests/ scripts/ examples/
+	ruff format --check src/ tests/ scripts/ examples/
 	mypy src/
 
 format:
-	ruff format src/ tests/ scripts/
-	ruff check --fix src/ tests/ scripts/
+	ruff format src/ tests/ scripts/ examples/
+	ruff check --fix src/ tests/ scripts/ examples/
 
 clean:
 	rm -rf build/ dist/ *.egg-info .pytest_cache .mypy_cache .ruff_cache
