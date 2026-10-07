@@ -13,6 +13,7 @@ from pypdf.generic import NameObject
 
 from .acroform_fields import collect_field_objects
 from .acroform_fields import get_field_type as acroform_field_type
+from .errors import PdfAutofillerError
 from .field_utils import is_field_required
 from .models import FillReport, MappingResult
 
@@ -41,7 +42,7 @@ _BUTTON_TRUTHY = {"true", "yes", "on", "1", "checked", "x", "y"}
 _BUTTON_FALSY = {"false", "no", "off", "0", "unchecked", "n", ""}
 
 
-class UnresolvedRequiredFieldsError(Exception):
+class UnresolvedRequiredFieldsError(PdfAutofillerError):
     """
     Exception raised when required fields can't be filled.
 

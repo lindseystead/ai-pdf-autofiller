@@ -13,12 +13,14 @@ import os
 from dataclasses import dataclass, field
 from typing import Any
 
+from .errors import PdfAutofillerError
+
 # Deeper payloads are rejected: they are never legitimate form data and can
 # exhaust the interpreter stack when serialized to worker processes.
 MAX_USER_DATA_DEPTH = int(os.getenv("MAX_USER_DATA_DEPTH", "16"))
 
 
-class UserDataTooDeepError(ValueError):
+class UserDataTooDeepError(PdfAutofillerError, ValueError):
     """Raised when user data nests deeper than ``MAX_USER_DATA_DEPTH``."""
 
     def __init__(self, max_depth: int):

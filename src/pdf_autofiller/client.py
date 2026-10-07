@@ -10,6 +10,7 @@ from typing import Any
 import httpx
 
 from . import __version__
+from .errors import PdfAutofillerError
 
 
 class _BorrowedClient:
@@ -25,7 +26,7 @@ class _BorrowedClient:
         return None
 
 
-class PDFAutofillError(Exception):
+class PDFAutofillError(PdfAutofillerError):
     """Raised when the API returns an error response."""
 
     def __init__(self, status_code: int, code: str, message: str, details: dict[str, Any] | None = None):

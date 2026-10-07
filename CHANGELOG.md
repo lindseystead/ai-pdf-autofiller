@@ -6,6 +6,10 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- `PdfAutofillerError`, the base of every error the library raises on
+  purpose; `InvalidPdfError`, `PdfPageLimitError`,
+  `UnresolvedRequiredFieldsError` and `UserDataTooDeepError` are now exported
+  from the package (the `ValueError` ones still subclass `ValueError`)
 - `FillReport.ai_assisted_fields` (also `X-PDF-Fields-AI-Assisted`, the JSON
   report, the CLI and the playground) lists written fields whose mapping the
   optional AI step chose
