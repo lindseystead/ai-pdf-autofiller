@@ -155,6 +155,7 @@ def _pdf_job_errors() -> Iterator[None]:
             status_code=422,
             code="invalid_pdf",
             message="PDF could not be parsed",
+            details={"reason": str(exc)},
         ) from exc
 
 

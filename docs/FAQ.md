@@ -20,6 +20,15 @@ Use this project when you need an auditable, self-hosted fill for AcroForm PDFs.
 
 This tool fills **AcroForm** (and similar interactive) fields — widgets with names like `txtSSN`. It does **not** OCR a flat scanned image into text boxes. If `/inspect` returns `field_count: 0`, the PDF is not fillable as shipped; regenerate it as an AcroForm or use an OCR pipeline first.
 
+## Encrypted PDFs
+
+- PDFs that need a password to open are rejected with a "password-protected" error.
+  Fill an unlocked copy instead.
+- PDFs that open without a password but restrict editing (owner-password restrictions) are
+  filled. The output does not keep those restrictions, because they cannot be re-applied
+  without the owner password.
+- AES-encrypted PDFs need the optional `cryptography` package (`pip install cryptography`).
+
 ## Authentication defaults
 
 - `API_AUTH_ENABLED` defaults to **`true`** (fail closed).

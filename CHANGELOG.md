@@ -19,6 +19,9 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- Password-protected PDFs are reported as such (library, CLI, and the API's
+  `invalid_pdf` error now carries `details.reason`) instead of
+  "File has not been decrypted"
 - The CLI prints a one-line `Error:` instead of a Python traceback for
   unreadable PDFs, page-limit and nesting-limit errors, and output paths
   that cannot be written
