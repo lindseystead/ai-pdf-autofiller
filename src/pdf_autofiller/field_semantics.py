@@ -76,6 +76,14 @@ class SemanticClient:
                 logger.warning("Failed to initialize provider client: %s", exc)
                 self._client = None
 
+    def _require_client(self) -> Any:
+        """Return the provider client, or raise RuntimeError when none could be built."""
+        if self._client is None:
+            raise RuntimeError(
+                "Semantic client not available. Set MODEL_PROVIDER_API_KEY and install the openai package."
+            )
+        return self._client
+
     def is_available(self) -> bool:
         """Check if a working semantic client is available."""
         return self._client is not None
@@ -94,16 +102,10 @@ class SemanticClient:
         """
         if not fields:
             return {}
-        if not self.is_available():
-            raise RuntimeError(
-                "Semantic client not available. Set MODEL_PROVIDER_API_KEY environment variable "
-                "or install openai package."
-            )
-        assert self._client is not None
-
+        client = self._require_client()
         prompt = self._build_batch_prompt(fields, page_context=page_context)
         try:
-            response = self._client.chat.completions.create(
+            response = client.chat.completions.create(
                 model=MODEL,
                 messages=[
                     {
@@ -120,7 +122,7 @@ class SemanticClient:
                 temperature=0.3,
             )
             content = response.choices[0].message.content
-        except Exception as exc:
+        except Exception as exc:  # SDK and network errors vary by version; callers handle RuntimeError
             raise RuntimeError(f"Semantic inference failed: {exc}") from exc
 
         if not isinstance(content, str):
@@ -140,12 +142,9 @@ class SemanticClient:
         Raises:
             RuntimeError: If the client is unavailable or the call fails
         """
-        if not self.is_available():
-            raise RuntimeError("Semantic client unavailable")
-        assert self._client is not None
-
+        client = self._require_client()
         try:
-            response = self._client.chat.completions.create(
+            response = client.chat.completions.create(
                 model=MODEL,
                 messages=[
                     {"role": "system", "content": system_prompt},
@@ -155,11 +154,11 @@ class SemanticClient:
                 temperature=temperature,
             )
             content = response.choices[0].message.content
-            if not isinstance(content, str):
-                raise RuntimeError("Semantic response did not include text content")
-            return content
-        except Exception as exc:
+        except Exception as exc:  # SDK and network errors vary by version; callers handle RuntimeError
             raise RuntimeError(f"Semantic completion failed: {exc}") from exc
+        if not isinstance(content, str):
+            raise RuntimeError("Semantic response did not include text content")
+        return content
 
     def _build_batch_prompt(
         self,

@@ -12,7 +12,6 @@ from pypdf import PdfReader, PdfWriter
 from pypdf.generic import NameObject
 
 from .acroform_fields import collect_field_objects
-from .acroform_fields import get_field_type as acroform_field_type
 from .errors import PdfAutofillerError
 from .field_utils import is_field_required
 from .models import FillReport, MappingResult
@@ -68,18 +67,8 @@ def _field_type(field_obj) -> str | None:
     """Return the PDF field type name (e.g. '/Btn', '/Tx') if available."""
     if not hasattr(field_obj, "get"):
         return None
-    try:
-        internal = acroform_field_type(field_obj)
-        mapping = {
-            "text": "/Tx",
-            "button": "/Btn",
-            "choice": "/Ch",
-            "signature": "/Sig",
-        }
-        return mapping.get(internal)
-    except Exception:
-        logger.debug("Unable to read field type from field object", exc_info=True)
-        return None
+    field_type = field_obj.get("/FT")
+    return str(field_type) if field_type in ("/Tx", "/Btn", "/Ch", "/Sig") else None
 
 
 def _button_states(field_obj) -> list[str]:

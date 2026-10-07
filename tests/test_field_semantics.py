@@ -125,7 +125,7 @@ def test_infer_semantics_batch_surfaces_unparseable_output():
 
 def test_create_json_completion_raises_when_unavailable():
     client = field_semantics.SemanticClient(api_key=None)
-    with pytest.raises(RuntimeError, match="unavailable"):
+    with pytest.raises(RuntimeError, match="not available"):
         client.create_json_completion(system_prompt="sys", user_prompt="usr")
 
 
@@ -163,3 +163,10 @@ def test_worst_case_ai_time_fits_inside_the_api_job_timeout():
     attempts = field_semantics.MAX_RETRIES + 1
     worst_case = calls_per_run * attempts * field_semantics.REQUEST_TIMEOUT_SECONDS
     assert worst_case < config.PDF_READ_TIMEOUT_SECONDS
+
+
+def test_empty_provider_content_is_reported_as_such_not_as_a_provider_failure():
+    client = _client_returning(None)  # the SDK can return content=None
+    with pytest.raises(RuntimeError) as excinfo:
+        client.create_json_completion(system_prompt="s", user_prompt="u")
+    assert str(excinfo.value) == "Semantic response did not include text content"
