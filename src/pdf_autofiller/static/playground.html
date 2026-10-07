@@ -419,13 +419,15 @@
         const skippedEmpty = response.headers.get('X-PDF-Fields-Skipped-Empty') || '(none)';
         const skippedUnwritable = response.headers.get('X-PDF-Fields-Skipped-Unwritable') || '(none)';
         const displayWarnings = response.headers.get('X-PDF-Fields-Display-Warnings') || '(none)';
+        const aiAssisted = response.headers.get('X-PDF-Fields-AI-Assisted') || '(none)';
         const report =
           'Fill report\n'
           + 'Written: ' + written + '\n'
           + 'Skipped (review): ' + skippedReview + '\n'
           + 'Skipped (empty): ' + skippedEmpty + '\n'
           + 'Skipped (unwritable): ' + skippedUnwritable + '\n'
-          + 'Display warnings: ' + displayWarnings;
+          + 'Display warnings: ' + displayWarnings + '\n'
+          + 'Mapped by AI (review): ' + aiAssisted;
         inspectOut.style.display = 'block';
         inspectOut.textContent = report;
         setStatus(

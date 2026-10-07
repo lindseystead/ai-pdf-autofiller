@@ -706,3 +706,27 @@ def test_request_temp_dirs_are_removed_on_success_and_every_error(path, monkeypa
     assert response.status_code == 500
     assert response.json()["detail"]["error"]["code"] == f"pdf_{path.strip('/')}_failed"
     assert _temp_dirs() == before
+
+
+def test_fill_reports_ai_assisted_fields_in_headers_and_json(monkeypatch, tmp_path):
+    from pdf_autofiller import pipeline
+
+    from .form_factory import FormBuilder
+    from .test_form_structures import _FakeSemanticClient
+
+    monkeypatch.setattr(pipeline, "SemanticClient", _FakeSemanticClient)
+    form = FormBuilder().text("Text1").text("Text2").save(tmp_path / "opaque.pdf").read_bytes()
+    request = {
+        "files": {"pdf_file": ("opaque.pdf", form, "application/pdf")},
+        "data": {
+            "user_data": '{"email": "a@b.co"}',
+            "use_semantic_inference": "true",
+            "allow_partial": "true",
+        },
+    }
+    as_pdf = client.post("/fill", **request)
+    assert as_pdf.status_code == 200
+    assert as_pdf.headers["X-PDF-Fields-AI-Assisted"] == "Text2"
+
+    as_json = client.post("/fill", headers={"Accept": "application/json"}, **request)
+    assert as_json.json()["ai_assisted_fields"] == ["Text2"]

@@ -475,4 +475,7 @@ def fill_pdf(
         missing_required_fields=sorted(set(missing_required) | set(skipped_required_fields)),
         unfilled_fields=unfilled_fields,
         display_warnings=display_warnings,
+        ai_assisted_fields=sorted(
+            d.field_name for d in mapping_result.decisions if d.ai_assisted and d.field_name in written_fields
+        ),
     )
