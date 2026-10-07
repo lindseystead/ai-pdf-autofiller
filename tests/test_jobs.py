@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import time
 
 import pytest
@@ -20,6 +21,16 @@ def _page_limit_job() -> None:
 
 def _add_job(a: int, b: int) -> int:
     return a + b
+
+
+def _crashing_job() -> None:
+    os._exit(3)
+
+
+def _large_result_job() -> str:
+    # Larger than an OS pipe buffer (~64 KB): a parent that joins before
+    # reading the queue deadlocks on results like this.
+    return "x" * 500_000
 
 
 def test_execute_pdf_job_thread_backend_returns_result(monkeypatch):
@@ -55,3 +66,21 @@ def test_execute_pdf_job_process_reconstructs_page_limit(monkeypatch):
         jobs.execute_pdf_job(_page_limit_job, timeout_seconds=30.0)
     assert exc_info.value.num_pages == 9
     assert exc_info.value.max_pages == 2
+
+
+def test_execute_pdf_job_process_backend_returns_large_result(monkeypatch):
+    monkeypatch.setenv("PDF_JOB_BACKEND", "process")
+
+    started = time.monotonic()
+    result = jobs.execute_pdf_job(_large_result_job, timeout_seconds=30.0)
+    assert len(result) == 500_000
+    assert time.monotonic() - started < 10.0
+
+
+def test_execute_pdf_job_process_backend_reports_crash_without_waiting(monkeypatch):
+    monkeypatch.setenv("PDF_JOB_BACKEND", "process")
+
+    started = time.monotonic()
+    with pytest.raises(RuntimeError, match="exitcode=3"):
+        jobs.execute_pdf_job(_crashing_job, timeout_seconds=30.0)
+    assert time.monotonic() - started < 10.0
