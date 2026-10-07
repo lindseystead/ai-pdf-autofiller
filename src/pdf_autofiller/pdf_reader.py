@@ -17,6 +17,7 @@ from pypdf import PdfReader
 from pypdf.errors import FileNotDecryptedError, PyPdfError
 
 from . import acroform_fields
+from .errors import PdfAutofillerError
 from .models import DocumentMetadata, DocumentStructure, TextRegion
 
 logger = logging.getLogger(__name__)
@@ -24,7 +25,7 @@ logger = logging.getLogger(__name__)
 MAX_TOTAL_TEXT_CHARS = int(os.getenv("MAX_PDF_TEXT_CHARS", str(2_000_000)))
 
 
-class PdfPageLimitError(Exception):
+class PdfPageLimitError(PdfAutofillerError):
     """Raised when a PDF has more pages than the configured limit allows."""
 
     def __init__(self, num_pages: int, max_pages: int):
@@ -33,7 +34,7 @@ class PdfPageLimitError(Exception):
         super().__init__(f"PDF has {num_pages} pages, exceeding the limit of {max_pages}")
 
 
-class InvalidPdfError(ValueError):
+class InvalidPdfError(PdfAutofillerError, ValueError):
     """Raised when the input cannot be parsed as a PDF (corrupt or truncated)."""
 
 
