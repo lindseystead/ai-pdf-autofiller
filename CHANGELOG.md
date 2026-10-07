@@ -6,9 +6,6 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
-- `render-demo.yaml`: public-demo Render blueprint (auth off, 10 req/min per
-  client, 1 MiB / 10-page uploads, no AI key); `render.yaml` remains the
-  private, auth-on blueprint
 - `examples/quickstart.py` + `examples/README.md`, exercised by
   `tests/test_examples.py`; `examples/` is linted in CI
 
@@ -19,13 +16,11 @@ All notable changes to this project will be documented in this file.
   One generator, `scripts/create_sample_forms.py`, replaces
   `create_sample_form.py` and `create_corpus_forms.py`. Field names are
   unchanged; `tests/test_samples.py` guards the layout
-- `publish-pypi.yml` now also runs when a GitHub Release is published
-  (manual dispatch kept for retries)
-- README: quickstart-first layout (`pip install pdf-autofiller`, CLI, Docker),
-  install methods collapsed to pip / Docker / source, comparison table, PyPI
-  badge and Deploy to Render button; removed static coverage badge and
-  hand-maintained test counts
-
+- README rewritten around one description (library or self-hosted API);
+  removed the static coverage badge, hand-maintained test counts and
+  unfinished placeholders
+- The missing-`API_AUTH_TOKEN` error now says how to fix it, and the API
+  entrypoint warns at startup
 - GitHub Actions bumped to current major versions (off the deprecated Node.js 20
   runtime)
 - Dependabot no longer opens routine pip version PRs; Python security updates
