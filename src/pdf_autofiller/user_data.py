@@ -89,8 +89,6 @@ def flatten_user_data(data: dict[str, Any], max_depth: int = MAX_USER_DATA_DEPTH
             if not leaf.isdigit():
                 leaf_paths.setdefault(leaf, []).append(path)
     leaf_aliases = {
-        leaf: paths[0]
-        for leaf, paths in leaf_paths.items()
-        if len(paths) == 1 and leaf not in values
+        leaf: paths[0] for leaf, paths in leaf_paths.items() if len(paths) == 1 and leaf not in values
     }
     return FlatUserData(values=values, leaf_aliases=leaf_aliases)

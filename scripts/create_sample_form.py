@@ -5,10 +5,7 @@ Create a sample fillable PDF form for testing.
 import importlib.util
 from pathlib import Path
 
-REPORTLAB_AVAILABLE = (
-    importlib.util.find_spec("reportlab")
-    is not None
-)
+REPORTLAB_AVAILABLE = importlib.util.find_spec("reportlab") is not None
 
 
 def create_sample_form_pypdf(output_path: Path):
@@ -33,72 +30,43 @@ def create_sample_form_pypdf(output_path: Path):
     # pypdf does not provide a high-level AcroForm builder, so we construct the
     # minimum required dictionaries directly and register a standard Helvetica
     # font resource to avoid warnings when fields are later filled.
-    font = DictionaryObject({
-        NameObject("/Type"): NameObject("/Font"),
-        NameObject("/Subtype"): NameObject("/Type1"),
-        NameObject("/BaseFont"): NameObject("/Helvetica"),
-        NameObject("/Encoding"): NameObject("/WinAnsiEncoding"),
-    })
+    font = DictionaryObject(
+        {
+            NameObject("/Type"): NameObject("/Font"),
+            NameObject("/Subtype"): NameObject("/Type1"),
+            NameObject("/BaseFont"): NameObject("/Helvetica"),
+            NameObject("/Encoding"): NameObject("/WinAnsiEncoding"),
+        }
+    )
     font_ref = writer._add_object(font)
 
     # Create AcroForm
-    acro_form = DictionaryObject({
-        NameObject("/Fields"): ArrayObject(),
-        NameObject("/NeedAppearances"): BooleanObject(True),
-        NameObject("/DA"): TextStringObject("/Helv 0 Tf 0 g"),
-        NameObject("/DR"): DictionaryObject({
-            NameObject("/Font"): DictionaryObject({
-                NameObject("/Helv"): font_ref,
-            })
-        }),
-    })
+    acro_form = DictionaryObject(
+        {
+            NameObject("/Fields"): ArrayObject(),
+            NameObject("/NeedAppearances"): BooleanObject(True),
+            NameObject("/DA"): TextStringObject("/Helv 0 Tf 0 g"),
+            NameObject("/DR"): DictionaryObject(
+                {
+                    NameObject("/Font"): DictionaryObject(
+                        {
+                            NameObject("/Helv"): font_ref,
+                        }
+                    )
+                }
+            ),
+        }
+    )
 
-    writer._root_object.update({
-        NameObject("/AcroForm"): acro_form
-    })
+    writer._root_object.update({NameObject("/AcroForm"): acro_form})
 
     # Field definitions
     fields = [
-        {
-            "name": "txtFirstName",
-            "x": 100,
-            "y": 700,
-            "width": 200,
-            "height": 20,
-            "required": True
-        },
-        {
-            "name": "txtLastName",
-            "x": 350,
-            "y": 700,
-            "width": 200,
-            "height": 20,
-            "required": True
-        },
-        {
-            "name": "txtDOB",
-            "x": 100,
-            "y": 650,
-            "width": 200,
-            "height": 20,
-            "required": True
-        },
-        {
-            "name": "txtEmail",
-            "x": 100,
-            "y": 600,
-            "width": 300,
-            "height": 20,
-            "required": False
-        },
-        {
-            "name": "txtPhone",
-            "x": 100,
-            "y": 550,
-            "width": 200,
-            "height": 20,
-            "required": False
-        },
+        {"name": "txtFirstName", "x": 100, "y": 700, "width": 200, "height": 20, "required": True},
+        {"name": "txtLastName", "x": 350, "y": 700, "width": 200, "height": 20, "required": True},
+        {"name": "txtDOB", "x": 100, "y": 650, "width": 200, "height": 20, "required": True},
+        {"name": "txtEmail", "x": 100, "y": 600, "width": 300, "height": 20, "required": False},
+        {"name": "txtPhone", "x": 100, "y": 550, "width": 200, "height": 20, "required": False},
     ]
 
     # Create annotations/widgets for each field
@@ -106,20 +74,24 @@ def create_sample_form_pypdf(output_path: Path):
 
     for _i, field_def in enumerate(fields):
         # Create field dictionary
-        field = DictionaryObject({
-            NameObject("/Type"): NameObject("/Annot"),
-            NameObject("/Subtype"): NameObject("/Widget"),
-            NameObject("/Rect"): ArrayObject([
-                NumberObject(field_def["x"]),
-                NumberObject(792 - field_def["y"] - field_def["height"]),
-                NumberObject(field_def["x"] + field_def["width"]),
-                NumberObject(792 - field_def["y"])
-            ]),
-            NameObject("/FT"): NameObject("/Tx"),  # Text field
-            NameObject("/T"): TextStringObject(field_def["name"]),
-            NameObject("/Ff"): NumberObject(0x02 if field_def["required"] else 0),
-            NameObject("/F"): NumberObject(4),  # Printable
-        })
+        field = DictionaryObject(
+            {
+                NameObject("/Type"): NameObject("/Annot"),
+                NameObject("/Subtype"): NameObject("/Widget"),
+                NameObject("/Rect"): ArrayObject(
+                    [
+                        NumberObject(field_def["x"]),
+                        NumberObject(792 - field_def["y"] - field_def["height"]),
+                        NumberObject(field_def["x"] + field_def["width"]),
+                        NumberObject(792 - field_def["y"]),
+                    ]
+                ),
+                NameObject("/FT"): NameObject("/Tx"),  # Text field
+                NameObject("/T"): TextStringObject(field_def["name"]),
+                NameObject("/Ff"): NumberObject(0x02 if field_def["required"] else 0),
+                NameObject("/F"): NumberObject(4),  # Printable
+            }
+        )
 
         # Add to annotations
         field_ref = writer._add_object(field)

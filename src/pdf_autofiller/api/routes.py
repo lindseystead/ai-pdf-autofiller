@@ -290,9 +290,7 @@ async def inspect_pdf(
                 required=field.required,
                 page_number=field.page_number,
                 current_value=field.value,
-                name_quality=(
-                    "opaque" if is_opaque_field_name(field.name) else "readable"
-                ),
+                name_quality=("opaque" if is_opaque_field_name(field.name) else "readable"),
             )
             for field in inventory.fields
         ]
@@ -421,7 +419,7 @@ async def preview_pdf(
             *MUTATING_ERROR_CODES,
             "invalid_user_data_json",
             "invalid_user_data_type",
-        "user_data_too_deep",
+            "user_data_too_deep",
             "required_fields_unresolved",
             "pdf_fill_failed",
         ),
