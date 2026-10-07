@@ -12,6 +12,7 @@ from typing import Any
 import click
 
 from pdf_autofiller import __version__
+from pdf_autofiller.field_semantics import SemanticClient
 from pdf_autofiller.pdf_reader import InvalidPdfError, PdfPageLimitError
 from pdf_autofiller.pdf_writer import UnresolvedRequiredFieldsError
 from pdf_autofiller.pipeline import fill, inspect, preview
@@ -55,6 +56,13 @@ def _load_user_data(data_file: Path | None, data_json: str | None) -> dict[str, 
     if not isinstance(parsed, dict):
         raise click.ClickException("User data must be a JSON object (dict).")
     return parsed
+
+
+def _require_provider_for(*, use_ai: bool, strict: bool) -> None:
+    """--ai and --no-strict only do anything with a working AI provider; say so up front."""
+    if (use_ai or not strict) and not SemanticClient().is_available():
+        flag = "--ai" if use_ai else "--no-strict"
+        raise click.UsageError(f"{flag} needs MODEL_PROVIDER_API_KEY and the openai package")
 
 
 def _echo_json(payload: Any) -> None:
@@ -118,6 +126,7 @@ def preview_cmd(
     use_ai: bool,
 ) -> None:
     """Preview mapping decisions without writing a PDF."""
+    _require_provider_for(use_ai=use_ai, strict=strict)
     user_data = _load_user_data(data_json, data_inline)
     with _user_errors():
         result = preview(
@@ -189,6 +198,7 @@ def fill_cmd(
     json_report: bool,
 ) -> None:
     """Fill PDF with JSON user data and write an output PDF."""
+    _require_provider_for(use_ai=use_ai, strict=strict)
     user_data = _load_user_data(data_json, data_inline)
     out = output or pdf.with_name(f"{pdf.stem}_filled{pdf.suffix}")
     with _user_errors():

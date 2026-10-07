@@ -170,3 +170,16 @@ def test_cli_rejects_unreadable_input_file_as_usage_error(tmp_path: Path, comman
     assert result.exit_code == 2  # click validates readability before any work
     assert isinstance(result.exception, SystemExit)
     assert "is not readable" in result.output
+
+
+@pytest.mark.parametrize("ai_flag", ["--ai", "--no-strict"])
+@pytest.mark.parametrize("command", ["preview", "fill"])
+def test_cli_ai_flags_without_a_provider_fail_fast(tmp_path: Path, monkeypatch, ai_flag: str, command: str):
+    monkeypatch.delenv("MODEL_PROVIDER_API_KEY", raising=False)
+    args = [command, str(SAMPLE_PDF), "--data", json.dumps(SAMPLE_DATA), ai_flag]
+    if command == "fill":
+        args += ["-o", str(tmp_path / "out.pdf")]
+    result = CliRunner().invoke(main, args)
+    assert result.exit_code == 2  # usage error, before any PDF work
+    assert "MODEL_PROVIDER_API_KEY" in result.output
+    assert not (tmp_path / "out.pdf").exists()

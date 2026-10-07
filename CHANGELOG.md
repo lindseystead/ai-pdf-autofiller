@@ -20,6 +20,8 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- The CLI's `--ai` and `--no-strict` stop with a usage error when no AI
+  provider is configured, instead of logging a warning and filling without AI
 - `/health` reports `alias_source` (`packaged` or `custom`) instead of the
   absolute `alias_directory` path, which it exposed without authentication
 - `allow_fallback_mapping=True` with `strict=True` (the default) now raises
