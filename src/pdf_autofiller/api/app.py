@@ -6,7 +6,7 @@ import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
@@ -41,7 +41,9 @@ def create_app() -> FastAPI:
     install_middleware(application)
 
     @application.exception_handler(RequestValidationError)
-    async def request_validation_exception_handler(request, exc: RequestValidationError) -> JSONResponse:
+    async def request_validation_exception_handler(
+        request: Request, exc: RequestValidationError
+    ) -> JSONResponse:
         del request
         return JSONResponse(
             status_code=422,

@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import logging
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
+from typing import Any
+
+# A pypdf field dictionary (Field or DictionaryObject): read with .get("/FT"), .get("/V"), ...
+FieldObject = Mapping[str, Any]
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +39,7 @@ def field_leaf_name(name: str) -> str:
     return segments[-1] if segments else name
 
 
-def is_field_required(field_obj) -> bool:
+def is_field_required(field_obj: FieldObject | None) -> bool:
     """
     Check if a PDF form field is marked as required.
 
