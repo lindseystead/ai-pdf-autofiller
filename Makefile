@@ -56,7 +56,8 @@ clean:
 	find . -type f -name "*.pyc" -delete
 
 run-sample:
-	PYTHONPATH=src python3 -m scripts.demo_workflow samples/sample_form.pdf
+	PYTHONPATH=src python3 -m pdf_autofiller fill samples/sample_form.pdf \
+		--data '{"firstname":"Jane","lastname":"Doe","dob":"1990-01-01"}' -o out/sample_filled.pdf
 
 create-sample:
 	python3 -m scripts.create_sample_forms

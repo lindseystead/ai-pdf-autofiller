@@ -57,16 +57,12 @@ The smoke-check script (`scripts/smoke_check.py`) covers imports, model construc
 
 ## Real PDF Workflow Test
 
-Run the demo workflow against a real form:
+Inspect a real form, preview the mapping, then fill it with the CLI:
 
 ```bash
-PYTHONPATH=src python3 -m scripts.demo_workflow path/to/form.pdf
-```
-
-With explicit user data:
-
-```bash
-PYTHONPATH=src python3 -m scripts.demo_workflow path/to/form.pdf '{"firstname":"John","lastname":"Doe","dob":"1990-05-15"}'
+pdf-autofiller inspect path/to/form.pdf
+pdf-autofiller preview path/to/form.pdf --data '{"firstname":"John","lastname":"Doe","dob":"1990-05-15"}'
+pdf-autofiller fill path/to/form.pdf --data '{"firstname":"John","lastname":"Doe","dob":"1990-05-15"}' -o filled.pdf
 ```
 
 ## API Smoke Test
@@ -85,11 +81,8 @@ curl -s http://localhost:8000/health
 
 ## Testing Without Provider Credentials
 
-Deterministic paths can run without `MODEL_PROVIDER_API_KEY`. Semantic inference and fallback mapping require valid provider credentials.
-
-```bash
-PYTHONPATH=src python3 -m scripts.demo_workflow samples/sample_form.pdf '{"firstname":"John","lastname":"Doe","dob":"1990-05-15"}'
-```
+Deterministic paths, including every command above, run without `MODEL_PROVIDER_API_KEY`.
+Semantic inference (`--ai`) and fallback mapping (`--no-strict`) require valid provider credentials.
 
 ## Quality Commands
 

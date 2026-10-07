@@ -16,7 +16,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from .models import EnrichedFormField, FieldSemantics, FormField
+from .models import FieldSemantics, FormField
 
 provider_sdk: Any = None
 
@@ -71,28 +71,6 @@ class SemanticClient:
     def is_available(self) -> bool:
         """Check if a working semantic client is available."""
         return self._client is not None
-
-    def infer_semantics(self, field: FormField, context_text: str | None = None) -> FieldSemantics:
-        """
-        Infer semantics for a form field using the provider client.
-
-        Args:
-            field: Form field to analyze
-            context_text: Optional surrounding text for context
-
-        Returns:
-            FieldSemantics with inferred meaning, data type, and confidence
-
-        Raises:
-            RuntimeError: If the semantic client is not available or inference fails
-            ValueError: If the response cannot be parsed
-        """
-        batch = self.infer_semantics_batch(
-            [field], page_context={field.page_number: context_text} if context_text else None
-        )
-        if field.name not in batch:
-            raise RuntimeError(f"Semantic inference returned no result for field={field.name}")
-        return batch[field.name]
 
     def infer_semantics_batch(
         self,
@@ -176,18 +154,6 @@ class SemanticClient:
         except Exception as exc:
             raise RuntimeError(f"Semantic completion failed: {exc}") from exc
 
-    def _build_prompt(self, field: FormField, context_text: str | None = None) -> str:
-        """
-        Construct the prompt sent to the semantic provider.
-
-        Includes field metadata and optional surrounding text for context.
-        The prompt explicitly requests JSON output matching our schema.
-        """
-        return self._build_batch_prompt(
-            [field],
-            page_context={field.page_number: context_text} if context_text else None,
-        )
-
     def _build_batch_prompt(
         self,
         fields: list[FormField],
@@ -238,28 +204,6 @@ class SemanticClient:
             ]
         )
 
-    def _parse_response(self, content: str) -> FieldSemantics:
-        """
-        Parse a provider response and validate against schema.
-
-        Handles single-field objects and batch ``{\"fields\": {...}}`` envelopes.
-        Raises ValueError if parsing or validation fails.
-        """
-        try:
-            data = json.loads(strip_json_code_fence(content))
-            if isinstance(data, dict) and "fields" in data and isinstance(data["fields"], dict):
-                # Batch envelope with a single field — take the first entry.
-                if not data["fields"]:
-                    raise ValueError("Semantic response fields object is empty")
-                first = next(iter(data["fields"].values()))
-                return FieldSemantics(**first)
-            return FieldSemantics(**data)
-
-        except json.JSONDecodeError as e:
-            raise ValueError(f"Invalid JSON in semantic response: {e}") from e
-        except ValidationError as e:
-            raise ValueError(f"Semantic response does not match schema: {e}") from e
-
     def _parse_batch_response(
         self,
         content: str,
@@ -289,31 +233,3 @@ class SemanticClient:
             except ValidationError as e:
                 logger.warning("Skipping invalid semantics for field=%s: %s", name, e)
         return parsed
-
-
-def infer_field_semantics(
-    field: FormField, context_text: str | None = None, api_key: str | None = None
-) -> EnrichedFormField:
-    """
-    Infer semantic meaning for a PDF form field using the provider client.
-
-    Takes a raw form field (e.g., "txtFirstName") and determines what it
-    actually represents (e.g., "first_name"). Also infers expected data
-    type and provides a confidence score.
-
-    Args:
-        field: Form field extracted from PDF
-        context_text: Optional surrounding text for additional context
-        api_key: Provider API key (defaults to MODEL_PROVIDER_API_KEY env var)
-
-    Returns:
-        EnrichedFormField with original field plus inferred semantics
-
-    Raises:
-        RuntimeError: If the semantic client is unavailable or the API call fails
-        ValueError: If the response is invalid or doesn't match schema
-    """
-    client = SemanticClient(api_key=api_key)
-    semantics = client.infer_semantics(field, context_text)
-
-    return EnrichedFormField(field=field, semantics=semantics)

@@ -20,6 +20,6 @@ Expectations: `tests/fixtures/corpus/cases.json` · report: `make corpus-check` 
 
 ```bash
 python3 -m scripts.create_sample_forms  # regenerate all samples
-PYTHONPATH=src python3 -m scripts.demo_workflow samples/sample_form.pdf
+make run-sample                         # fill sample_form.pdf with the CLI
 make corpus-check
 ```
