@@ -108,6 +108,26 @@ Until Pages is enabled, `.github/workflows/pages.yml` **skips the deploy with a 
 
 `.github/workflows/publish-pypi.yml` is **manual** (`workflow_dispatch` only) and uses Trusted Publishing (OIDC) with `environment: pypi` — no API token. To enable it, add a pending publisher on [PyPI](https://pypi.org/manage/account/publishing/) (Owner `lindseystead`, Repo `ai-pdf-autofiller`, Workflow `publish-pypi.yml`, Environment `pypi`), then `gh workflow run publish-pypi.yml --ref main`. Details: [RELEASE.md](RELEASE.md).
 
+## Public demo deployment
+
+`render.yaml` is the private blueprint: auth on with a generated `API_AUTH_TOKEN`
+(the "Deploy to Render" button uses it). For a public playground anyone can try,
+use `render-demo.yaml` (Render dashboard → **New → Blueprint** → blueprint path
+`render-demo.yaml`). It sets:
+
+| Variable | Demo value | Why |
+|----------|-----------|-----|
+| `API_AUTH_ENABLED` | `false` | Visitors can use `/playground` without a token |
+| `RATE_LIMIT_PER_MINUTE` | `10` | Per-client cap |
+| `TRUST_PROXY_HEADERS` / `TRUSTED_PROXY_COUNT` | `true` / `1` | Rate-limit per visitor, not per Render proxy |
+| `MAX_UPLOAD_BYTES` | `1048576` | 1 MiB uploads |
+| `MAX_PDF_PAGES` | `10` | Small forms only |
+| `PDF_MAX_CONCURRENT` | `1` | Free-tier friendly |
+| `MODEL_PROVIDER_API_KEY` | unset | Optional AI inference cannot run |
+
+The same variables work on any host (e.g. `docker run -e API_AUTH_ENABLED=false
+-e RATE_LIMIT_PER_MINUTE=10 …`). Never put real personal data into a public demo.
+
 ## Deployment Assumptions
 
 - TLS termination, ingress policy, and network isolation are handled by the deployment environment.

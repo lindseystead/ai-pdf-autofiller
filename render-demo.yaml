@@ -1,0 +1,44 @@
+# Public demo blueprint: anyone with the URL can use the playground.
+#
+# For a private deployment use render.yaml (auth on, generated token).
+# This file is NOT picked up automatically: in the Render dashboard choose
+# New > Blueprint, select this repo, and set the blueprint path to
+# render-demo.yaml. See docs/OPERATIONS.md#public-demo-deployment.
+#
+# Safety posture: no auth, so keep it small and boring —
+#   - strict per-client rate limit (10 req/min)
+#   - 1 MiB uploads, 10 pages max
+#   - no MODEL_PROVIDER_API_KEY, so optional AI inference cannot run
+#   - uploads are processed in memory and never stored
+services:
+  - type: web
+    name: pdf-autofiller-demo
+    runtime: docker
+    plan: free
+    region: oregon
+    branch: main
+    healthCheckPath: /health
+    envVars:
+      - key: API_AUTH_ENABLED
+        value: "false"
+      - key: RATE_LIMIT_PER_MINUTE
+        value: "10"
+      # Render's proxy appends the client IP to X-Forwarded-For; without this
+      # every visitor would share one rate-limit bucket.
+      - key: TRUST_PROXY_HEADERS
+        value: "true"
+      - key: TRUSTED_PROXY_COUNT
+        value: "1"
+      - key: MAX_UPLOAD_BYTES
+        value: "1048576"
+      - key: MAX_PDF_PAGES
+        value: "10"
+      - key: PDF_READ_TIMEOUT_SECONDS
+        value: "10"
+      - key: PDF_MAX_CONCURRENT
+        value: "1"
+      - key: LOG_LEVEL
+        value: INFO
+      - key: PYTHONPATH
+        value: /app/src
+    autoDeploy: true
