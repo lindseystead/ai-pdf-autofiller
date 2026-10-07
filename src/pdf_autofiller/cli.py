@@ -101,7 +101,7 @@ def inspect_cmd(pdf: Path, max_pages: int | None) -> None:
     "--strict/--no-strict",
     default=True,
     show_default=True,
-    help="Disable AI fallback mapping when strict (default).",
+    help="--no-strict lets the AI pick a key for unresolved fields (needs MODEL_PROVIDER_API_KEY).",
 )
 @click.option(
     "--ai/--no-ai",
@@ -150,7 +150,7 @@ def preview_cmd(
     "--strict/--no-strict",
     default=True,
     show_default=True,
-    help="Disable AI fallback mapping when strict (default).",
+    help="--no-strict lets the AI pick a key for unresolved fields (needs MODEL_PROVIDER_API_KEY).",
 )
 @click.option(
     "--ai/--no-ai",
