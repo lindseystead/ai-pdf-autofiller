@@ -7,7 +7,7 @@ Public surface:
 - ``PdfAutofillerError`` — base of every error raised on purpose (subclasses listed in ``__all__``)
 """
 
-__version__ = "0.7.0"
+__version__ = "0.8.0"
 
 from .client import PDFAutofillerClient, PDFAutofillError
 from .errors import PdfAutofillerError

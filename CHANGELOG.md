@@ -4,95 +4,98 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-07
+
+### Security
+
+- Auth, rate limits and the upload size limit run before the request body is
+  read. Previously the whole multipart body was parsed and spooled to disk
+  first, so unauthenticated clients could upload without limit
+- User values no longer appear in logs (a debug message is removed and
+  pypdf's font-encoding warning is redacted)
+- `/health` reports `alias_source` (`packaged` or `custom`) instead of the
+  absolute alias directory path, which it exposed without authentication
+- The README Docker example, `docker-compose.yml` and `make run-api` run with
+  auth off, so they now listen on `127.0.0.1` only
+- Non-ASCII `X-API-Key` and `Content-Length` values no longer cause a 500
+  (a wrong key gets 401), and a non-ASCII `API_AUTH_TOKEN` can authenticate
+- The playground no longer has an `innerHTML` code path
+
 ### Added
 
-- `PdfAutofillerError`, the base of every error the library raises on
-  purpose; `InvalidPdfError`, `PdfPageLimitError`,
-  `UnresolvedRequiredFieldsError` and `UserDataTooDeepError` are now exported
-  from the package (the `ValueError` ones still subclass `ValueError`)
 - `FillReport.ai_assisted_fields` (also `X-PDF-Fields-AI-Assisted`, the JSON
-  report, the CLI and the playground) lists written fields whose mapping the
-  optional AI step chose
-- AES-encrypted PDFs (128- and 256-bit) can be read: `pypdf` is now
-  installed with its `crypto` extra, which brings in `cryptography`
-- `examples/quickstart.py` + `examples/README.md`, exercised by
-  `tests/test_examples.py`; `examples/` is linted in CI
+  report, the CLI and the playground): written fields whose mapping AI field
+  inference or the AI key fallback chose
+- `FillReport.display_warnings` (`X-PDF-Fields-Display-Warnings`): written
+  text the standard PDF font cannot draw, such as CJK
+- `PdfAutofillerError`, the base of every intentional library error;
+  `InvalidPdfError`, `PdfPageLimitError`, `UnresolvedRequiredFieldsError` and
+  `UserDataTooDeepError` are exported from the package
+- AES-encrypted PDFs (128- and 256-bit) can be read: `pypdf` is installed with
+  its `crypto` extra
+- `examples/quickstart.py`, run by the test suite
+- Python 3.13 and 3.14 in CI and the package classifiers
 
 ### Changed
 
-- The CLI's `--ai` and `--no-strict` stop with a usage error when no AI
-  provider is configured, instead of logging a warning and filling without AI
-- `/health` reports `alias_source` (`packaged` or `custom`) instead of the
-  absolute `alias_directory` path, which it exposed without authentication
-- `allow_fallback_mapping=True` with `strict=True` (the default) now raises
+- `allow_fallback_mapping=True` with `strict=True` (the default) raises
   `ValueError` in the library and returns `422 conflicting_options` from the
-  API, instead of silently not running the AI fallback; the playground's two
-  checkboxes now untick each other
-- Mapping decisions now include `ai_assisted`; AI-chosen mappings carry the
+  API, instead of silently not running the AI key fallback
+- The CLI's `--ai` and `--no-strict` stop with a usage error when no AI
+  provider is configured
+- Mapping decisions include `ai_assisted`; AI-chosen mappings carry the
   model's confidence and an `AI: ` reason instead of reading as "Direct match"
 - A value addressed to one field by its full path (`applicant.name`) no longer
   also fills sibling fields such as `spouse.name`; leaf matches from nested
   input name their source path in the reason
+- AI provider calls time out after 8 s without retrying (was 600 s with two
+  retries), so both calls fit inside the 20 s API job timeout
+- The two AI features are named consistently: "AI field inference"
+  (`use_semantic_inference`, `--ai`) and "AI key fallback"
+  (`allow_fallback_mapping`, `--no-strict`)
+- Sample PDFs are readable one-page forms with titles, labels, boxes and a
+  drawn checkbox, from one generator, `scripts/create_sample_forms.py`
+- README rewritten around one description (library or self-hosted API), with
+  screenshots generated from the app; `docs/ARCHITECTURE.md` rewritten from
+  the code, including what each AI feature sends
+- Every function is type-annotated and mypy enforces it
+- GitHub Actions use current major versions; Dependabot only opens pip PRs for
+  security updates
 
 ### Fixed
 
-- Audit lines and `LOG_FORMAT=json` now apply however the server is started
-  (Docker, `make run-api`, plain uvicorn); before, only `pdf-autofiller-api`
-  configured logging
-- Malformed answers from the optional AI fallback (wrong JSON shape,
-  non-numeric or out-of-range confidence, unknown keys) are skipped
-  instead of crashing the fill; the model's reason text is capped
-- The optional AI provider client times out after 8 s without retrying,
-  instead of the SDK default of 600 s with two retries, so both provider
-  calls fit inside the 20 s API job timeout
-- Auth, rate limits and the upload size limit now run before the request
-  body is read. Previously FastAPI parsed and spooled the whole multipart
-  body to disk first, so unauthenticated clients could upload without limit
-- User values no longer appear in logs: a debug message that echoed
-  unmatched checkbox/radio values is removed, and pypdf's font-encoding
-  warning has the field text redacted
-- A PDF with no fillable fields (scanned, flat or XFA-only) gets a
-  `mapping_hints` entry saying so from inspect, preview and fill, instead of
-  looking like a fill that matched nothing
-- Empty lists/objects in `user_data` are treated as empty instead of being
-  written as the text `[]`/`{}`; blank and whitespace-only strings are
-  reported in `skipped_empty_fields` instead of `written_fields`
-- Password-protected PDFs are reported as such (library, CLI, and the API's
-  `invalid_pdf` error now carries `details.reason`) instead of
-  "File has not been decrypted"
-- The CLI prints a one-line `Error:` instead of a Python traceback for
-  unreadable PDFs, page-limit and nesting-limit errors, and output paths
-  that cannot be written
-- `fill()`/`preview()` raise `TypeError` naming the type when `user_data` is
-  not a dict, instead of an `AttributeError` from deep in the mapper
-- A non-ASCII `X-API-Key` returns 401 instead of 500, and a non-ASCII
-  `API_AUTH_TOKEN` can authenticate (keys are compared as bytes)
-- Text the standard PDF font cannot draw (e.g. CJK) is no longer reported
-  as a clean write: it is listed in the new `display_warnings` report field
-  (`X-PDF-Fields-Display-Warnings`), and refused under `flatten=True` so
-  garbled glyphs are not burned into the page
-- `flatten=True` no longer erases values that were already in the form
-- Dropdowns whose options are `[export, display]` pairs (most state and
-  country lists) can be filled by either value; the export value is written
-- Number-typed fields are validated, not rewritten: `"02134"` keeps its
-  leading zero and long account numbers keep every digit
-- Forms with roughly 250+ fields no longer time out on the default process
-  job backend (the parent read the worker's result only after joining it)
-- Sample PDFs are now readable forms (title, labels, boxed fields in order)
-  instead of blank pages; a coordinate bug had also stacked fields bottom-up.
-  One generator, `scripts/create_sample_forms.py`, replaces
-  `create_sample_form.py` and `create_corpus_forms.py`. Field names are
-  unchanged; `tests/test_samples.py` guards the layout
-- README rewritten around one description (library or self-hosted API);
-  removed the static coverage badge, hand-maintained test counts and
-  unfinished placeholders
+- Forms with roughly 250+ fields always timed out on the default process job
+  backend (the parent read the worker's result only after joining it)
+- Malformed answers from the AI key fallback crashed the fill; they are now
+  validated and skipped
+- `flatten=True` erased values that were already in the form
+- Dropdowns with `[export, display]` options (most state and country lists)
+  could never be filled
+- Number fields were rewritten (`"02134"` became `"2134"`); they are now
+  validated, never rewritten, and only ASCII digits count
+- `{"dob": []}` wrote the text `[]`; empty containers and blank strings are
+  now reported in `skipped_empty_fields`
+- Audit lines and `LOG_FORMAT=json` only worked when started with
+  `pdf-autofiller-api`, not in Docker or plain uvicorn
+- Password-protected PDFs failed with "File has not been decrypted"; they are
+  reported as password-protected (the API's `invalid_pdf` carries
+  `details.reason`)
+- PDFs with no fillable fields (scanned, flat, XFA-only) now get a
+  `mapping_hints` entry saying so
+- The CLI printed Python tracebacks for unreadable PDFs and limit errors
+- `fill()`/`preview()` raised `AttributeError` for non-dict `user_data`; they
+  raise `TypeError` naming the type
 - The missing-`API_AUTH_TOKEN` error now says how to fix it, and the server
   warns at startup
-- GitHub Actions bumped to current major versions (off the deprecated Node.js 20
-  runtime)
-- Dependabot no longer opens routine pip version PRs; Python security updates
-  still arrive, and routine upgrades go through `poetry update` +
-  `make sync-requirements`
+- Requirements export is deterministic, so the CI lockfile check cannot fail
+  at random
+
+### Removed
+
+- `scripts/demo_workflow.py` (a second copy of the pipeline; `make
+  run-sample` uses the CLI) and the single-field AI helpers it used
+- Unused internals: private re-exports in `api_service`, `FIELD_ALIASES`,
+  `alias_equivalence_set`, `TextRegion.x`/`.y`, and the `forms/` folder
 
 ## [0.7.0] - 2026-10-07
 
