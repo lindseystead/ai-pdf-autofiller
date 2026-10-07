@@ -100,9 +100,7 @@ class FormBuilder:
             if obj.get("/T") == name and "/Kids" in obj:
                 return ref
         ref = self.writer._add_object(
-            DictionaryObject(
-                {NameObject("/T"): TextStringObject(name), NameObject("/Kids"): ArrayObject()}
-            )
+            DictionaryObject({NameObject("/T"): TextStringObject(name), NameObject("/Kids"): ArrayObject()})
         )
         self.acro_form[NameObject("/Fields")].append(ref)
         return ref
@@ -134,9 +132,7 @@ class FormBuilder:
         self.acro_form[NameObject("/Fields")].append(ref)
         return self
 
-    def radio(
-        self, name: str, options: list[str], *, page: int = 0, required: bool = False
-    ) -> FormBuilder:
+    def radio(self, name: str, options: list[str], *, page: int = 0, required: bool = False) -> FormBuilder:
         group_ref = self.writer._add_object(
             DictionaryObject(
                 {

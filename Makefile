@@ -43,6 +43,7 @@ corpus-check:
 
 lint:
 	ruff check src/ tests/ scripts/
+	ruff format --check src/ tests/ scripts/
 	mypy src/
 
 format:

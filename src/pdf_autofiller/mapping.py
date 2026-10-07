@@ -75,16 +75,9 @@ def expected_type_for_semantic(
         return "boolean"
 
     normalized = normalize_key(semantic)
-    if (
-        normalized in _DATE_SEMANTICS
-        or normalized.endswith("_date")
-        or normalized.startswith("date_")
-    ):
+    if normalized in _DATE_SEMANTICS or normalized.endswith("_date") or normalized.startswith("date_"):
         return "date"
-    if (
-        normalized in _BOOLEAN_SEMANTICS
-        or normalized.startswith(("is_", "has_", "chk_"))
-    ):
+    if normalized in _BOOLEAN_SEMANTICS or normalized.startswith(("is_", "has_", "chk_")):
         return "boolean"
     return "string"
 
@@ -215,9 +208,7 @@ def find_deterministic_match(
         normalized_field = normalize_key(field_name)
         for user_key, user_value in user_data.items():
             if user_key == field_name or normalize_key(user_key) == normalized_field:
-                coerced_value, requires_review = coerce_for_field(
-                    user_value, expected_type, field_type
-                )
+                coerced_value, requires_review = coerce_for_field(user_value, expected_type, field_type)
                 confidence = 0.98 if not requires_review else 0.70
                 reason = f"Field-name match: '{user_key}' addresses field '{field_name}'"
                 return user_key, coerced_value, confidence, reason, requires_review
