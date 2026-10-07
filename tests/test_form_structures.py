@@ -214,3 +214,19 @@ def test_flatten_keeps_values_already_in_the_form(tmp_path: Path, user_data: dic
     text = PdfReader(out).pages[0].extract_text()
     assert "PREFILLED" in text
     assert "b" not in report.written_fields  # preserved, not reported as written by us
+
+
+def test_text_outside_the_standard_font_is_written_with_a_display_warning(tmp_path: Path) -> None:
+    form = FormBuilder().text("first").text("last").save(tmp_path / "names.pdf")
+    out = tmp_path / "out.pdf"
+    report = fill(form, {"first": "Zoë", "last": "Łukasz 王"}, out, allow_partial=True)
+    assert report.written_fields == ["first", "last"]
+    assert report.display_warnings == ["last (font_encoding)"]
+    assert _values(out)["last"] == "Łukasz 王"
+
+
+def test_flatten_refuses_text_the_standard_font_cannot_draw(tmp_path: Path) -> None:
+    form = FormBuilder().text("last").save(tmp_path / "names.pdf")
+    report = fill(form, {"last": "王"}, tmp_path / "flat.pdf", flatten=True, allow_partial=True)
+    assert report.written_fields == []
+    assert report.skipped_unwritable_fields == ["last (font_encoding)"]

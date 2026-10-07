@@ -82,6 +82,7 @@ def _fill_report_headers(report: FillReport) -> dict[str, str]:
         "X-PDF-Fields-Skipped-Review": _safe_header_value(report.skipped_review_fields),
         "X-PDF-Fields-Skipped-Empty": _safe_header_value(report.skipped_empty_fields),
         "X-PDF-Fields-Skipped-Unwritable": _safe_header_value(report.skipped_unwritable_fields),
+        "X-PDF-Fields-Display-Warnings": _safe_header_value(report.display_warnings),
         "X-PDF-Fields-Missing-Required": _safe_header_value(report.missing_required_fields),
         # Count only: the full list can be hundreds of names (see JSON report).
         "X-PDF-Fields-Unfilled": str(len(report.unfilled_fields)),
@@ -500,6 +501,7 @@ async def fill(
                 skipped_review_fields=list(fill_report.skipped_review_fields),
                 skipped_empty_fields=list(fill_report.skipped_empty_fields),
                 skipped_unwritable_fields=list(fill_report.skipped_unwritable_fields),
+                display_warnings=list(fill_report.display_warnings),
                 missing_required=list(mapping_result.missing_required),
                 missing_required_fields=list(fill_report.missing_required_fields),
                 unfilled_fields=list(fill_report.unfilled_fields),

@@ -161,7 +161,7 @@ Accepts a multipart form upload.
 
 **JSON report mode** (`Accept: application/json`): response body is JSON with
 `pages`, `field_count`, `written_fields`, `skipped_review_fields`,
-`skipped_empty_fields`, `skipped_unwritable_fields`, `missing_required`,
+`skipped_empty_fields`, `skipped_unwritable_fields`, `display_warnings`, `missing_required`,
 `missing_required_fields`, `unfilled_fields`, `unmapped_user_keys`, `decisions`,
 `mapping_hints`, and `pdf_base64` (standard base64 of the filled PDF). Use this
 when headers alone are not enough for automation.
@@ -207,7 +207,8 @@ fields that were dropped instead of silently losing them:
 - `X-PDF-Fields-Written`: count of fields that received a value
 - `X-PDF-Fields-Skipped-Review`: comma-separated field names skipped because the mapping was flagged for review
 - `X-PDF-Fields-Skipped-Empty`: comma-separated field names skipped because the mapped value was empty
-- `X-PDF-Fields-Skipped-Unwritable`: comma-separated entries `field (reason)` when a mapped value could not be written (`missing_widget`, `signature_field`, `unresolved_button_state`, `unresolved_choice_option`, `exceeds_max_length:N`, or `write_failed`)
+- `X-PDF-Fields-Skipped-Unwritable`: comma-separated entries `field (reason)` when a mapped value could not be written (`missing_widget`, `signature_field`, `unresolved_button_state`, `unresolved_choice_option`, `exceeds_max_length:N`, `font_encoding` on flatten, or `write_failed`)
+- `X-PDF-Fields-Display-Warnings`: comma-separated entries `field (font_encoding)` for written values the form's standard font cannot draw (for example CJK). The stored value is correct, but previews that use the pre-drawn appearance may show it garbled. With `flatten=true` these fields are refused instead
 - `X-PDF-Fields-Missing-Required`: comma-separated required fields left empty (only non-empty on `allow_partial=true` fills)
 - `X-PDF-Fields-Unfilled`: **count** of form fields that received no value from `user_data` (the full list is `unfilled_fields` in the JSON report)
 

@@ -69,6 +69,10 @@ class FillReportResponse(BaseModel):
         default_factory=list,
         description="Mapped fields that could not be written (see FillReport)",
     )
+    display_warnings: list[str] = Field(
+        default_factory=list,
+        description="Written fields the standard font cannot draw (see FillReport)",
+    )
     missing_required: list[str]
     missing_required_fields: list[str] = Field(
         default_factory=list,

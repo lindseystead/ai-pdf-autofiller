@@ -50,7 +50,7 @@ Local `fill()` / the CLI and the server `POST /fill` path share `run_fill_pipeli
 
 ## Signatures and choice fields
 
-- Choice (`/Ch`) fields are written when the value matches a declared `/Opt` (case-insensitive). Unmatched options are reported in `skipped_unwritable_fields` with reason `unresolved_choice_option`.
+- Choice (`/Ch`) fields are written when the value matches a declared `/Opt` export or display value (case-insensitive); the export value is written. Unmatched options are reported in `skipped_unwritable_fields` with reason `unresolved_choice_option`.
 - Signature (`/Sig`) fields are **not** filled — they appear in `skipped_unwritable_fields` / `X-PDF-Fields-Skipped-Unwritable` with reason `signature_field`.
 - Missing widgets, unresolved checkbox/radio states, text longer than the widget's `/MaxLen`, and confirmed write failures are reported the same way (`missing_widget`, `unresolved_button_state`, `exceeds_max_length:<n>`, `write_failed`) — never silent.
 
