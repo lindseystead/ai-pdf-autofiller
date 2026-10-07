@@ -1,3 +1,6 @@
+# Private deployment blueprint (auth on, generated API token).
+# For a public, unauthenticated playground use render-demo.yaml instead.
+
 services:
   - type: web
     name: pdf-autofiller
