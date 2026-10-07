@@ -90,7 +90,8 @@ def canonicalize_semantic(key: str, registry: AliasRegistry | None = None) -> st
     return (registry or get_default_registry()).canonicalize(key)
 
 
-_DECIMAL_RE = re.compile(r"[+-]?(?:\d+\.?\d*|\.\d+)")
+# ASCII digits only: \d also matches Arabic-Indic, fullwidth and other Unicode digits.
+_DECIMAL_RE = re.compile(r"[+-]?(?:[0-9]+\.?[0-9]*|\.[0-9]+)")
 
 
 def coerce_value(value: Any, expected_type: str) -> tuple[str | None, bool]:

@@ -117,7 +117,10 @@ def test_coerce_value_number_is_written_verbatim(raw):
     assert coerce_value(raw, "number") == (raw, False)
 
 
-@pytest.mark.parametrize("raw", ["nan", "inf", "1_000", "1e5", "12 34"])
+# Non-ASCII digits: Arabic-Indic, fullwidth (escaped, they look like ASCII), superscript.
+@pytest.mark.parametrize(
+    "raw", ["nan", "inf", "1_000", "1e5", "12 34", "٠٢١٣٤", "\uff10\uff11\uff12", "²", "1²"]
+)
 def test_coerce_value_number_flags_non_numeric_text(raw):
     assert coerce_value(raw, "number") == (raw, True)
 
