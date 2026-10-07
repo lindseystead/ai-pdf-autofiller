@@ -229,6 +229,27 @@ def find_deterministic_match(
     return None, None, 0.0, "No deterministic match found", False
 
 
+MAX_AI_REASON_CHARS = 200
+
+
+def _parse_fallback_entry(entry: Any, user_data: dict[str, Any]) -> tuple[str, float, str] | None:
+    """Validate one model answer; anything off-shape is dropped, never trusted.
+
+    Requires an existing user key and a numeric confidence in [0, 1]. The
+    model's reason is untrusted text: kept only as a short string.
+    """
+    if not isinstance(entry, dict):
+        return None
+    key, confidence, reason = entry.get("matched_key"), entry.get("confidence"), entry.get("reason")
+    if not isinstance(key, str) or key not in user_data:
+        return None
+    if isinstance(confidence, bool) or not isinstance(confidence, (int, float)) or not 0 <= confidence <= 1:
+        return None
+    if not isinstance(reason, str) or not reason.strip():
+        reason = "Fallback mapping"
+    return key, float(confidence), reason[:MAX_AI_REASON_CHARS]
+
+
 def semantic_fallback_mapping(
     unmapped_fields: list[EnrichedFormField],
     user_data: dict[str, Any],
@@ -296,24 +317,21 @@ Example response:
             temperature=0.2,
         )
         fallback_result = json.loads(strip_json_code_fence(content))
+        if not isinstance(fallback_result, dict):
+            raise ValueError("fallback response is not a JSON object")
 
         result: dict[str, tuple[str, str | None, float, str]] = {}
         for field in unmapped_fields:
-            field_name = field.field.name
-            if field_name not in fallback_result:
+            parsed = _parse_fallback_entry(fallback_result.get(field.field.name), user_data)
+            if parsed is None:
                 continue
-            match_info = fallback_result[field_name]
-            matched_key = match_info.get("matched_key")
-            confidence = float(match_info.get("confidence", 0.0))
-            reason = match_info.get("reason", "Fallback mapping")
-
-            if matched_key and matched_key in user_data:
-                coerced_value, _ = coerce_for_field(
-                    user_data[matched_key],
-                    field.semantics.expected_data_type,
-                    field.field.field_type,
-                )
-                result[field_name] = (matched_key, coerced_value, confidence, reason)
+            matched_key, confidence, reason = parsed
+            coerced_value, _ = coerce_for_field(
+                user_data[matched_key],
+                field.semantics.expected_data_type,
+                field.field.field_type,
+            )
+            result[field.field.name] = (matched_key, coerced_value, confidence, reason)
         return result
     except (RuntimeError, json.JSONDecodeError, TypeError, ValueError, KeyError) as exc:
         logger.warning("Provider fallback mapping failed: %s", exc)

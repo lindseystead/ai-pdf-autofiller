@@ -21,6 +21,9 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- Malformed answers from the optional AI fallback (wrong JSON shape,
+  non-numeric or out-of-range confidence, unknown keys) are skipped
+  instead of crashing the fill; the model's reason text is capped
 - The optional AI provider client times out after 30 s with at most one
   retry, instead of the SDK default of 600 s with two retries
 - Auth, rate limits and the upload size limit now run before the request
