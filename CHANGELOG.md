@@ -6,6 +6,8 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- AES-encrypted PDFs (128- and 256-bit) can be read: `pypdf` is now
+  installed with its `crypto` extra, which brings in `cryptography`
 - `examples/quickstart.py` + `examples/README.md`, exercised by
   `tests/test_examples.py`; `examples/` is linted in CI
 

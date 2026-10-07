@@ -27,7 +27,7 @@ This tool fills **AcroForm** (and similar interactive) fields — widgets with n
 - PDFs that open without a password but restrict editing (owner-password restrictions) are
   filled. The output does not keep those restrictions, because they cannot be re-applied
   without the owner password.
-- AES-encrypted PDFs need the optional `cryptography` package (`pip install cryptography`).
+- RC4 and AES (128- and 256-bit) encryption are supported.
 
 ## Authentication defaults
 

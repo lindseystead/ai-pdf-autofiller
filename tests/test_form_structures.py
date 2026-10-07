@@ -233,21 +233,27 @@ def test_flatten_refuses_text_the_standard_font_cannot_draw(tmp_path: Path) -> N
     assert report.skipped_unwritable_fields == ["last (font_encoding)"]
 
 
-def _encrypted_copy(source: Path, target: Path, user_password: str) -> Path:
+ENCRYPTION_ALGORITHMS = ["RC4-128", "AES-128", "AES-256"]
+
+
+def _encrypted_copy(source: Path, target: Path, user_password: str, algorithm: str = "AES-256") -> Path:
     from pypdf import PdfWriter
 
     writer = PdfWriter(clone_from=PdfReader(source))
-    writer.encrypt(user_password=user_password, owner_password="owner-secret", algorithm="RC4-128")
+    writer.encrypt(user_password=user_password, owner_password="owner-secret", algorithm=algorithm)
     writer.write(target)
     return target
 
 
+@pytest.mark.parametrize("algorithm", ENCRYPTION_ALGORITHMS)
 @pytest.mark.parametrize("entry", ["inspect", "preview", "fill"])
-def test_password_protected_pdf_is_reported_as_such(tmp_path: Path, entry: str) -> None:
+def test_password_protected_pdf_is_reported_as_such(tmp_path: Path, entry: str, algorithm: str) -> None:
     from pdf_autofiller import inspect
     from pdf_autofiller.pdf_reader import InvalidPdfError
 
-    locked = _encrypted_copy(Path("samples/sample_form.pdf"), tmp_path / "locked.pdf", "open-sesame")
+    locked = _encrypted_copy(
+        Path("samples/sample_form.pdf"), tmp_path / "locked.pdf", "open-sesame", algorithm
+    )
     out = tmp_path / "out.pdf"
     with pytest.raises(InvalidPdfError, match="password-protected"):
         if entry == "inspect":
@@ -259,8 +265,9 @@ def test_password_protected_pdf_is_reported_as_such(tmp_path: Path, entry: str) 
     assert not out.exists()
 
 
-def test_pdf_with_only_owner_restrictions_is_filled(tmp_path: Path) -> None:
-    restricted = _encrypted_copy(Path("samples/sample_form.pdf"), tmp_path / "restricted.pdf", "")
+@pytest.mark.parametrize("algorithm", ENCRYPTION_ALGORITHMS)
+def test_pdf_with_only_owner_restrictions_is_filled(tmp_path: Path, algorithm: str) -> None:
+    restricted = _encrypted_copy(Path("samples/sample_form.pdf"), tmp_path / "restricted.pdf", "", algorithm)
     out = tmp_path / "out.pdf"
     report = fill(restricted, {"firstname": "Jane", "lastname": "Doe", "dob": "1990-01-01"}, out)
     assert report.written_fields == ["txtDOB", "txtFirstName", "txtLastName"]

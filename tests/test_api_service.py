@@ -636,12 +636,13 @@ def test_non_ascii_configured_token_still_authenticates(monkeypatch):
     assert ok.status_code == 200
 
 
+@pytest.mark.parametrize("algorithm", ["RC4-128", "AES-256"])
 @pytest.mark.parametrize("path", ["/fill", "/preview", "/inspect"])
-def test_password_protected_pdf_returns_422_with_reason(tmp_path, path):
+def test_password_protected_pdf_returns_422_with_reason(tmp_path, path, algorithm):
     from pypdf import PdfReader, PdfWriter
 
     writer = PdfWriter(clone_from=PdfReader("samples/sample_form.pdf"))
-    writer.encrypt(user_password="open-sesame", owner_password="owner", algorithm="RC4-128")
+    writer.encrypt(user_password="open-sesame", owner_password="owner", algorithm=algorithm)
     locked = tmp_path / "locked.pdf"
     writer.write(locked)
 
