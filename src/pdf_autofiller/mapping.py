@@ -184,6 +184,23 @@ def coerce_for_field(
     return coerce_value(value, expected_type)
 
 
+def match_field_name(
+    field_name: str,
+    user_data: dict[str, Any],
+    expected_type: str,
+    field_type: str | None = None,
+) -> tuple[str | None, str | None, float, str, bool]:
+    """Match a user key that addresses the field by its own (normalized) name."""
+    normalized_field = normalize_key(field_name)
+    for user_key, user_value in user_data.items():
+        if user_key == field_name or normalize_key(user_key) == normalized_field:
+            coerced_value, requires_review = coerce_for_field(user_value, expected_type, field_type)
+            confidence = 0.98 if not requires_review else 0.70
+            reason = f"Field-name match: '{user_key}' addresses field '{field_name}'"
+            return user_key, coerced_value, confidence, reason, requires_review
+    return None, None, 0.0, "No field-name match", False
+
+
 def find_deterministic_match(
     semantic_meaning: str,
     user_data: dict[str, Any],
@@ -205,13 +222,9 @@ def find_deterministic_match(
     equivalence = active.equivalence_set(semantic_meaning)
 
     if field_name:
-        normalized_field = normalize_key(field_name)
-        for user_key, user_value in user_data.items():
-            if user_key == field_name or normalize_key(user_key) == normalized_field:
-                coerced_value, requires_review = coerce_for_field(user_value, expected_type, field_type)
-                confidence = 0.98 if not requires_review else 0.70
-                reason = f"Field-name match: '{user_key}' addresses field '{field_name}'"
-                return user_key, coerced_value, confidence, reason, requires_review
+        by_name = match_field_name(field_name, user_data, expected_type, field_type)
+        if by_name[0]:
+            return by_name
 
     for user_key, user_value in user_data.items():
         normalized_key = normalize_key(user_key)
@@ -346,35 +359,60 @@ def map_user_data_to_fields(
     used_user_keys: set[str] = set()
     active = registry or get_default_registry()
     flat = flatten_user_data(user_data)
-    candidates = flat.candidates()
 
-    for enriched_field in enriched_fields:
-        semantic = enriched_field.semantics.semantic_meaning
-        expected_type = enriched_field.semantics.expected_data_type
+    # Pass 1: user keys that address a field by its full path claim it, so the
+    # same value cannot also fill a sibling field through a leaf or alias
+    # (``applicant.name`` must not fill ``spouse.name``).
+    # index -> (matched user key, full match tuple)
+    matches: dict[int, tuple[str, tuple[str | None, str | None, float, str, bool]]] = {}
+    for index, enriched_field in enumerate(enriched_fields):
+        match = match_field_name(
+            enriched_field.field.name,
+            flat.values,
+            enriched_field.semantics.expected_data_type,
+            enriched_field.field.field_type,
+        )
+        if match[0]:
+            matches[index] = (match[0], match)
+    claimed = {key for key, _ in matches.values()}
+    candidates = {
+        key: value for key, value in flat.candidates().items() if flat.source_key(key) not in claimed
+    }
 
-        matched_key, matched_value, confidence, reason, requires_review = find_deterministic_match(
-            semantic,
+    # Pass 2: everything else matches by name, semantic or alias.
+    for index, enriched_field in enumerate(enriched_fields):
+        if index in matches:
+            continue
+        match = find_deterministic_match(
+            enriched_field.semantics.semantic_meaning,
             candidates,
-            expected_type,
+            enriched_field.semantics.expected_data_type,
             registry=active,
             field_name=enriched_field.field.name,
             field_type=enriched_field.field.field_type,
         )
+        if match[0]:
+            matches[index] = (match[0], match)
 
-        if matched_key:
-            used_user_keys.add(flat.source_key(matched_key))
-            decisions.append(
-                FieldMappingDecision(
-                    field_name=enriched_field.field.name,
-                    semantic_meaning=semantic,
-                    selected_value=matched_value,
-                    confidence=confidence,
-                    reason=reason,
-                    requires_review=requires_review or confidence < 0.80,
-                )
-            )
-        else:
+    for index, enriched_field in enumerate(enriched_fields):
+        if index not in matches:
             unmapped_fields.append(enriched_field)
+            continue
+        matched_key, (_, matched_value, confidence, reason, requires_review) = matches[index]
+        source = flat.source_key(matched_key)
+        used_user_keys.add(source)
+        if source != matched_key:
+            reason = f"{reason} (from '{source}')"
+        decisions.append(
+            FieldMappingDecision(
+                field_name=enriched_field.field.name,
+                semantic_meaning=enriched_field.semantics.semantic_meaning,
+                selected_value=matched_value,
+                confidence=confidence,
+                reason=reason,
+                requires_review=requires_review or confidence < 0.80,
+            )
+        )
 
     if not strict and allow_fallback_mapping and unmapped_fields:
         high_value_fields = [

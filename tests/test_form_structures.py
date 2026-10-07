@@ -149,3 +149,22 @@ def test_flatten_removes_acroform_and_stays_readable(intake_pdf: Path, tmp_path:
     assert reader.get_fields() is None
     assert "Jane" in reader.pages[0].extract_text()
     assert "555" in reader.pages[1].extract_text()
+
+
+def test_value_addressed_to_one_field_is_not_reused_for_another_entity(tmp_path: Path) -> None:
+    form = (
+        FormBuilder()
+        .text("name", parent="applicant")
+        .text("name", parent="spouse")
+        .save(tmp_path / "household.pdf")
+    )
+    selected = {
+        d.field_name: d.selected_value for d in preview(form, {"applicant.name": "Alice"}).mapping.decisions
+    }
+    assert selected == {"applicant.name": "Alice"}
+
+
+def test_nested_leaf_match_names_its_source_path(tmp_path: Path) -> None:
+    form = FormBuilder().text("Name").save(tmp_path / "person.pdf")
+    (decision,) = preview(form, {"employer": {"name": "Acme Corp"}}).mapping.decisions
+    assert "employer.name" in decision.reason
