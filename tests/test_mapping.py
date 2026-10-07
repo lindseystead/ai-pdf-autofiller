@@ -109,6 +109,16 @@ def test_coerce_value_number():
     assert requires_review is True
 
 
+@pytest.mark.parametrize("raw", ["02134", "12345678901234567890", "-0.50", "7."])
+def test_coerce_value_number_is_written_verbatim(raw):
+    assert coerce_value(raw, "number") == (raw, False)
+
+
+@pytest.mark.parametrize("raw", ["nan", "inf", "1_000", "1e5", "12 34"])
+def test_coerce_value_number_flags_non_numeric_text(raw):
+    assert coerce_value(raw, "number") == (raw, True)
+
+
 def test_coerce_value_boolean():
     """Test value coercion for boolean type."""
     value, requires_review = coerce_value("true", "boolean")
