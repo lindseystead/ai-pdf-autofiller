@@ -4,7 +4,7 @@
 |------|---------------|
 | [quickstart.py](quickstart.py) | Fill `samples/sample_form.pdf` from a Python dict with the local library (no server) |
 
-Run from the repository root after `pip install pdf-autofiller` (or `pip install -e .`):
+Run from the repository root after `pip install -e .`:
 
 ```bash
 python examples/quickstart.py                 # → out/filled_sample.pdf
