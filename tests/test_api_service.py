@@ -674,14 +674,12 @@ def test_api_request_logs_never_contain_user_values(caplog):
     assert [r.getMessage() for r in caplog.records if secret in r.getMessage()] == []
 
 
-def _temp_dirs() -> set[str]:
+@pytest.mark.parametrize("path", ["/fill", "/preview", "/inspect"])
+def test_request_temp_dirs_are_removed_on_success_and_every_error(path, monkeypatch, tmp_path):
     import tempfile
 
-    return {p.name for p in Path(tempfile.gettempdir()).glob("pdf-autofiller-*")}
-
-
-@pytest.mark.parametrize("path", ["/fill", "/preview", "/inspect"])
-def test_request_temp_dirs_are_removed_on_success_and_every_error(path, monkeypatch):
+    # A private temp root, so other processes' temp dirs cannot affect the count.
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
     sample = Path("samples/sample_form.pdf").read_bytes()
     good = '{"firstname": "Jane", "lastname": "Doe", "dob": "1990-01-01"}'
     cases = [
@@ -692,7 +690,6 @@ def test_request_temp_dirs_are_removed_on_success_and_every_error(path, monkeypa
         (sample, "{not json", "application/pdf"),  # user_data JSON
         (sample, "{}", "application/pdf"),  # required fields unresolved (fill)
     ]
-    before = _temp_dirs()
     for content, user_data, media_type in cases:
         client.post(path, files={"pdf_file": ("f.pdf", content, media_type)}, data={"user_data": user_data})
 
@@ -705,7 +702,7 @@ def test_request_temp_dirs_are_removed_on_success_and_every_error(path, monkeypa
     )
     assert response.status_code == 500
     assert response.json()["detail"]["error"]["code"] == f"pdf_{path.strip('/')}_failed"
-    assert _temp_dirs() == before
+    assert list(tmp_path.iterdir()) == []
 
 
 def test_fill_reports_ai_assisted_fields_in_headers_and_json(monkeypatch, tmp_path):
