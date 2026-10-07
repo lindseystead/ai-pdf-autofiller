@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 from pypdf.generic import IndirectObject
 
-from pdf_autofiller import pdf_reader
+from pdf_autofiller import acroform_fields, pdf_reader
 
 
 class FakeRef:
@@ -79,18 +79,18 @@ def test_extract_text_regions_enforces_total_char_budget(monkeypatch):
 
 
 def test_get_field_type_variants():
-    assert pdf_reader._get_field_type({"/FT": "/Tx"}) == "text"
-    assert pdf_reader._get_field_type({"/FT": "/Btn"}) == "button"
-    assert pdf_reader._get_field_type({"/FT": "/Ch"}) == "choice"
-    assert pdf_reader._get_field_type({"/FT": "/Sig"}) == "signature"
-    assert pdf_reader._get_field_type({"/FT": "/Other"}) == "unknown"
+    assert acroform_fields.get_field_type({"/FT": "/Tx"}) == "text"
+    assert acroform_fields.get_field_type({"/FT": "/Btn"}) == "button"
+    assert acroform_fields.get_field_type({"/FT": "/Ch"}) == "choice"
+    assert acroform_fields.get_field_type({"/FT": "/Sig"}) == "signature"
+    assert acroform_fields.get_field_type({"/FT": "/Other"}) == "unknown"
 
 
 def test_get_field_value_handles_direct_values():
-    assert pdf_reader._get_field_value({"/V": "hello"}) == "hello"
-    assert pdf_reader._get_field_value({"/V": 123}) == "123"
-    assert pdf_reader._get_field_value({"/V": True}) == "True"
-    assert pdf_reader._get_field_value({"/V": None}) is None
+    assert acroform_fields.get_field_value({"/V": "hello"}) == "hello"
+    assert acroform_fields.get_field_value({"/V": 123}) == "123"
+    assert acroform_fields.get_field_value({"/V": True}) == "True"
+    assert acroform_fields.get_field_value({"/V": None}) is None
 
 
 def test_get_field_value_handles_reference_resolution(monkeypatch):
@@ -101,7 +101,7 @@ def test_get_field_value_handles_reference_resolution(monkeypatch):
         def get_object(self):
             return self._value
 
-    assert pdf_reader._get_field_value({"/V": FakeIndirect("resolved")}) == "resolved"
+    assert acroform_fields.get_field_value({"/V": FakeIndirect("resolved")}) == "resolved"
 
     class BrokenIndirect(IndirectObject):
         def get_object(self):
@@ -110,7 +110,7 @@ def test_get_field_value_handles_reference_resolution(monkeypatch):
         def __str__(self):
             return "<broken-indirect>"
 
-    value = pdf_reader._get_field_value({"/V": BrokenIndirect(0, 0, None)})
+    value = acroform_fields.get_field_value({"/V": BrokenIndirect(0, 0, None)})
     assert value == "<broken-indirect>"
 
 
@@ -133,7 +133,7 @@ def test_extract_form_fields_from_root_fields():
                 }
             }
 
-    fields = pdf_reader._extract_form_fields(FakeReader())
+    fields = acroform_fields.extract_form_fields(FakeReader())
     assert len(fields) == 1
     assert fields[0].name == "txtFirstName"
     assert fields[0].field_type == "text"
@@ -158,7 +158,7 @@ def test_extract_form_fields_falls_back_to_annotations():
         def get_fields():
             raise RuntimeError("no root fields")
 
-    fields = pdf_reader._extract_form_fields(FakeReader())
+    fields = acroform_fields.extract_form_fields(FakeReader())
     assert len(fields) == 1
     assert fields[0].name == "txtEmail"
     assert fields[0].value == "test@example.com"

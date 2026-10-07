@@ -19,10 +19,6 @@ from pypdf.errors import FileNotDecryptedError, PyPdfError
 from . import acroform_fields
 from .models import DocumentMetadata, DocumentStructure, TextRegion
 
-_extract_form_fields = acroform_fields.extract_form_fields
-_get_field_type = acroform_fields.get_field_type
-_get_field_value = acroform_fields.get_field_value
-
 logger = logging.getLogger(__name__)
 
 MAX_TOTAL_TEXT_CHARS = int(os.getenv("MAX_PDF_TEXT_CHARS", str(2_000_000)))
@@ -105,7 +101,7 @@ def read_pdf(pdf_path: Path, *, max_pages: int | None = None) -> DocumentStructu
         producer=_metadata_value(metadata_dict, "/Producer"),
     )
 
-    form_fields = _extract_form_fields(reader)
+    form_fields = acroform_fields.extract_form_fields(reader)
     text_regions = _extract_text_regions(reader)
 
     return DocumentStructure(
