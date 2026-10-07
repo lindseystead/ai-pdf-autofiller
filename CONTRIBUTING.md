@@ -2,7 +2,7 @@
 
 ## Development Setup
 
-1. Use Python 3.11 or 3.12.
+1. Use Python 3.11 or newer (CI tests 3.11 to 3.14).
 2. Create and activate a virtual environment.
 3. Install dependencies with `pip install -r requirements-dev.txt` or `poetry install`.
 

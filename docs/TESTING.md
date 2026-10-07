@@ -112,7 +112,7 @@ PYTHONPATH=src python3 -m pytest tests/ -v --cov=src --cov-report=term --cov-fai
 
 GitHub Actions workflow (`.github/workflows/test.yml`) runs these jobs:
 
-- `test` — `ruff check`, `ruff format --check`, `mypy`, `pip-audit`, and `pytest` with coverage threshold (Python 3.11 and 3.12)
+- `test` — `ruff check`, `ruff format --check`, `mypy`, `pip-audit`, and `pytest` with coverage threshold (Python 3.11 to 3.14)
 - `docker-smoke` — build the Docker image and curl `/health`
 - `lockfile` — verify `poetry.lock` is in sync with `pyproject.toml` and that `requirements*.txt` match the lock
 
