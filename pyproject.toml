@@ -95,8 +95,6 @@ select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
 ignore = [
   # FastAPI dependency injection uses File()/Form() defaults intentionally.
   "B008",
-  # Broad excepts remain in PDF parsing paths; narrowed over Phase 4.
-  "BLE001",
   # Ternary path resolve is less readable than if/else.
   "SIM108",
 ]
