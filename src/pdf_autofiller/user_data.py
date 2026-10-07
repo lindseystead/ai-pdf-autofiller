@@ -64,6 +64,8 @@ class FlatUserData:
 
 def flatten_user_data(data: dict[str, Any], max_depth: int = MAX_USER_DATA_DEPTH) -> FlatUserData:
     """Flatten nested dicts/lists into dotted paths (``a.b``, ``items.0``)."""
+    if not isinstance(data, dict):
+        raise TypeError(f"user_data must be a dict (JSON object), got {type(data).__name__}")
     validate_user_data_depth(data, max_depth)
     values: dict[str, Any] = {}
 

@@ -19,6 +19,8 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- `fill()`/`preview()` raise `TypeError` naming the type when `user_data` is
+  not a dict, instead of an `AttributeError` from deep in the mapper
 - A non-ASCII `X-API-Key` returns 401 instead of 500, and a non-ASCII
   `API_AUTH_TOKEN` can authenticate (keys are compared as bytes)
 - Text the standard PDF font cannot draw (e.g. CJK) is no longer reported
