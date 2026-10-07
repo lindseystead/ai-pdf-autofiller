@@ -11,6 +11,16 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Mapping decisions now include `ai_assisted`; AI-chosen mappings carry the
+  model's confidence and an `AI: ` reason instead of reading as "Direct match"
+- A value addressed to one field by its full path (`applicant.name`) no longer
+  also fills sibling fields such as `spouse.name`; leaf matches from nested
+  input name their source path in the reason
+
+### Fixed
+
+- Forms with roughly 250+ fields no longer time out on the default process
+  job backend (the parent read the worker's result only after joining it)
 - Sample PDFs are now readable forms (title, labels, boxed fields in order)
   instead of blank pages; a coordinate bug had also stacked fields bottom-up.
   One generator, `scripts/create_sample_forms.py`, replaces

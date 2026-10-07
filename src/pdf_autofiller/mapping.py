@@ -375,6 +375,7 @@ def map_user_data_to_fields(
         if match[0]:
             matches[index] = (match[0], match)
     claimed = {key for key, _ in matches.values()}
+    ai_assisted: set[int] = set()
     candidates = {
         key: value for key, value in flat.candidates().items() if flat.source_key(key) not in claimed
     }
@@ -383,14 +384,27 @@ def map_user_data_to_fields(
     for index, enriched_field in enumerate(enriched_fields):
         if index in matches:
             continue
-        match = find_deterministic_match(
-            enriched_field.semantics.semantic_meaning,
+        semantics = enriched_field.semantics
+        match = match_field_name(
+            enriched_field.field.name,
             candidates,
-            enriched_field.semantics.expected_data_type,
-            registry=active,
-            field_name=enriched_field.field.name,
-            field_type=enriched_field.field.field_type,
+            semantics.expected_data_type,
+            enriched_field.field.field_type,
         )
+        if not match[0]:
+            # Semantic and alias matching depend on the field's semantics, which
+            # the AI model may have supplied.
+            match = find_deterministic_match(
+                semantics.semantic_meaning,
+                candidates,
+                semantics.expected_data_type,
+                registry=active,
+                field_type=enriched_field.field.field_type,
+            )
+            if match[0] and enriched_field.ai_inferred:
+                key, value, confidence, reason, review = match
+                match = (key, value, min(confidence, semantics.confidence_score), f"AI: {reason}", review)
+                ai_assisted.add(index)
         if match[0]:
             matches[index] = (match[0], match)
 
@@ -411,6 +425,7 @@ def map_user_data_to_fields(
                 confidence=confidence,
                 reason=reason,
                 requires_review=requires_review or confidence < 0.80,
+                ai_assisted=index in ai_assisted,
             )
         )
 
@@ -436,8 +451,9 @@ def map_user_data_to_fields(
                             semantic_meaning=enriched_field.semantics.semantic_meaning,
                             selected_value=matched_value,
                             confidence=confidence,
-                            reason=reason,
+                            reason=f"AI: {reason}",
                             requires_review=confidence < 0.80,
+                            ai_assisted=True,
                         )
                     )
                     unmapped_fields.remove(enriched_field)

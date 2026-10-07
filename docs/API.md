@@ -136,7 +136,8 @@ Example response:
       "selected_value": "Alex",
       "confidence": 0.95,
       "reason": "Direct match: 'firstname' matches semantic 'first_name'",
-      "requires_review": false
+      "requires_review": false,
+      "ai_assisted": false
     }
   ],
   "missing_required": [],
@@ -144,6 +145,11 @@ Example response:
   "mapping_hints": []
 }
 ```
+
+`ai_assisted` is `true` when the optional AI step chose the mapping (its reason starts with
+`AI: `). The value itself always comes from your `user_data`; the model only picks which key
+fills the field, and its own confidence is used when lower. Decisions below 0.80 confidence
+have `requires_review: true` and are not written.
 
 Authentication and rate limits match `POST /fill`.
 

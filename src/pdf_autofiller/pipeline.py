@@ -118,7 +118,7 @@ def enrich_fields(
     for field in fields:
         semantics = inferred.get(field.name)
         if semantics is not None:
-            enriched_fields.append(EnrichedFormField(field=field, semantics=semantics))
+            enriched_fields.append(EnrichedFormField(field=field, semantics=semantics, ai_inferred=True))
         else:
             if use_semantic_inference and not batch_failed:
                 logger.warning(
