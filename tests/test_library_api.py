@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from pdf_autofiller import fill_detailed, inspect, preview
+from pdf_autofiller import fill, fill_detailed, inspect, preview
 from pdf_autofiller.aliases import AliasRegistry, set_default_registry
 
 SAMPLE = Path("samples/sample_form.pdf")
@@ -121,3 +121,23 @@ def test_set_default_registry_reload(tmp_path: Path):
         assert canonicalize_semantic("vin") == "fleet_id"
     finally:
         set_default_registry(previous)
+
+
+@pytest.mark.parametrize("bad", [["firstname", "Jane"], "firstname=Jane", None, 42, ("a", 1), b"{}", {"a"}])
+@pytest.mark.parametrize("entry", ["fill", "preview"])
+def test_non_dict_user_data_raises_type_error_naming_the_type(tmp_path: Path, bad, entry):
+    with pytest.raises(TypeError, match=type(bad).__name__):
+        if entry == "fill":
+            fill(SAMPLE, bad, tmp_path / "out.pdf")
+        else:
+            preview(SAMPLE, bad)
+    assert not (tmp_path / "out.pdf").exists()
+
+
+def test_dict_subclasses_and_non_string_keys_are_accepted():
+    from collections import OrderedDict
+
+    result = preview(SAMPLE, OrderedDict([("firstname", "Jane"), (7, "seven")]))
+    selected = {d.field_name: d.selected_value for d in result.mapping.decisions}
+    assert selected["txtFirstName"] == "Jane"
+    assert "7" in result.mapping.unmapped_user_keys
