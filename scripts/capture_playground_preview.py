@@ -1,18 +1,25 @@
-"""Capture playground screenshot for README docs/assets."""
+"""Capture the playground screenshot used in the README (docs/assets/playground-preview.png).
 
+Needs Playwright with Chromium (`pip install playwright && playwright install chromium`)
+and a running API with auth off:
+
+    API_AUTH_ENABLED=false pdf-autofiller-api
+    python scripts/capture_playground_preview.py [http://127.0.0.1:8000]
+"""
+
+import sys
 from pathlib import Path
 
 from playwright.sync_api import sync_playwright
 
 OUT = Path("docs/assets/playground-preview.png")
-URL = "http://127.0.0.1:8000/playground"
 
 
-def main() -> None:
+def main(base_url: str = "http://127.0.0.1:8000") -> None:
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         page = browser.new_page(viewport={"width": 1280, "height": 900})
-        page.goto(URL, wait_until="networkidle")
+        page.goto(f"{base_url}/playground", wait_until="networkidle")
         page.click("#loadSamplePdfBtn")
         page.wait_for_timeout(800)
         page.click("#fillBtn")
@@ -25,4 +32,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    main(*sys.argv[1:2])
