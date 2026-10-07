@@ -309,7 +309,7 @@ def fill_pdf(
                     skipped_required_fields.append(field_name)
             continue
 
-        if decision.selected_value is None:
+        if decision.selected_value is None or not decision.selected_value.strip():
             skipped_empty_fields.append(field_name)
             continue
 
