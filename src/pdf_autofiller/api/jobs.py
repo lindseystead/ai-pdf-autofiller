@@ -22,9 +22,6 @@ logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
-# process = hard-kill on timeout (default). thread = soft timeout for tests
-# or environments where spawn is undesirable.
-PDF_JOB_BACKEND = os.getenv("PDF_JOB_BACKEND", "process").lower()
 PDF_MAX_CONCURRENT = max(1, int(os.getenv("PDF_MAX_CONCURRENT", "2")))
 
 _thread_pool: ThreadPoolExecutor | None = None
@@ -188,7 +185,9 @@ def execute_pdf_job(
     With the default ``process`` backend, the worker is terminated on timeout.
     Concurrent jobs are limited by ``PDF_MAX_CONCURRENT``.
     """
-    backend = os.getenv("PDF_JOB_BACKEND", PDF_JOB_BACKEND).lower()
+    # PDF_JOB_BACKEND: "process" (default) hard-kills a job at the timeout;
+    # "thread" only stops waiting for it (tests, or where spawning is undesirable).
+    backend = os.getenv("PDF_JOB_BACKEND", "process").lower()
     _job_slots.acquire()
     try:
         if backend == "thread":
