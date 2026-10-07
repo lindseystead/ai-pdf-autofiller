@@ -26,6 +26,9 @@ jobs:
       - name: Lint
         run: |
           ruff check src/ tests/ scripts/
+      - name: Format check
+        run: |
+          ruff format --check src/ tests/ scripts/
       - name: Type check
         run: |
           mypy src/

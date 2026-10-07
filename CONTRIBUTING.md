@@ -33,6 +33,7 @@ The helper targets in `Makefile` are the supported shortcuts for common local wo
 - Keep documentation in sync when changing APIs, configuration, or operational assumptions.
 - Avoid mixing unrelated refactors with feature or bug-fix changes.
 - Format with **Ruff only** (`make format`) — do not introduce a second formatter.
+  CI runs `ruff format --check`, so unformatted code fails the build.
 
 ## Pull Requests
 
