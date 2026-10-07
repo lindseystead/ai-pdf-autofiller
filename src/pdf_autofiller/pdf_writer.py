@@ -341,23 +341,32 @@ def fill_pdf(
     # are never silently counted as success.
     # pypdf's auto_regenerate only sets /NeedAppearances (viewer regenerates
     # visible glyphs). Default True so filled /V values show in common viewers.
-    if field_values:
+    # pypdf flattens only the fields it is given, and flatten then removes every
+    # widget, so values already in the form must be passed through or they vanish.
+    write_values = dict(field_values)
+    if flatten:
+        for field_name, field_obj in (pdf_fields or {}).items():
+            existing = field_obj.get("/V") if hasattr(field_obj, "get") else None
+            if field_name not in write_values and existing and _field_type(field_obj) != "/Sig":
+                write_values[field_name] = str(existing)
+
+    if write_values:
         confirmed_writes: set[str] = set()
         for page in writer.pages:
             try:
                 writer.update_page_form_field_values(
                     page,
-                    field_values,
+                    write_values,
                     auto_regenerate=need_appearances,
                     flatten=flatten,
                 )
-                confirmed_writes.update(field_values.keys())
+                confirmed_writes.update(write_values.keys())
             except Exception:
                 logger.debug(
                     "Batch field update failed on page; trying per-field writes",
                     exc_info=True,
                 )
-                for field_name, value in field_values.items():
+                for field_name, value in write_values.items():
                     try:
                         writer.update_page_form_field_values(
                             page,

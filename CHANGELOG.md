@@ -19,6 +19,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- `flatten=True` no longer erases values that were already in the form
 - Dropdowns whose options are `[export, display]` pairs (most state and
   country lists) can be filled by either value; the export value is written
 - Number-typed fields are validated, not rewritten: `"02134"` keeps its

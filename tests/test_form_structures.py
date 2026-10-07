@@ -204,3 +204,13 @@ def test_ai_assisted_mappings_are_labelled_and_keep_model_confidence(
 
     assert decisions["Text2"].ai_assisted and not decisions["Text2"].requires_review
     assert not decisions["phone"].ai_assisted  # matched by its own name
+
+
+@pytest.mark.parametrize("user_data", [{"a": "new"}, {}])
+def test_flatten_keeps_values_already_in_the_form(tmp_path: Path, user_data: dict) -> None:
+    form = FormBuilder().text("a").text("b", value="PREFILLED").save(tmp_path / "prefilled.pdf")
+    out = tmp_path / "flat.pdf"
+    report = fill(form, user_data, out, flatten=True, allow_partial=True)
+    text = PdfReader(out).pages[0].extract_text()
+    assert "PREFILLED" in text
+    assert "b" not in report.written_fields  # preserved, not reported as written by us

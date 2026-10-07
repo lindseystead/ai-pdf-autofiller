@@ -75,6 +75,7 @@ class FormBuilder:
         required: bool = False,
         max_len: int | None = None,
         parent: str | None = None,
+        value: str | None = None,
     ) -> FormBuilder:
         extra = {
             NameObject("/FT"): NameObject("/Tx"),
@@ -84,6 +85,8 @@ class FormBuilder:
         }
         if max_len is not None:
             extra[NameObject("/MaxLen")] = NumberObject(max_len)
+        if value is not None:
+            extra[NameObject("/V")] = TextStringObject(value)
         ref = self.writer._add_object(self._widget(page, extra))
         self.pages[page][NameObject("/Annots")].append(ref)
         if parent is None:
