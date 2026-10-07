@@ -27,8 +27,9 @@ All notable changes to this project will be documented in this file.
 - Malformed answers from the optional AI fallback (wrong JSON shape,
   non-numeric or out-of-range confidence, unknown keys) are skipped
   instead of crashing the fill; the model's reason text is capped
-- The optional AI provider client times out after 30 s with at most one
-  retry, instead of the SDK default of 600 s with two retries
+- The optional AI provider client times out after 8 s without retrying,
+  instead of the SDK default of 600 s with two retries, so both provider
+  calls fit inside the 20 s API job timeout
 - Auth, rate limits and the upload size limit now run before the request
   body is read. Previously FastAPI parsed and spooled the whole multipart
   body to disk first, so unauthenticated clients could upload without limit

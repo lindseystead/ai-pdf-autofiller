@@ -154,3 +154,12 @@ def test_every_provider_call_uses_the_configured_model():
     client.infer_semantics_batch([sample_field()])
     client.create_json_completion(system_prompt="s", user_prompt="u")
     assert [call["model"] for call in calls] == [field_semantics.MODEL, field_semantics.MODEL]
+
+
+def test_worst_case_ai_time_fits_inside_the_api_job_timeout():
+    from pdf_autofiller.api import config
+
+    calls_per_run = 2  # semantic inference + fallback mapping
+    attempts = field_semantics.MAX_RETRIES + 1
+    worst_case = calls_per_run * attempts * field_semantics.REQUEST_TIMEOUT_SECONDS
+    assert worst_case < config.PDF_READ_TIMEOUT_SECONDS
