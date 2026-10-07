@@ -34,9 +34,7 @@ class PdfPageLimitError(Exception):
     def __init__(self, num_pages: int, max_pages: int):
         self.num_pages = num_pages
         self.max_pages = max_pages
-        super().__init__(
-            f"PDF has {num_pages} pages, exceeding the limit of {max_pages}"
-        )
+        super().__init__(f"PDF has {num_pages} pages, exceeding the limit of {max_pages}")
 
 
 class InvalidPdfError(ValueError):

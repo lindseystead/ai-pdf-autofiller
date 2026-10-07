@@ -128,20 +128,13 @@ def check_models():
     )
 
     # Test FormField
-    field = FormField(
-        name="txtFirstName",
-        field_type="text",
-        required=True,
-        page_number=1
-    )
+    field = FormField(name="txtFirstName", field_type="text", required=True, page_number=1)
     assert field.name == "txtFirstName"
     print("  ✓ FormField model works")
 
     # Test FieldSemantics
     semantics = FieldSemantics(
-        semantic_meaning="first_name",
-        expected_data_type="string",
-        confidence_score=0.95
+        semantic_meaning="first_name", expected_data_type="string", confidence_score=0.95
     )
     assert semantics.semantic_meaning == "first_name"
     print("  ✓ FieldSemantics model works")
@@ -158,17 +151,13 @@ def check_models():
         selected_value="John",
         confidence=0.95,
         reason="Direct match",
-        requires_review=False
+        requires_review=False,
     )
     assert decision.selected_value == "John"
     print("  ✓ FieldMappingDecision model works")
 
     # Test MappingResult
-    result = MappingResult(
-        decisions=[decision],
-        missing_required=[],
-        unmapped_user_keys=[]
-    )
+    result = MappingResult(decisions=[decision], missing_required=[], unmapped_user_keys=[])
     assert len(result.decisions) == 1
     print("  ✓ MappingResult model works")
 
@@ -185,38 +174,21 @@ def check_mapping_workflow():
     # Create test enriched fields
     enriched_fields = [
         EnrichedFormField(
-            field=FormField(
-                name="txtFirstName",
-                field_type="text",
-                required=True,
-                page_number=1
-            ),
+            field=FormField(name="txtFirstName", field_type="text", required=True, page_number=1),
             semantics=FieldSemantics(
-                semantic_meaning="first_name",
-                expected_data_type="string",
-                confidence_score=0.95
-            )
+                semantic_meaning="first_name", expected_data_type="string", confidence_score=0.95
+            ),
         ),
         EnrichedFormField(
-            field=FormField(
-                name="txtLastName",
-                field_type="text",
-                required=True,
-                page_number=1
-            ),
+            field=FormField(name="txtLastName", field_type="text", required=True, page_number=1),
             semantics=FieldSemantics(
-                semantic_meaning="last_name",
-                expected_data_type="string",
-                confidence_score=0.95
-            )
+                semantic_meaning="last_name", expected_data_type="string", confidence_score=0.95
+            ),
         ),
     ]
 
     # Test with matching user data
-    user_data = {
-        "firstname": "John",
-        "lastname": "Doe"
-    }
+    user_data = {"firstname": "John", "lastname": "Doe"}
 
     result = map_user_data_to_fields(enriched_fields, user_data, strict=True)
 
@@ -255,9 +227,9 @@ def check_semantic_client():
 
 def main() -> int:
     """Run the local smoke checks."""
-    print("="*60)
+    print("=" * 60)
     print("PDF Autofiller - Smoke Check")
-    print("="*60)
+    print("=" * 60)
 
     checks = [
         ("Imports", check_imports),
@@ -277,9 +249,9 @@ def main() -> int:
             traceback.print_exc()
             results.append((name, False))
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Test Results Summary")
-    print("="*60)
+    print("=" * 60)
 
     passed = sum(1 for _, result in results if result)
     total = len(results)
@@ -289,7 +261,7 @@ def main() -> int:
         print(f"  {status}: {name}")
 
     print(f"\nTotal: {passed}/{total} tests passed")
-    print("="*60)
+    print("=" * 60)
 
     if passed == total:
         print("\n✓ All tests passed!")

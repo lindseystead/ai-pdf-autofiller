@@ -106,6 +106,7 @@ Direct commands:
 
 ```bash
 ruff check src/ tests/ scripts/
+ruff format --check src/ tests/ scripts/
 mypy src/
 pip-audit -r requirements.txt
 PYTHONPATH=src python3 -m pytest tests/ -v --cov=src --cov-report=term --cov-fail-under=85

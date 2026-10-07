@@ -21,16 +21,12 @@ def create_app() -> FastAPI:
     application = FastAPI(
         title="PDF Autofiller API",
         version=__version__,
-        description=(
-            "HTTP API for deterministic-first PDF form filling with optional semantic inference."
-        ),
+        description=("HTTP API for deterministic-first PDF form filling with optional semantic inference."),
     )
     install_middleware(application)
 
     @application.exception_handler(RequestValidationError)
-    async def request_validation_exception_handler(
-        request, exc: RequestValidationError
-    ) -> JSONResponse:
+    async def request_validation_exception_handler(request, exc: RequestValidationError) -> JSONResponse:
         del request
         return JSONResponse(
             status_code=422,

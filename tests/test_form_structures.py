@@ -50,9 +50,7 @@ def test_radio_unknown_option_is_reported_unwritable(intake_pdf: Path, tmp_path:
     out = tmp_path / "out.pdf"
     with pytest.raises(UnresolvedRequiredFieldsError):
         fill(intake_pdf, {"last_name": "Doe", "gender": "Other"}, out)
-    report = fill(
-        intake_pdf, {"last_name": "Doe", "gender": "Other"}, out, allow_partial=True
-    )
+    report = fill(intake_pdf, {"last_name": "Doe", "gender": "Other"}, out, allow_partial=True)
     unwritable = report.skipped_unwritable_fields
     assert any(item.startswith("gender (unresolved_button_state") for item in unwritable)
     assert "gender" in report.missing_required_fields
@@ -128,9 +126,7 @@ def test_allow_partial_writes_pdf_and_lists_missing(intake_pdf: Path, tmp_path: 
 
 
 def test_report_lists_unfilled_fields(intake_pdf: Path, tmp_path: Path) -> None:
-    outcome = fill_detailed(
-        intake_pdf, {"last_name": "Doe", "gender": "Male"}, tmp_path / "out.pdf"
-    )
+    outcome = fill_detailed(intake_pdf, {"last_name": "Doe", "gender": "Male"}, tmp_path / "out.pdf")
     assert set(outcome.report.unfilled_fields) == {
         "applicant.firstName",
         "DOB",

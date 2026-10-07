@@ -80,6 +80,4 @@ class FillReportResponse(BaseModel):
     unmapped_user_keys: list[str]
     decisions: list[PreviewDecision]
     mapping_hints: list[str] = Field(default_factory=list)
-    pdf_base64: str = Field(
-        description="Filled PDF encoded as standard base64 (not URL-safe)"
-    )
+    pdf_base64: str = Field(description="Filled PDF encoded as standard base64 (not URL-safe)")

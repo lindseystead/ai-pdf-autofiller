@@ -61,9 +61,7 @@ def _purge_stale_rate_limit_clients(now: float) -> None:
     if len(_rate_limit_state) <= 1000:
         return
     stale_clients = [
-        client_id
-        for client_id, window in _rate_limit_state.items()
-        if not window or now - window[-1] >= 60.0
+        client_id for client_id, window in _rate_limit_state.items() if not window or now - window[-1] >= 60.0
     ]
     for client_id in stale_clients:
         _rate_limit_state.pop(client_id, None)
@@ -191,9 +189,7 @@ def require_api_key(request: Request) -> None:
         )
 
     incoming_token = request.headers.get(config.API_KEY_HEADER)
-    if incoming_token is None or not secrets.compare_digest(
-        incoming_token, config.API_AUTH_TOKEN
-    ):
+    if incoming_token is None or not secrets.compare_digest(incoming_token, config.API_AUTH_TOKEN):
         raise api_error(
             status_code=401,
             code="unauthorized",
