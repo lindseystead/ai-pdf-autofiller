@@ -78,8 +78,11 @@ The server includes a small test page at `/playground` for trying fills without 
 2. Built-in aliases cover common synonyms (`dob` / `date_of_birth`, `zip` / `postcode`), with
    optional packs for W-9-shaped and HR forms.
 3. Anything left unmatched is reported, not guessed. Fields with opaque names (`field_12`) can be
-   filled by their exact name, or mapped by an optional AI step. That step is off by default and
-   only chooses which of your keys a field gets; it never writes values of its own.
+   filled by their exact name. Two optional AI steps, both off by default, can also help: one
+   infers what each field means, the other picks which of your keys an unresolved field gets.
+   Neither writes values of its own, but either can route one of your values to the wrong
+   field, so every field they map is listed in the report as `ai_assisted_fields`. Details:
+   [How AI is used](docs/ARCHITECTURE.md#how-ai-is-used).
 
 Also handled: checkboxes, radio groups by option name, hierarchical field names
 (`applicant.lastName`), nested JSON input and `/MaxLen` limits. Dates are written exactly as sent.
