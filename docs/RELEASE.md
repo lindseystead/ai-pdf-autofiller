@@ -2,13 +2,12 @@
 
 Source of truth for versions: `pyproject.toml` + `src/pdf_autofiller/__init__.py` (keep equal).
 
-**Supported install today:** GitHub Release wheels (`make install-release` /
-[Releases](https://github.com/lindseystead/ai-pdf-autofiller/releases)), editable
-install (`pip install -e .` → `pdf-autofiller` CLI), or Docker/GHCR.
+**Install paths:** PyPI (`pip install pdf-autofiller`), Docker/GHCR, GitHub
+Release wheels (`make install-release`), or from source (`pip install -e .`).
 
-**PyPI** (`pip install pdf-autofiller`) becomes available once a PyPI Trusted
-Publisher is configured (see below). The publish workflow is **manual only** so
-GitHub Releases stay green without that setup.
+Publishing a GitHub Release uploads to PyPI automatically via
+`publish-pypi.yml` (Trusted Publishing; one-time setup below). The workflow can
+also be run manually to retry.
 
 ## Prerequisites for a GitHub Release
 
@@ -16,7 +15,8 @@ GitHub Releases stay green without that setup.
 2. **Version bump committed on `main`** — tag must match `pyproject.toml` / `__init__.py`
 3. Maintainer permission to publish Releases
 
-PyPI Trusted Publishing is **not** required to cut a Release.
+4. PyPI Trusted Publisher configured (see below) — otherwise the
+   `publish-pypi.yml` run for that Release fails (GHCR and wheels still ship).
 
 ## Cut a release
 
@@ -34,7 +34,7 @@ gh release create "v$VERSION" --generate-notes
 |----------|------|--------|
 | `release-assets.yml` | On Release (or manual) | Attach sdist/wheel to the Release (primary pip install path) |
 | `publish-ghcr.yml` | On Release (or manual) | Push Docker image to GHCR |
-| `publish-pypi.yml` | **Manual only** | Upload to PyPI via OIDC when you choose to enable it |
+| `publish-pypi.yml` | On Release (or manual) | Upload sdist/wheel to PyPI via OIDC |
 
 ### Verify a Release (without PyPI)
 
@@ -77,10 +77,9 @@ pip install -U pdf-autofiller
 pdf-autofiller version
 ```
 
-6. Optionally re-add `on.release.types: [published]` to
-   `.github/workflows/publish-pypi.yml` so future GitHub Releases also push to
-   PyPI. Until then, leave it **manual** so a missing PyPI config cannot fail a
-   Release.
+After that, every published GitHub Release pushes to PyPI automatically
+(`on.release.types: [published]`); re-runs for an existing version are no-ops
+(`skip-existing`).
 
 **What this enables:** users can install with `pip install pdf-autofiller`
 without cloning the repository or downloading Release wheels.

@@ -1,19 +1,20 @@
 name: Publish to PyPI
 
-# Manual only until a PyPI trusted (or pending) publisher is configured.
-# Do NOT auto-run on GitHub Release — that paints Releases red while
-# GHCR + Release wheels already provide a working install path.
+# Runs automatically when a GitHub Release is published, and can also be
+# triggered manually (e.g. to retry): gh workflow run publish-pypi.yml --ref main
 #
-# When ready (one-time on https://pypi.org/manage/account/publishing/):
+# Uses PyPI Trusted Publishing (OIDC) — no API token. One-time setup on
+# https://pypi.org/manage/account/publishing/:
 #   Owner: lindseystead
 #   Repository: ai-pdf-autofiller
 #   Workflow: publish-pypi.yml
 #   Environment name: pypi
-# then: gh workflow run publish-pypi.yml --ref main
-# and optionally re-enable the release trigger in this file.
+# skip-existing makes re-runs for an already-uploaded version a no-op.
 # See docs/RELEASE.md.
 
 on:
+  release:
+    types: [published]
   workflow_dispatch:
 
 permissions:

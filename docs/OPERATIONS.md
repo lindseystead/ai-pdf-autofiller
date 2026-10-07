@@ -102,11 +102,9 @@ The landing page source is in `docs/site/`. A repo admin must enable Pages once:
 
 Until Pages is enabled, `.github/workflows/pages.yml` **skips the deploy with a warning** instead of failing CI. After enablement, the same workflow publishes to `https://lindseystead.github.io/ai-pdf-autofiller/`.
 
-## PyPI publishing (manual)
+## PyPI publishing
 
-**Not part of the automatic Release path.** Supported installs are GitHub Release wheels (`make install-release`), editable/`pip install -e .`, and GHCR.
-
-`.github/workflows/publish-pypi.yml` is **manual** (`workflow_dispatch` only) and uses Trusted Publishing (OIDC) with `environment: pypi` — no API token. To enable it, add a pending publisher on [PyPI](https://pypi.org/manage/account/publishing/) (Owner `lindseystead`, Repo `ai-pdf-autofiller`, Workflow `publish-pypi.yml`, Environment `pypi`), then `gh workflow run publish-pypi.yml --ref main`. Details: [RELEASE.md](RELEASE.md).
+`.github/workflows/publish-pypi.yml` runs when a GitHub Release is published (and via `workflow_dispatch` for retries). It uses Trusted Publishing (OIDC) with `environment: pypi` — no API token. To enable it, add a pending publisher on [PyPI](https://pypi.org/manage/account/publishing/) (Owner `lindseystead`, Repo `ai-pdf-autofiller`, Workflow `publish-pypi.yml`, Environment `pypi`), then publish a Release (or `gh workflow run publish-pypi.yml --ref main`). Details: [RELEASE.md](RELEASE.md).
 
 ## Public demo deployment
 
