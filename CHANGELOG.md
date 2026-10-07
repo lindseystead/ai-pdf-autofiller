@@ -20,6 +20,8 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- `/health` reports `alias_source` (`packaged` or `custom`) instead of the
+  absolute `alias_directory` path, which it exposed without authentication
 - `allow_fallback_mapping=True` with `strict=True` (the default) now raises
   `ValueError` in the library and returns `422 conflicting_options` from the
   API, instead of silently not running the AI fallback; the playground's two

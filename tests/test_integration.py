@@ -123,3 +123,19 @@ def test_health_reports_alias_packs_and_auth_state(monkeypatch):
         "unconfigured",
         "sdk_missing",
     }
+
+
+def test_health_does_not_reveal_server_paths(tmp_path, monkeypatch):
+    from pdf_autofiller.aliases import AliasRegistry, set_default_registry
+
+    client = TestClient(api_service.app)
+    custom = tmp_path / "secret-ops-dir"
+    custom.mkdir()
+    set_default_registry(AliasRegistry.load(pack_dir=custom))
+    try:
+        checks = client.get("/health").json()["checks"]
+    finally:
+        set_default_registry(AliasRegistry.load())
+    assert checks["alias_source"] == "custom"
+    assert "secret-ops-dir" not in str(checks) and str(tmp_path) not in str(checks)
+    assert client.get("/health").json()["checks"]["alias_source"] == "packaged"

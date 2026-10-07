@@ -33,13 +33,13 @@ Example response:
     "auth": "disabled",
     "semantic_provider": "unconfigured",
     "rate_limit": "in_process",
-    "alias_directory": "/app/src/pdf_autofiller/form_aliases",
+    "alias_source": "packaged",
     "alias_pack_count": "2"
   }
 }
 ```
 
-`status` is `degraded` when auth is enabled but `API_AUTH_TOKEN` is unset (`checks.auth` = `misconfigured`). Alias pack availability is reported via `checks.alias_directory` and `checks.alias_pack_count`. `semantic_provider` is one of `available` | `unconfigured` | `sdk_missing` — it does not claim inference succeeded on a request. `rate_limit` is `in_process`, `shared_file`, or `disabled` depending on `RATE_LIMIT_PER_MINUTE` / `RATE_LIMIT_BACKEND`.
+`status` is `degraded` when auth is enabled but `API_AUTH_TOKEN` is unset (`checks.auth` = `misconfigured`). Alias packs are reported via `checks.alias_source` (`packaged`, or `custom` when `FORM_ALIASES_DIR` is in use) and `checks.alias_pack_count`; the directory path itself is not exposed. `semantic_provider` is one of `available` | `unconfigured` | `sdk_missing` — it does not claim inference succeeded on a request. `rate_limit` is `in_process`, `shared_file`, or `disabled` depending on `RATE_LIMIT_PER_MINUTE` / `RATE_LIMIT_BACKEND`.
 
 ### `GET /version`
 
