@@ -5,7 +5,8 @@ set -euo pipefail
 
 API_URL="${API_URL:-http://localhost:8000}"
 PDF="${1:-samples/sample_form.pdf}"
-OUT="${2:-samples/sample_form_filled.pdf}"
+OUT="${2:-out/sample_form_filled.pdf}"
+mkdir -p "$(dirname "$OUT")"
 
 curl -sf -X POST "${API_URL}/fill" \
   ${API_AUTH_TOKEN:+-H "X-API-Key: ${API_AUTH_TOKEN}"} \
