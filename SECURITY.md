@@ -19,6 +19,10 @@ Use [GitHub Private Vulnerability Reporting](https://github.com/lindseystead/ai-
 
 - Secrets are loaded from environment variables (for example `MODEL_PROVIDER_API_KEY`).
 - `.env` files are ignored by git.
+- Dependabot (`.github/dependabot.yml`) opens weekly update PRs for Python
+  packages, the Docker base image and GitHub Actions. Python updates change
+  `poetry.lock`; run `make sync-requirements` on the PR so the exported
+  `requirements*.txt` match (the `lockfile` CI job enforces this).
 - Dependency scanning is run in CI via `pip-audit`; `pypdf` and `python-multipart`
   (which parse untrusted input) are pinned to patched minimum versions.
 - Static analysis checks run in CI (`ruff`, `mypy`).
