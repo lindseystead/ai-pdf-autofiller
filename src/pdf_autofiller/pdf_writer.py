@@ -63,11 +63,6 @@ class UnresolvedRequiredFieldsError(Exception):
         super().__init__("; ".join(message_parts))
 
 
-def _collect_pdf_fields(reader: PdfReader) -> dict[str, object]:
-    """Collect field metadata from AcroForm and annotation fallbacks."""
-    return collect_field_objects(reader)
-
-
 def _field_type(field_obj) -> str | None:
     """Return the PDF field type name (e.g. '/Btn', '/Tx') if available."""
     if not hasattr(field_obj, "get"):
@@ -295,7 +290,7 @@ def fill_pdf(
     # Clone document structure to preserve formatting
     writer.clone_reader_document_root(reader)
 
-    pdf_fields = _collect_pdf_fields(reader)
+    pdf_fields = collect_field_objects(reader)
 
     written_fields: set[str] = set()
     skipped_required_fields: list[str] = []
