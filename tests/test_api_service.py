@@ -590,3 +590,45 @@ def test_client_identifier_uses_trusted_hop(monkeypatch, proxy_count, forwarded,
         }
     )
     assert client_identifier(request) == expected
+
+
+@pytest.mark.parametrize(
+    "presented",
+    [
+        b"",
+        b"wrong",
+        b"secret-token ",
+        b" secret-token",
+        b"SECRET-TOKEN",
+        b"secret-tokenX",
+        b"secret-toke",
+        "café".encode("latin-1"),
+        "王".encode(),
+        b"secret-token\xff",
+        b"x" * 10_000,
+    ],
+)
+@pytest.mark.parametrize("path", ["/fill", "/preview", "/inspect"])
+def test_wrong_api_key_is_always_401_never_500(monkeypatch, path, presented):
+    monkeypatch.setattr(config, "API_AUTH_ENABLED", True)
+    monkeypatch.setattr(config, "API_AUTH_TOKEN", "secret-token")
+    monkeypatch.setattr(config, "API_KEY_HEADER", "X-API-Key")
+
+    response = client.post(
+        path,
+        headers={"X-API-Key": presented},
+        files={"pdf_file": ("input.pdf", _minimal_pdf_bytes(), "application/pdf")},
+        data={"user_data": "{}"},
+    )
+    assert response.status_code == 401
+    assert response.json()["detail"]["error"]["code"] == "unauthorized"
+
+
+def test_non_ascii_configured_token_still_authenticates(monkeypatch):
+    monkeypatch.setattr(config, "API_AUTH_ENABLED", True)
+    monkeypatch.setattr(config, "API_AUTH_TOKEN", "clé-secrète")
+    monkeypatch.setattr(config, "API_KEY_HEADER", "X-API-Key")
+
+    files = {"pdf_file": ("input.pdf", _minimal_pdf_bytes(), "application/pdf")}
+    ok = client.post("/inspect", headers={"X-API-Key": "clé-secrète".encode()}, files=files)
+    assert ok.status_code == 200

@@ -19,6 +19,8 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- A non-ASCII `X-API-Key` returns 401 instead of 500, and a non-ASCII
+  `API_AUTH_TOKEN` can authenticate (keys are compared as bytes)
 - Text the standard PDF font cannot draw (e.g. CJK) is no longer reported
   as a clean write: it is listed in the new `display_warnings` report field
   (`X-PDF-Fields-Display-Warnings`), and refused under `flatten=True` so
