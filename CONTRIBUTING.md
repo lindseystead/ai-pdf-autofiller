@@ -11,8 +11,8 @@
 Run the same core checks expected in CI before opening a pull request:
 
 ```bash
-ruff check src/ tests/ scripts/
-ruff format --check src/ tests/ scripts/
+ruff check src/ tests/ scripts/ examples/
+ruff format --check src/ tests/ scripts/ examples/
 mypy src/
 pip-audit -r requirements.txt
 PYTHONPATH=src pytest tests/ -v --cov=src --cov-report=term --cov-fail-under=85
