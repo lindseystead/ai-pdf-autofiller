@@ -4,11 +4,19 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-## [0.7.0]
+### Changed
+
+- GitHub Actions bumped to current major versions (off the deprecated Node.js 20
+  runtime)
+- Dependabot no longer opens routine pip version PRs; Python security updates
+  still arrive, and routine upgrades go through `poetry update` +
+  `make sync-requirements`
+
+## [0.7.0] - 2026-10-07
 
 ### Added
 
-- CLI entry point `pdf-autofiller` (`inspect` / `preview` / `fill`) plus
+- CLI entry point `pdf-autofiller` (`inspect` / `preview` / `fill` / `version`) plus
   `python -m pdf_autofiller` for local use without starting the API
 - `allow_partial` fill option (API form field, library kwarg, CLI
   `--allow-partial`, SDK, playground): return the PDF even when required
@@ -51,7 +59,7 @@ All notable changes to this project will be documented in this file.
 - Dependabot opens weekly update PRs for Python packages, the Docker base
   image and GitHub Actions
 
-## [0.6.3]
+## [0.6.3] - 2026-09-10
 
 ### Added
 
@@ -94,7 +102,7 @@ All notable changes to this project will be documented in this file.
 - Removed planning `docs/ROADMAP.md`; docs indexes and site footer point at evidence-based docs only
 - Recipes README no longer labels the W-9-shaped fixture as “IRS Form W-9”
 
-## [0.6.1]
+## [0.6.1] - 2026-09-08
 
 ### Added
 
@@ -110,6 +118,7 @@ All notable changes to this project will be documented in this file.
 - `requirements.txt` / `requirements-dev.txt` are fully pinned exports (CI verifies sync)
 - Integrations guide rewritten around inspect → preview → fill
 
+## [0.6.0]
 
 ### Added
 
@@ -187,7 +196,7 @@ All notable changes to this project will be documented in this file.
 - Field-name fallback semantics canonicalize onto alias-pack keys when possible
 - HR alias pack expanded for corpus field names (`employee_name`, `startdate`, consent)
 
-## [0.4.3]
+## [0.4.3] - 2026-07-09
 
 ### Fixed
 
@@ -204,7 +213,7 @@ All notable changes to this project will be documented in this file.
 - README restructured for open-source presentation (install, API, architecture, docs index)
 - `pyproject.toml` project URLs include the GitHub Pages landing page
 
-## [0.4.2]
+## [0.4.2] - 2026-07-09
 
 ### Added
 
@@ -225,13 +234,13 @@ All notable changes to this project will be documented in this file.
 
 - Deploy blueprint no longer ships with authentication disabled by default
 
-## [0.4.1]
+## [0.4.1] - 2026-07-09
 
 ### Added
 
 - Automated discovery: Codespaces, GHCR, GitHub Release wheels, GitHub Pages (see [0.4.0] for feature list)
 
-## [0.4.0]
+## [0.4.0] - 2026-07-09
 
 ### Added
 
@@ -248,13 +257,13 @@ All notable changes to this project will be documented in this file.
 - PyPI publish workflow now uses `PYPI_API_TOKEN` with clearer failure messaging
 - PR template aligned with CI pip-audit command
 
-## [0.3.1]
+## [0.3.1] - 2026-05-31
 
 ### Security
 
 - Resolved `starlette` advisory PYSEC-2026-161 by raising the FastAPI floor to `>= 0.136` and pinning `starlette >= 1.0.1` (the patched line ships in the Docker image, `starlette 1.2.1`). Removed the corresponding `pip-audit` ignore; the runtime surface now audits clean with no exceptions. Verified by building and running the container.
 
-## [0.3.0]
+## [0.3.0] - 2026-05-31
 
 ### Security
 
@@ -289,6 +298,8 @@ All notable changes to this project will be documented in this file.
 
 - Documented the new response headers and button-fill behavior in `docs/API.md`.
 
+## Earlier changes (between 0.1.0 and 0.2.0)
+
 ### Added
 
 - FastAPI service wrapper with `GET /health`, `GET /version`, and `POST /fill` endpoints.
@@ -310,7 +321,7 @@ All notable changes to this project will be documented in this file.
 
 ## [0.1.0] - 2025-12-12
 
-### Added (0.1.0)
+### Added
 
 - Initial release
 - PDF reading and form field extraction
@@ -319,18 +330,5 @@ All notable changes to this project will be documented in this file.
 - PDF form filling functionality
 - Comprehensive test suite
 - Documentation and examples
-
-### Project Organization
-
-- Organized codebase into proper directory structure
-- Separated scripts, samples, and documentation
-- Added development tools (Makefile, .editorconfig, .gitignore)
-- Enhanced pyproject.toml with metadata and tooling config
-
-### Structure
-
-- `src/pdf_autofiller/` - Core application code
-- `tests/` - Unit and integration tests
-- `scripts/` - Utility and demo scripts
-- `samples/` - Sample PDF forms for testing
-- `docs/` - Documentation files
+- Project layout: `src/pdf_autofiller/`, `tests/`, `scripts/`, `samples/`, `docs/`
+- Development tooling: Makefile, `.editorconfig`, `.gitignore`, pyproject metadata

@@ -1,10 +1,12 @@
-# Alias packs live in the installable package — not this folder.
-#
-# Packs: `src/pdf_autofiller/form_aliases/*.json`
-# Loader: `pdf_autofiller.aliases.AliasRegistry`
-#
-# This directory is intentionally empty of JSON so contributors do not add
-# packs in two places. Contribution steps:
+# Alias packs
+
+Alias packs live in the installable package, not in this folder:
+
+- Packs: `src/pdf_autofiller/form_aliases/*.json`
+- Loader: `pdf_autofiller.aliases.AliasRegistry`
+
+This directory intentionally contains no JSON, so packs are never maintained in
+two places.
 
 ## Contribute a pack
 

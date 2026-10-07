@@ -6,9 +6,11 @@
 ## Validation
 
 - [ ] `ruff check src/ tests/ scripts/`
+- [ ] `ruff format --check src/ tests/ scripts/`
 - [ ] `mypy src/`
 - [ ] `pip-audit -r requirements.txt`
 - [ ] `PYTHONPATH=src pytest tests/ -v --cov=src --cov-report=term --cov-fail-under=85`
+- [ ] `make corpus-check`
 
 ## Review Notes
 
