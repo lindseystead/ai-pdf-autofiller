@@ -19,6 +19,9 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- Auth, rate limits and the upload size limit now run before the request
+  body is read. Previously FastAPI parsed and spooled the whole multipart
+  body to disk first, so unauthenticated clients could upload without limit
 - User values no longer appear in logs: a debug message that echoed
   unmatched checkbox/radio values is removed, and pypdf's font-encoding
   warning has the field text redacted

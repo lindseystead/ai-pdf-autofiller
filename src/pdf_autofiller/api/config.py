@@ -14,6 +14,9 @@ API_AUTH_ENABLED = os.getenv("API_AUTH_ENABLED", "true").lower() == "true"
 API_AUTH_TOKEN = os.getenv("API_AUTH_TOKEN", "")
 API_KEY_HEADER = os.getenv("API_KEY_HEADER", "X-API-Key")
 MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(5 * 1024 * 1024)))
+# Room in a request body for the multipart envelope and the user_data part on
+# top of the PDF itself; requests larger than MAX_UPLOAD_BYTES + this are cut off.
+FORM_OVERHEAD_BYTES = 1024 * 1024
 MAX_PDF_PAGES = int(os.getenv("MAX_PDF_PAGES", "200"))
 # Wall-clock budget for full pipeline processing on /fill, /preview, and /inspect.
 PDF_READ_TIMEOUT_SECONDS = float(os.getenv("PDF_READ_TIMEOUT_SECONDS", "20"))

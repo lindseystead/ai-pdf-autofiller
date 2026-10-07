@@ -49,7 +49,7 @@ from .schemas import (
     PreviewResponse,
     VersionResponse,
 )
-from .security import guard_mutating_request, rate_limit_health_status
+from .security import rate_limit_health_status
 from .uploads import read_bounded_upload, require_pdf_signature, require_pdf_upload
 
 logger = logging.getLogger(__name__)
@@ -267,7 +267,6 @@ async def inspect_pdf(
     """List AcroForm fields so clients can draft matching JSON without guessing."""
     temp_dir = None
     try:
-        guard_mutating_request(request)
         require_pdf_upload(pdf_file)
         content = await read_bounded_upload(pdf_file)
         require_pdf_signature(content)
@@ -346,7 +345,6 @@ async def preview_pdf(
     """Return mapping decisions without writing a PDF (inspect → map debug loop)."""
     temp_dir = None
     try:
-        guard_mutating_request(request)
         require_pdf_upload(pdf_file)
         parsed_user_data = _parse_user_data(user_data)
         content = await read_bounded_upload(pdf_file)
@@ -451,7 +449,6 @@ async def fill(
     response_started = False
 
     try:
-        guard_mutating_request(request)
         require_pdf_upload(pdf_file)
         parsed_user_data = _parse_user_data(user_data)
 
