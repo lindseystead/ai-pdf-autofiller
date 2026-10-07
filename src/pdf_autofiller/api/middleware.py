@@ -7,11 +7,16 @@ import logging
 import time
 import uuid
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.types import ASGIApp
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from . import config
+from .errors import api_error
+from .security import guard_mutating_request
+
+UPLOAD_PATHS = frozenset({"/fill", "/preview", "/inspect"})
 
 
 class JsonLogFormatter(logging.Formatter):
@@ -75,7 +80,69 @@ async def request_context_middleware(request: Request, call_next):
     return response
 
 
+class UploadGuardMiddleware:
+    """Authenticate, rate-limit and size-check upload requests before reading the body.
+
+    Route handlers only run after FastAPI has parsed (and spooled to disk) the
+    whole multipart body, so checks there let anyone stream an unbounded upload.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http" or scope["method"] != "POST" or scope["path"] not in UPLOAD_PATHS:
+            await self.app(scope, receive, send)
+            return
+
+        limit = config.MAX_UPLOAD_BYTES + config.FORM_OVERHEAD_BYTES
+        too_large = api_error(
+            status_code=413,
+            code="payload_too_large",
+            message="Request body exceeds the upload limit",
+            details={"max_upload_bytes": config.MAX_UPLOAD_BYTES},
+        )
+        request = Request(scope)
+        try:
+            guard_mutating_request(request)
+            declared = request.headers.get("content-length", "")
+            if declared.isdigit() and int(declared) > limit:
+                raise too_large
+        except HTTPException as exc:
+            await _error_response(exc)(scope, receive, send)
+            return
+
+        # Content-Length may be absent or wrong, so also count what arrives.
+        received = 0
+        exceeded = False
+
+        async def bounded_receive() -> Message:
+            nonlocal received, exceeded
+            if exceeded:
+                return {"type": "http.disconnect"}
+            message = await receive()
+            if message["type"] == "http.request":
+                received += len(message.get("body", b""))
+                if received > limit:
+                    exceeded = True
+                    return {"type": "http.disconnect"}
+            return message
+
+        async def guarded_send(message: Message) -> None:
+            if not exceeded:  # drop the app's reaction to the cut-off body
+                await send(message)
+
+        await self.app(scope, bounded_receive, guarded_send)
+        if exceeded:
+            await _error_response(too_large)(scope, receive, send)
+
+
+def _error_response(exc: HTTPException) -> JSONResponse:
+    return JSONResponse({"detail": exc.detail}, status_code=exc.status_code, headers=exc.headers)
+
+
 def install_middleware(app: FastAPI) -> None:
-    """Register middleware on the FastAPI app."""
+    """Register middleware on the FastAPI app (the first added runs innermost)."""
+    app.add_middleware(UploadGuardMiddleware)
     app.add_middleware(SecurityHeadersMiddleware)
     app.middleware("http")(request_context_middleware)

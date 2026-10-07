@@ -30,7 +30,7 @@ Environment variables are read at process start with `os.getenv` (`PDF_JOB_BACKE
 - Unauthenticated: `GET /`, `/playground`, `/health`, `/version`, `/samples/sample_form.pdf`.
 - Protected: `POST /fill`, `/preview`, `/inspect`.
 - Protected POSTs are rate limited per client and reject PDFs over the page limit or that exceed the processing time budget. Timed-out jobs are killed when `PDF_JOB_BACKEND=process` (the default).
-- Uploads are read in bounded chunks so oversized files are rejected before the full body is buffered in memory.
+- On `POST /fill`, `/preview` and `/inspect`, auth and rate limits are checked before the request body is read, and the body is cut off with `413` once it passes `MAX_UPLOAD_BYTES` plus 1 MiB for the form envelope and `user_data` (whether or not `Content-Length` is sent). The PDF part itself is then held to `MAX_UPLOAD_BYTES`.
 - `GET /health` reports dependency checks (`auth`, `semantic_provider`, `rate_limit`, alias packs) and returns `degraded` when auth is misconfigured.
 - `POST /fill` writes uploads to a temporary working directory and returns the generated PDF directly.
 - Temporary files are cleaned up after request completion or failure, including error and timeout paths.
