@@ -264,3 +264,24 @@ def test_pdf_with_only_owner_restrictions_is_filled(tmp_path: Path) -> None:
     report = fill(restricted, {"firstname": "Jane", "lastname": "Doe", "dob": "1990-01-01"}, out)
     assert report.written_fields == ["txtDOB", "txtFirstName", "txtLastName"]
     assert _values(out)["txtFirstName"] == "Jane"
+
+
+@pytest.mark.parametrize("empty", [[], {}, None, "", "   ", "\t\n"])
+def test_empty_values_are_never_written_as_text(tmp_path: Path, empty: object) -> None:
+    out = tmp_path / "out.pdf"
+    data = {"firstname": "Jane", "lastname": "Doe", "dob": "1990-01-01", "email": empty, "phone": empty}
+    report = fill(Path("samples/sample_form.pdf"), data, out)
+    values = _values(out)
+    assert values["txtEmail"] in (None, "")
+    assert values["txtPhone"] in (None, "")
+    assert "txtEmail" not in report.written_fields and "txtPhone" not in report.written_fields
+
+
+@pytest.mark.parametrize("empty", [[], {}, "", "  "])
+def test_empty_value_for_required_field_fails_strict_fill(tmp_path: Path, empty: object) -> None:
+    out = tmp_path / "out.pdf"
+    with pytest.raises(UnresolvedRequiredFieldsError, match="txtFirstName"):
+        fill(
+            Path("samples/sample_form.pdf"), {"firstname": empty, "lastname": "Doe", "dob": "1990-01-01"}, out
+        )
+    assert not out.exists()

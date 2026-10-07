@@ -77,7 +77,8 @@ def flatten_user_data(data: dict[str, Any], max_depth: int = MAX_USER_DATA_DEPTH
             for index, child in enumerate(value):
                 _walk(f"{prefix}.{index}", child)
         else:
-            values[prefix] = value
+            # Empty containers carry no value; never stringify them into "[]"/"{}".
+            values[prefix] = None if isinstance(value, (dict, list)) else value
 
     for key, value in data.items():
         _walk(str(key), value)

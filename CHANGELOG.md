@@ -19,6 +19,9 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- Empty lists/objects in `user_data` are treated as empty instead of being
+  written as the text `[]`/`{}`; blank and whitespace-only strings are
+  reported in `skipped_empty_fields` instead of `written_fields`
 - Password-protected PDFs are reported as such (library, CLI, and the API's
   `invalid_pdf` error now carries `details.reason`) instead of
   "File has not been decrypted"
