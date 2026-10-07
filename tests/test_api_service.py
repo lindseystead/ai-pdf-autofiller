@@ -672,3 +672,37 @@ def test_api_request_logs_never_contain_user_values(caplog):
                 data={"user_data": user_data, "allow_partial": "true"},
             )
     assert [r.getMessage() for r in caplog.records if secret in r.getMessage()] == []
+
+
+def _temp_dirs() -> set[str]:
+    import tempfile
+
+    return {p.name for p in Path(tempfile.gettempdir()).glob("pdf-autofiller-*")}
+
+
+@pytest.mark.parametrize("path", ["/fill", "/preview", "/inspect"])
+def test_request_temp_dirs_are_removed_on_success_and_every_error(path, monkeypatch):
+    sample = Path("samples/sample_form.pdf").read_bytes()
+    good = '{"firstname": "Jane", "lastname": "Doe", "dob": "1990-01-01"}'
+    cases = [
+        (sample, good, "application/pdf"),  # success
+        (b"%PDF-1.7 broken", good, "application/pdf"),  # invalid_pdf from the job
+        (b"not a pdf", good, "application/pdf"),  # signature check
+        (sample, good, "text/plain"),  # media type
+        (sample, "{not json", "application/pdf"),  # user_data JSON
+        (sample, "{}", "application/pdf"),  # required fields unresolved (fill)
+    ]
+    before = _temp_dirs()
+    for content, user_data, media_type in cases:
+        client.post(path, files={"pdf_file": ("f.pdf", content, media_type)}, data={"user_data": user_data})
+
+    def boom(*_args, **_kwargs):
+        raise RuntimeError("unexpected")
+
+    monkeypatch.setattr(api_routes, "execute_pdf_job", boom)
+    response = client.post(
+        path, files={"pdf_file": ("f.pdf", sample, "application/pdf")}, data={"user_data": good}
+    )
+    assert response.status_code == 500
+    assert response.json()["detail"]["error"]["code"] == f"pdf_{path.strip('/')}_failed"
+    assert _temp_dirs() == before
