@@ -66,7 +66,7 @@ python = "^3.11"
 # (CVE-fixed) releases and must stay current.
 pypdf = "^6.19.0"
 pydantic = "^2.0.0"
-openai = "^1.0.0"
+openai = "^3.24.0"
 # FastAPI >= 0.136 supports starlette >= 1.0. starlette is pinned explicitly
 # (transitive) to ensure every resolver picks the patched line.
 fastapi = ">=0.136.0"
