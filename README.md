@@ -75,8 +75,8 @@ The server includes a small test page at `/playground` for trying fills without 
 
 ## How matching works
 
-1. Field names and your keys are normalized, so `First Name`, `first_name` and `txtFirstName`
-   compare equal.
+1. Field names are normalized (case, spaces, underscores and prefixes like `txt`), so the key
+   `first_name` or `firstname` fills a field named `First Name`, `first_name` or `txtFirstName`.
 2. Built-in aliases cover common synonyms (`dob` / `date_of_birth`, `zip` / `postcode`), with
    optional packs for W-9-shaped and HR forms.
 3. Anything left unmatched is reported, not guessed. Fields with opaque names (`field_12`) can be
@@ -110,6 +110,7 @@ their cloud.
 
 ```bash
 git clone https://github.com/lindseystead/ai-pdf-autofiller.git && cd ai-pdf-autofiller
+python3 -m venv .venv && source .venv/bin/activate   # the Makefile uses the active Python
 pip install -r requirements-dev.txt && pip install -e .
 make test lint
 ```

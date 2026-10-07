@@ -7,9 +7,10 @@ This guide covers local test execution and quality checks for the PDF autofiller
 Create and activate a virtual environment if needed:
 
 ```bash
-python3 -m venv venv
-source venv/bin/activate
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements-dev.txt
+pip install -e .
 ```
 
 Run the test suite:
@@ -100,8 +101,8 @@ make corpus-check
 Direct commands:
 
 ```bash
-ruff check src/ tests/ scripts/
-ruff format --check src/ tests/ scripts/
+ruff check src/ tests/ scripts/ examples/
+ruff format --check src/ tests/ scripts/ examples/
 mypy src/
 pip-audit -r requirements.txt
 PYTHONPATH=src python3 -m pytest tests/ -v --cov=src --cov-report=term --cov-fail-under=85

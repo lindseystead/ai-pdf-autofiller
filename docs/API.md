@@ -134,8 +134,8 @@ Example response:
       "field_name": "txtFirstName",
       "semantic_meaning": "first_name",
       "selected_value": "Alex",
-      "confidence": 0.95,
-      "reason": "Direct match: 'firstname' matches semantic 'first_name'",
+      "confidence": 0.9,
+      "reason": "Alias match: 'firstname' matches semantic 'first_name' via alias cluster",
       "requires_review": false,
       "ai_assisted": false
     }
