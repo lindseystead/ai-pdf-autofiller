@@ -6,6 +6,8 @@
 
 **Fill PDF forms from JSON — as a Python library or a self-hosted API.**
 
+Package and command name: `pdf-autofiller`.
+
 Your data keys don't have to match the form's field names: `firstname` fills `txtFirstName`,
 `first_name` or `First Name`. Every fill returns a report of what was written and what was left
 blank. Runs locally with no AI and no network calls by default.
