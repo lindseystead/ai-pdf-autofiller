@@ -29,7 +29,11 @@ The helper targets in `Makefile` are the supported shortcuts for common local wo
 
 - Keep business logic in `src/`; keep scripts thin.
 - Prefer deterministic behavior over implicit heuristics.
-- Alias packs live only under `src/pdf_autofiller/form_aliases/` (see `forms/README.md`).
+- Alias packs live only under `src/pdf_autofiller/form_aliases/`. To add one: create
+  `<family>.json` there with canonical snake_case semantics as keys and lists of user-data key
+  variants as values, and prove it with a synthetic case in `tests/fixtures/corpus/`. Do not
+  claim success on a real IRS or vendor form without a redacted fixture. Deploy-time overrides
+  (`FORM_ALIASES_DIR`) are described in `docs/OPERATIONS.md`.
 - Add or update tests for every behavioral change; prove packs with corpus cases.
 - Keep documentation in sync when changing APIs, configuration, or operational assumptions.
 - Avoid mixing unrelated refactors with feature or bug-fix changes.
