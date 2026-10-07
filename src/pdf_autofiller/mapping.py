@@ -293,7 +293,6 @@ Example response:
                 "You are a data mapping assistant. Map form fields to user data keys. Return ONLY valid JSON."
             ),
             user_prompt=prompt,
-            model="gpt-4o-mini",
             temperature=0.2,
         )
         fallback_result = json.loads(strip_json_code_fence(content))

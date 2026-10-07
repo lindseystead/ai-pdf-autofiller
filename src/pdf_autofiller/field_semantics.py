@@ -29,6 +29,12 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+MODEL = "gpt-4o-mini"
+# The SDK defaults (600 s, 2 retries) could hold a library or CLI call for
+# half an hour; the API path is also bounded by the job timeout.
+REQUEST_TIMEOUT_SECONDS = 30.0
+MAX_RETRIES = 1
+
 
 def strip_json_code_fence(content: str) -> str:
     """Normalize JSON-ish model output by removing surrounding markdown fences."""
@@ -63,7 +69,9 @@ class SemanticClient:
 
         if PROVIDER_SDK_AVAILABLE and self.api_key:
             try:
-                self._client = provider_sdk.OpenAI(api_key=self.api_key)
+                self._client = provider_sdk.OpenAI(
+                    api_key=self.api_key, timeout=REQUEST_TIMEOUT_SECONDS, max_retries=MAX_RETRIES
+                )
             except Exception as exc:
                 logger.warning("Failed to initialize provider client: %s", exc)
                 self._client = None
@@ -96,7 +104,7 @@ class SemanticClient:
         prompt = self._build_batch_prompt(fields, page_context=page_context)
         try:
             response = self._client.chat.completions.create(
-                model="gpt-4o-mini",
+                model=MODEL,
                 messages=[
                     {
                         "role": "system",
@@ -124,7 +132,6 @@ class SemanticClient:
         *,
         system_prompt: str,
         user_prompt: str,
-        model: str = "gpt-4o-mini",
         temperature: float = 0.2,
     ) -> str:
         """
@@ -139,7 +146,7 @@ class SemanticClient:
 
         try:
             response = self._client.chat.completions.create(
-                model=model,
+                model=MODEL,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},

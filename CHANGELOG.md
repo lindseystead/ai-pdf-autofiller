@@ -21,6 +21,8 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- The optional AI provider client times out after 30 s with at most one
+  retry, instead of the SDK default of 600 s with two retries
 - Auth, rate limits and the upload size limit now run before the request
   body is read. Previously FastAPI parsed and spooled the whole multipart
   body to disk first, so unauthenticated clients could upload without limit
