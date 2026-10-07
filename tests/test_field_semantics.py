@@ -132,3 +132,25 @@ def test_create_json_completion_raises_when_unavailable():
 def test_create_json_completion_returns_content():
     client = _client_returning('{"ok":true}')
     assert client.create_json_completion(system_prompt="sys", user_prompt="usr") == '{"ok":true}'
+
+
+def test_provider_client_has_a_bounded_timeout_and_retries(monkeypatch):
+    captured: dict = {}
+
+    class RecordingOpenAI:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+    monkeypatch.setattr(field_semantics, "PROVIDER_SDK_AVAILABLE", True)
+    monkeypatch.setattr(field_semantics.provider_sdk, "OpenAI", RecordingOpenAI)
+    field_semantics.SemanticClient(api_key="test-key")
+    assert 0 < captured["timeout"] <= 60
+    assert captured["max_retries"] <= 1
+
+
+def test_every_provider_call_uses_the_configured_model():
+    calls: list[dict] = []
+    client = _client_returning(_batch(txtFirstName=FIRST_NAME), calls)
+    client.infer_semantics_batch([sample_field()])
+    client.create_json_completion(system_prompt="s", user_prompt="u")
+    assert [call["model"] for call in calls] == [field_semantics.MODEL, field_semantics.MODEL]
