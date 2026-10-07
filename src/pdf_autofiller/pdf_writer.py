@@ -7,13 +7,14 @@ write while required fields are unresolved, unless ``allow_partial`` is set.
 
 import logging
 from pathlib import Path
+from typing import Any
 
 from pypdf import PdfReader, PdfWriter
 from pypdf.generic import NameObject
 
 from .acroform_fields import collect_field_objects
 from .errors import PdfAutofillerError
-from .field_utils import is_field_required
+from .field_utils import FieldObject, is_field_required
 from .models import FillReport, MappingResult
 
 logger = logging.getLogger(__name__)
@@ -61,7 +62,7 @@ class UnresolvedRequiredFieldsError(PdfAutofillerError):
         super().__init__("; ".join(message_parts))
 
 
-def _field_type(field_obj) -> str | None:
+def _field_type(field_obj: FieldObject) -> str | None:
     """Return the PDF field type name (e.g. '/Btn', '/Tx') if available."""
     if not hasattr(field_obj, "get"):
         return None
@@ -69,7 +70,7 @@ def _field_type(field_obj) -> str | None:
     return str(field_type) if field_type in ("/Tx", "/Btn", "/Ch", "/Sig") else None
 
 
-def _button_states(field_obj) -> list[str]:
+def _button_states(field_obj: FieldObject) -> list[str]:
     """
     Return the valid state names for an AcroForm button field.
 
@@ -86,7 +87,7 @@ def _button_states(field_obj) -> list[str]:
         logger.debug("Failed to read /_States_ from button field", exc_info=True)
 
     try:
-        appearance = field_obj.get("/AP")
+        appearance: Any = field_obj.get("/AP")  # pypdf object, checked at runtime
         normal = appearance.get("/N") if hasattr(appearance, "get") else None
         if normal is not None and hasattr(normal, "keys"):
             return [str(key) for key in normal]
@@ -96,7 +97,7 @@ def _button_states(field_obj) -> list[str]:
     return []
 
 
-def _resolve_button_value(field_obj, value: str) -> str | None:
+def _resolve_button_value(field_obj: FieldObject, value: str) -> str | None:
     """
     Translate a mapped value into a valid AcroForm button state name.
 
@@ -128,7 +129,7 @@ def _resolve_button_value(field_obj, value: str) -> str | None:
     return None
 
 
-def _max_length(field_obj) -> int | None:
+def _max_length(field_obj: FieldObject) -> int | None:
     """Return a text field's ``/MaxLen`` (own or inherited), if declared.
 
     ``reader.get_fields()`` returns trimmed ``Field`` snapshots without
@@ -163,14 +164,14 @@ def _standard_font_can_draw(value: str) -> bool:
     return True
 
 
-def _choice_options(field_obj) -> list[tuple[str, str]]:
+def _choice_options(field_obj: FieldObject) -> list[tuple[str, str]]:
     """Return ``(export, display)`` pairs for a choice (``/Ch``) field.
 
     ``/Opt`` entries are either a plain string (export and display are the same)
     or an ``[export, display]`` array, as used by most state/country dropdowns.
     """
     # pypdf's get_fields() mirrors /Opt into /_States_; use it only if /Opt is absent.
-    opt = field_obj.get("/Opt") or field_obj.get("/_States_")
+    opt: Any = field_obj.get("/Opt") or field_obj.get("/_States_")
     opt = opt.get_object() if hasattr(opt, "get_object") else opt
     options: list[tuple[str, str]] = []
     for entry in opt if isinstance(opt, list) else []:  # malformed /Opt: no options
@@ -183,7 +184,7 @@ def _choice_options(field_obj) -> list[tuple[str, str]]:
     return list(dict.fromkeys(options))
 
 
-def _resolve_choice_value(field_obj, value: str) -> str | None:
+def _resolve_choice_value(field_obj: FieldObject, value: str) -> str | None:
     """
     Resolve a mapped value for a choice (``/Ch``) field to its export value.
 
@@ -325,7 +326,9 @@ def fill_pdf(
     )
 
 
-def _value_for_widget(field_obj, value: str, *, flatten: bool) -> tuple[str | None, str | None, bool]:
+def _value_for_widget(
+    field_obj: FieldObject, value: str, *, flatten: bool
+) -> tuple[str | None, str | None, bool]:
     """Apply one widget's rules to a mapped value.
 
     Returns ``(value_to_write, None, display_warning)``, or ``(None, reason, False)``
@@ -355,7 +358,7 @@ def _value_for_widget(field_obj, value: str, *, flatten: bool) -> tuple[str | No
     return value, None, False
 
 
-def _existing_values(pdf_fields: dict[str, object]) -> dict[str, str]:
+def _existing_values(pdf_fields: dict[str, FieldObject]) -> dict[str, str]:
     """Values already in the form (except signatures), to keep them through flatten."""
     existing: dict[str, str] = {}
     for name, field_obj in pdf_fields.items():
@@ -406,7 +409,7 @@ def _remove_widgets(writer: PdfWriter) -> None:
 
 
 def _unresolved_required(
-    pdf_fields: dict[str, object], mapping_result: MappingResult, written: set[str]
+    pdf_fields: dict[str, FieldObject], mapping_result: MappingResult, written: set[str]
 ) -> tuple[list[str], list[str]]:
     """Return (required fields with no value, required fields skipped for review)."""
     missing = list(mapping_result.missing_required)

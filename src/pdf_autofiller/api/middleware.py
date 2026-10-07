@@ -9,7 +9,8 @@ import uuid
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
-from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+from starlette.responses import Response
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from . import config
@@ -53,7 +54,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     def __init__(self, app: ASGIApp) -> None:
         super().__init__(app)
 
-    async def dispatch(self, request: Request, call_next):
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         response = await call_next(request)
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("X-Frame-Options", "DENY")
@@ -61,7 +62,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return response
 
 
-async def request_context_middleware(request: Request, call_next):
+async def request_context_middleware(request: Request, call_next: RequestResponseEndpoint) -> Response:
     """Attach request ID and emit basic request logs."""
     request_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
     request.state.request_id = request_id

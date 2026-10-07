@@ -11,13 +11,13 @@ from typing import Literal, cast
 from pypdf import PdfReader
 from pypdf.generic import IndirectObject
 
-from .field_utils import is_field_required
+from .field_utils import FieldObject, is_field_required
 from .models import FormField
 
 logger = logging.getLogger(__name__)
 
 
-def get_field_type(field_obj) -> Literal["text", "button", "choice", "signature", "unknown"]:
+def get_field_type(field_obj: FieldObject) -> Literal["text", "button", "choice", "signature", "unknown"]:
     """Map a PDF /FT value to the internal field type label."""
     ft = field_obj.get("/FT")
     if ft == "/Tx":
@@ -31,7 +31,7 @@ def get_field_type(field_obj) -> Literal["text", "button", "choice", "signature"
     return "unknown"
 
 
-def get_field_value(field_obj) -> str | None:
+def get_field_value(field_obj: FieldObject) -> str | None:
     """Read the current value from a PDF field object."""
     value = field_obj.get("/V")
     if value is None:
@@ -51,7 +51,7 @@ def get_field_value(field_obj) -> str | None:
     return str(value) if value else None
 
 
-def find_field_page(reader: PdfReader, field_obj) -> int:
+def find_field_page(reader: PdfReader, field_obj: FieldObject) -> int:
     """Resolve the 1-based page number for a field object."""
     if not hasattr(field_obj, "get"):
         return 1
@@ -73,7 +73,7 @@ def find_field_page(reader: PdfReader, field_obj) -> int:
     return 1
 
 
-def collect_field_objects(reader: PdfReader) -> dict[str, object]:
+def collect_field_objects(reader: PdfReader) -> dict[str, FieldObject]:
     """Collect raw PDF field objects keyed by field name."""
     try:
         pdf_fields = reader.get_fields()
@@ -85,7 +85,7 @@ def collect_field_objects(reader: PdfReader) -> dict[str, object]:
             exc_info=True,
         )
 
-    fallback_fields: dict[str, object] = {}
+    fallback_fields: dict[str, FieldObject] = {}
     for page_num, page in enumerate(reader.pages, start=1):
         try:
             annotations = page.get("/Annots")
