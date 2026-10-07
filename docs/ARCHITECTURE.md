@@ -17,12 +17,13 @@ api/ ───┘    (api/jobs.py runs each pipeline call in a killable worker p
 | `pdf_reader.py` | Reads metadata, form fields and page text (`InvalidPdfError`, page limit, password detection) |
 | `acroform_fields.py` | Walks the AcroForm tree; shared by reader and writer |
 | `user_data.py` | Flattens nested JSON to dotted paths; type and depth checks |
+| `field_utils.py` | Leaf names of hierarchical fields, required flag, opaque-name and no-fields hints |
 | `aliases.py` | `AliasRegistry`: key normalization, built-in synonym clusters, JSON packs in `form_aliases/` |
 | `mapping.py` | Matches user keys to fields; validates (never rewrites) dates and numbers; optional AI fallback |
 | `field_semantics.py` | The only module that calls the AI provider |
 | `pdf_writer.py` | Writes values and enforces widget rules (button states, choice options, `/MaxLen`, fonts) |
 | `models.py` | Pydantic contracts between stages: `MappingResult`, `FieldMappingDecision`, `FillReport` |
-| `cli.py` | `pdf-autofiller inspect`, `preview` and `fill` |
+| `cli.py`, `__main__.py` | `pdf-autofiller inspect`, `preview` and `fill` (also `python -m pdf_autofiller`) |
 | `client.py` | HTTP client for a remote server |
 | `api/` | FastAPI app: routes, upload guard middleware, auth and rate limits, error catalog, job runner |
 | `api_service.py` | ASGI / console-script entrypoint (`pdf_autofiller.api_service:app`) |

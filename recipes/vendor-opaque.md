@@ -2,7 +2,7 @@
 
 Fixture: `samples/vendor_opaque_sample.pdf`
 
-Field names were taken from an **anonymized vendor intake inspect dump**. The PDF page is a blank synthetic AcroForm (not the vendor’s file). JSON keys are the widget names — no special alias pack for this case.
+Field names were taken from an **anonymized vendor intake inspect dump**. The layout is synthetic (not the vendor’s file). The names look readable to `/inspect`, but no alias pack covers them, so key your JSON by the exact widget names.
 
 ## Field inventory (`POST /inspect`)
 

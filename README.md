@@ -51,6 +51,7 @@ and get the filled PDF back:
 
 ```bash
 docker run --rm -p 8000:8000 -e API_AUTH_ENABLED=false ghcr.io/lindseystead/ai-pdf-autofiller:latest
+# or without Docker, after pip install: API_AUTH_ENABLED=false pdf-autofiller-api
 curl -F pdf_file=@sample_form.pdf -F 'user_data={"firstname":"Jane","lastname":"Doe","dob":"1990-01-01"}' \
   http://localhost:8000/fill -o filled.pdf
 ```
@@ -66,7 +67,7 @@ clients send it as `X-API-Key`. See [docs/OPERATIONS.md](docs/OPERATIONS.md).
 | `GET` | `/playground` | Test page for trying fills in the browser |
 | `GET` | `/health`, `/version` | Health check and version |
 
-Full contract and error codes: [docs/API.md](docs/API.md). A Python client is included:
+All routes and error codes: [docs/API.md](docs/API.md). A Python client is included:
 `PDFAutofillerClient("http://localhost:8000", api_key="…").fill_to_file(...)`.
 
 The server includes a small test page at `/playground` for trying fills without writing code:
@@ -87,7 +88,8 @@ The server includes a small test page at `/playground` for trying fills without 
    [How AI is used](docs/ARCHITECTURE.md#how-ai-is-used).
 
 Also handled: checkboxes, radio groups by option name, hierarchical field names
-(`applicant.lastName`), nested JSON input and `/MaxLen` limits. Dates are written exactly as sent.
+(`applicant.lastName`), nested JSON input and `/MaxLen` limits (over-long values are skipped and
+reported, never truncated). Dates are written exactly as sent.
 
 Works with fillable (AcroForm) PDFs. Scanned or flat PDFs have no form fields to fill.
 
