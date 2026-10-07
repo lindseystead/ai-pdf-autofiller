@@ -93,8 +93,14 @@ def opaque_mapping_hints(
     unmatched_opaque: Iterable[str] | None = None,
     use_semantic_inference: bool = False,
 ) -> list[str]:
-    """Build short, actionable hints for opaque AcroForm widget names."""
-    opaque = [name for name in field_names if is_opaque_field_name(name)]
+    """Build short, actionable hints about a form's widget names (none, or opaque)."""
+    names = list(field_names)
+    if not names:
+        return [
+            "This PDF has no fillable form fields (it may be scanned, flat, or an XFA-only form). "
+            "Only AcroForm fields can be filled."
+        ]
+    opaque = [name for name in names if is_opaque_field_name(name)]
     hints: list[str] = []
     if not opaque:
         return hints

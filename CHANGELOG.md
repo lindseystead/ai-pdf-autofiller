@@ -19,6 +19,9 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- A PDF with no fillable fields (scanned, flat or XFA-only) gets a
+  `mapping_hints` entry saying so from inspect, preview and fill, instead of
+  looking like a fill that matched nothing
 - Empty lists/objects in `user_data` are treated as empty instead of being
   written as the text `[]`/`{}`; blank and whitespace-only strings are
   reported in `skipped_empty_fields` instead of `written_fields`

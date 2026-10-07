@@ -285,3 +285,26 @@ def test_empty_value_for_required_field_fails_strict_fill(tmp_path: Path, empty:
             Path("samples/sample_form.pdf"), {"firstname": empty, "lastname": "Doe", "dob": "1990-01-01"}, out
         )
     assert not out.exists()
+
+
+def _pdf_without_fields(path: Path) -> Path:
+    from pypdf import PdfWriter
+
+    writer = PdfWriter()
+    writer.add_blank_page(width=612, height=792)
+    writer.write(path)
+    return path
+
+
+def test_pdf_without_fields_says_so_in_every_result(tmp_path: Path) -> None:
+    from pdf_autofiller import inspect
+
+    flat = _pdf_without_fields(tmp_path / "flat.pdf")
+    inspected = inspect(flat)
+    previewed = preview(flat, {"firstname": "Jane"})
+    filled = fill_detailed(flat, {"firstname": "Jane"}, tmp_path / "out.pdf")
+
+    for hints in (inspected.mapping_hints, previewed.mapping.mapping_hints, filled.mapping.mapping_hints):
+        assert any("no fillable form fields" in hint for hint in hints), hints
+    assert filled.report.written_fields == []
+    assert filled.mapping.unmapped_user_keys == ["firstname"]
