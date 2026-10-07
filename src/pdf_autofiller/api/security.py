@@ -189,7 +189,11 @@ def require_api_key(request: Request) -> None:
         )
 
     incoming_token = request.headers.get(config.API_KEY_HEADER)
-    if incoming_token is None or not secrets.compare_digest(incoming_token, config.API_AUTH_TOKEN):
+    # Starlette decodes header bytes as latin-1, so encoding back recovers the
+    # exact bytes sent. Compare bytes: compare_digest rejects non-ASCII str.
+    if incoming_token is None or not secrets.compare_digest(
+        incoming_token.encode("latin-1"), config.API_AUTH_TOKEN.encode()
+    ):
         raise api_error(
             status_code=401,
             code="unauthorized",
