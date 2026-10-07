@@ -45,6 +45,7 @@ class PreviewDecision(BaseModel):
     confidence: float
     reason: str
     requires_review: bool = False
+    ai_assisted: bool = False
 
 
 class PreviewResponse(BaseModel):

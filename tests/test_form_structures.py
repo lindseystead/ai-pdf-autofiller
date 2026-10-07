@@ -168,3 +168,39 @@ def test_nested_leaf_match_names_its_source_path(tmp_path: Path) -> None:
     form = FormBuilder().text("Name").save(tmp_path / "person.pdf")
     (decision,) = preview(form, {"employer": {"name": "Acme Corp"}}).mapping.decisions
     assert "employer.name" in decision.reason
+
+
+class _FakeSemanticClient:
+    """Stands in for the model: labels Text1 as an SSN with low confidence."""
+
+    def infer_semantics_batch(self, fields, *, page_context=None):
+        from pdf_autofiller.models import FieldSemantics
+
+        def semantics(meaning: str, confidence: float) -> FieldSemantics:
+            return FieldSemantics(
+                semantic_meaning=meaning, expected_data_type="string", confidence_score=confidence
+            )
+
+        return {"Text1": semantics("ssn", 0.1), "Text2": semantics("email", 0.9)}
+
+
+def test_ai_assisted_mappings_are_labelled_and_keep_model_confidence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from pdf_autofiller import pipeline
+
+    monkeypatch.setattr(pipeline, "SemanticClient", _FakeSemanticClient)
+    form = FormBuilder().text("Text1").text("Text2").text("phone").save(tmp_path / "opaque.pdf")
+    result = preview(
+        form,
+        {"ssn": "123-45-6789", "email": "a@b.co", "phone": "555"},
+        use_semantic_inference=True,
+    )
+    decisions = {d.field_name: d for d in result.mapping.decisions}
+
+    low = decisions["Text1"]
+    assert low.ai_assisted and low.reason.startswith("AI: ")
+    assert low.confidence == 0.1 and low.requires_review  # never written
+
+    assert decisions["Text2"].ai_assisted and not decisions["Text2"].requires_review
+    assert not decisions["phone"].ai_assisted  # matched by its own name

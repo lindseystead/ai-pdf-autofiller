@@ -367,17 +367,7 @@ async def preview_pdf(
                 max_pages=config.MAX_PDF_PAGES,
             )
 
-        decisions = [
-            PreviewDecision(
-                field_name=d.field_name,
-                semantic_meaning=d.semantic_meaning,
-                selected_value=d.selected_value,
-                confidence=d.confidence,
-                reason=d.reason,
-                requires_review=d.requires_review,
-            )
-            for d in mapping_result.decisions
-        ]
+        decisions = [PreviewDecision(**d.model_dump()) for d in mapping_result.decisions]
         return PreviewResponse(
             pages=page_count,
             field_count=field_count,
@@ -502,17 +492,7 @@ async def fill(
 
         if wants_json:
             pdf_bytes = output_path.read_bytes()
-            decisions = [
-                PreviewDecision(
-                    field_name=d.field_name,
-                    semantic_meaning=d.semantic_meaning,
-                    selected_value=d.selected_value,
-                    confidence=d.confidence,
-                    reason=d.reason,
-                    requires_review=d.requires_review,
-                )
-                for d in mapping_result.decisions
-            ]
+            decisions = [PreviewDecision(**d.model_dump()) for d in mapping_result.decisions]
             payload = FillReportResponse(
                 pages=page_count,
                 field_count=fields_total,

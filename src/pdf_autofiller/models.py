@@ -60,6 +60,7 @@ class EnrichedFormField(BaseModel):
 
     field: FormField = Field(description="Original form field metadata")
     semantics: FieldSemantics = Field(description="Inferred field semantics")
+    ai_inferred: bool = Field(default=False, description="Whether the semantics came from the AI model")
 
 
 class DocumentStructure(BaseModel):
@@ -79,6 +80,10 @@ class FieldMappingDecision(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0, description="Confidence in the mapping decision")
     reason: str = Field(description="Explanation of how the mapping was determined")
     requires_review: bool = Field(default=False, description="Whether this mapping requires human review")
+    ai_assisted: bool = Field(
+        default=False,
+        description="Whether the AI model chose this mapping (the value still comes from user data)",
+    )
 
 
 class MappingResult(BaseModel):
