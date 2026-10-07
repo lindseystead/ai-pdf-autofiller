@@ -388,7 +388,7 @@ All notable changes to this project will be documented in this file.
 - Optional semantic inference for form fields
 - Deterministic data mapping with controlled fallback mapping
 - PDF form filling functionality
-- Comprehensive test suite
+- Test suite
 - Documentation and examples
 - Project layout: `src/pdf_autofiller/`, `tests/`, `scripts/`, `samples/`, `docs/`
 - Development tooling: Makefile, `.editorconfig`, `.gitignore`, pyproject metadata

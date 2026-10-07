@@ -1,7 +1,5 @@
 """
-Comprehensive test runner for PDF autofiller.
-
-Runs a lightweight smoke-check across the main modules without external services.
+Smoke-check the installed package without external services.
 """
 
 import sys
