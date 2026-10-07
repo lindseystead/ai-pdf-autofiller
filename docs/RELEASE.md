@@ -6,7 +6,7 @@ Source of truth for versions: `pyproject.toml` + `src/pdf_autofiller/__init__.py
 [Releases](https://github.com/lindseystead/ai-pdf-autofiller/releases)), editable
 install (`pip install -e .` → `pdf-autofiller` CLI), or Docker/GHCR.
 
-**PyPI** (`pip install pdf-autofiller`) is **one click away** once a Trusted
+**PyPI** (`pip install pdf-autofiller`) becomes available once a PyPI Trusted
 Publisher is configured (see below). The publish workflow is **manual only** so
 GitHub Releases stay green without that setup.
 
@@ -24,15 +24,16 @@ PyPI Trusted Publishing is **not** required to cut a Release.
 git checkout main && git pull
 gh run list --branch main --limit 5   # confirm green
 
-git tag -a v0.6.1 -m "pdf-autofiller 0.6.1"
-git push origin v0.6.1
-gh release create v0.6.1 --generate-notes
+VERSION=X.Y.Z   # must match pyproject.toml and __init__.py
+git tag -a "v$VERSION" -m "pdf-autofiller $VERSION"
+git push origin "v$VERSION"
+gh release create "v$VERSION" --generate-notes
 ```
 
 | Workflow | When | Effect |
 |----------|------|--------|
-| `release-assets.yml` | On Release | Attach sdist/wheel to the Release (primary pip install path) |
-| `publish-ghcr.yml` | On Release | Push Docker image to GHCR |
+| `release-assets.yml` | On Release (or manual) | Attach sdist/wheel to the Release (primary pip install path) |
+| `publish-ghcr.yml` | On Release (or manual) | Push Docker image to GHCR |
 | `publish-pypi.yml` | **Manual only** | Upload to PyPI via OIDC when you choose to enable it |
 
 ### Verify a Release (without PyPI)
@@ -43,10 +44,9 @@ python -c "import pdf_autofiller; print(pdf_autofiller.__version__)"
 docker pull ghcr.io/lindseystead/ai-pdf-autofiller:latest
 ```
 
-## Enabling PyPI (one-time, ~2 minutes — unlocks `pip install pdf-autofiller`)
+## Enabling PyPI publishing (one-time setup)
 
-This is the remaining human step. The workflow already exists; PyPI just needs
-your account linked once.
+The workflow already exists; PyPI needs a one-time Trusted Publisher link.
 
 1. Create / log into a [PyPI](https://pypi.org) account (use the same identity
    you want as package owner).
@@ -82,9 +82,8 @@ pdf-autofiller version
    PyPI. Until then, leave it **manual** so a missing PyPI config cannot fail a
    Release.
 
-**What this accomplishes:** strangers can `pip install pdf-autofiller` without
-cloning the repo or hunting GitHub Release wheels — the main discovery path for
-Python tools.
+**What this enables:** users can install with `pip install pdf-autofiller`
+without cloning the repository or downloading Release wheels.
 
 ## Requirements sync
 

@@ -88,7 +88,7 @@ curl -s http://localhost:8000/health
 Deterministic paths can run without `MODEL_PROVIDER_API_KEY`. Semantic inference and fallback mapping require valid provider credentials.
 
 ```bash
-PYTHONPATH=src python3 -m scripts.demo_workflow samples/sample_form.pdf '{"firstname":"John","lastname":"Doe"}'
+PYTHONPATH=src python3 -m scripts.demo_workflow samples/sample_form.pdf '{"firstname":"John","lastname":"Doe","dob":"1990-05-15"}'
 ```
 
 ## Quality Commands
@@ -97,8 +97,10 @@ From repository root:
 
 ```bash
 make test
+make test-cov
 make lint
 make format
+make smoke-check
 make corpus-check
 ```
 
@@ -116,9 +118,9 @@ PYTHONPATH=src python3 -m pytest tests/ -v --cov=src --cov-report=term --cov-fai
 
 GitHub Actions workflow (`.github/workflows/test.yml`) runs these jobs:
 
-- `test` — `ruff`, `mypy`, `pip-audit`, and `pytest` with coverage threshold (Python 3.11 and 3.12)
+- `test` — `ruff check`, `ruff format --check`, `mypy`, `pip-audit`, and `pytest` with coverage threshold (Python 3.11 and 3.12)
 - `docker-smoke` — build the Docker image and curl `/health`
-- `lockfile` — verify `poetry.lock` is in sync with `pyproject.toml`
+- `lockfile` — verify `poetry.lock` is in sync with `pyproject.toml` and that `requirements*.txt` match the lock
 
 ## Troubleshooting
 

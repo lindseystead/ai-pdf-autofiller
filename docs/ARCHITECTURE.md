@@ -10,7 +10,7 @@
 - `pdf_writer.py`: writes validated values; enforces required-field completion
 - `pipeline.py`: extract → enrich → map → write; exports `fill`, `fill_detailed`, `inspect`, `preview`
 - `client.py`: optional HTTP client for a remote API
-- `api/`: FastAPI app split into `config`, `security`, `middleware`, `errors`, `uploads`, `schemas`, `routes`
+- `api/`: FastAPI app split into `app`, `config`, `security`, `middleware`, `errors`, `uploads`, `schemas`, `routes`, and `jobs` (timeout-bounded process/thread job runner)
 - `api_service.py`: thin public ASGI / console-script entry (`pdf_autofiller.api_service:app`)
 - `playground.py` + `static/`: browser playground UI
 - `models.py`: Pydantic contracts between stages

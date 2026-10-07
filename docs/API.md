@@ -51,6 +51,9 @@ Example:
 curl -s http://localhost:8000/version
 ```
 
+```json
+{"service": "pdf-autofiller", "version": "0.7.0"}
+```
 
 ### `GET /samples/sample_form.pdf`
 
@@ -60,9 +63,10 @@ This endpoint is **unauthenticated** (same as `/health`, `/version`, and `/playg
 ### `POST /inspect`
 
 Accepts a PDF upload and returns AcroForm field metadata so clients can draft JSON.
-Each field includes `name_quality` (`readable` or `opaque`). When names look
-machine-generated, the response also includes `opaque_field_count`,
-`opaque_fields`, and `mapping_hints` (exact widget keys, alias packs, or semantic inference).
+Each field includes `name_quality` (`readable` or `opaque`). The response always
+includes `opaque_field_count`, `opaque_fields`, and `mapping_hints`; they are
+non-empty when names look machine-generated (hints suggest exact widget keys,
+alias packs, or semantic inference).
 
 Example:
 
@@ -107,8 +111,8 @@ Required form fields:
 Optional form fields (same semantics as `/fill`):
 
 - `strict` (default `true`) — disables AI fallback mapping only
-- `allow_fallback_mapping` (default `false`)
-- `use_semantic_inference` (default `false`) — one batched provider call when enabled
+- `allow_fallback_mapping` (default `false`) — also requires `strict=false`
+- `use_semantic_inference` (default `false`) — a single batched semantic inference call when enabled
 
 Example:
 
@@ -136,7 +140,8 @@ Example response:
     }
   ],
   "missing_required": [],
-  "unmapped_user_keys": []
+  "unmapped_user_keys": [],
+  "mapping_hints": []
 }
 ```
 
@@ -148,7 +153,12 @@ Accepts a multipart form upload.
 
 **Default** (`Accept: application/pdf` or unspecified): response body is the filled PDF.
 
-**JSON report mode** (`Accept: application/json`): response body is JSON including mapping decisions, written/skipped fields, and `pdf_base64` (standard base64 of the filled PDF). Use this when headers alone are not enough for automation.
+**JSON report mode** (`Accept: application/json`): response body is JSON with
+`pages`, `field_count`, `written_fields`, `skipped_review_fields`,
+`skipped_empty_fields`, `skipped_unwritable_fields`, `missing_required`,
+`missing_required_fields`, `unfilled_fields`, `unmapped_user_keys`, `decisions`,
+`mapping_hints`, and `pdf_base64` (standard base64 of the filled PDF). Use this
+when headers alone are not enough for automation.
 
 Required form fields:
 
@@ -280,3 +290,15 @@ Authentication applies to `POST /fill`, `POST /preview`, and `POST /inspect`. It
 - Header name defaults to `X-API-Key`
 - The header name can be changed with `API_KEY_HEADER`
 - The expected token value is provided through `API_AUTH_TOKEN`
+- A missing or wrong key returns `401 unauthorized`; auth enabled with no token
+  configured returns `500 server_auth_config_error` (fail closed)
+
+```bash
+curl -s -X POST http://localhost:8000/inspect \
+  -H "X-API-Key: $API_AUTH_TOKEN" \
+  -F "pdf_file=@samples/sample_form.pdf;type=application/pdf"
+```
+
+Request limits (`MAX_UPLOAD_BYTES`, `MAX_PDF_PAGES`, `PDF_READ_TIMEOUT_SECONDS`,
+`RATE_LIMIT_PER_MINUTE`, …) and their defaults are listed in
+[OPERATIONS.md](OPERATIONS.md). Rate-limited responses carry `Retry-After: 60`.

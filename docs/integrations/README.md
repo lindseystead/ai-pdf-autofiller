@@ -93,6 +93,7 @@ Remote:
 from pdf_autofiller import PDFAutofillerClient
 
 client = PDFAutofillerClient("https://your-service", api_key="...")
+profile = {"firstname": "Jane", "lastname": "Doe", "dob": "1990-01-15"}
 print(client.inspect("template.pdf")["field_count"])
 print(client.preview("template.pdf", profile)["missing_required"])
 filled, headers = client.fill("template.pdf", profile)

@@ -41,8 +41,9 @@ Use [GitHub Private Vulnerability Reporting](https://github.com/lindseystead/ai-
   forge their identity to evade the limit.
 - **Upload validation:** content-type, `%PDF-` signature, byte-size cap
   (`MAX_UPLOAD_BYTES`), and page-count cap (`MAX_PDF_PAGES`).
-- **DoS bounds:** PDF parsing runs off the event loop under a wall-clock timeout
-  (`PDF_READ_TIMEOUT_SECONDS`); retained/forwarded text is capped
+- **DoS bounds:** the full PDF pipeline runs off the event loop under a
+  wall-clock timeout (`PDF_READ_TIMEOUT_SECONDS`); with `PDF_JOB_BACKEND=process`
+  (the default) the worker is terminated on timeout; retained/forwarded text is capped
   (`MAX_PDF_TEXT_CHARS`); `user_data` nesting is capped (`MAX_USER_DATA_DEPTH`).
   Corrupt PDFs are rejected as `422 invalid_pdf`. Set a container memory limit
   as an additional backstop.
@@ -58,8 +59,9 @@ Use [GitHub Private Vulnerability Reporting](https://github.com/lindseystead/ai-
 `pip-audit` runs in CI against the runtime surface (`requirements.txt`, what ships
 in the Docker image) and fails the build on any finding. There are currently
 **no ignored advisories** — the runtime surface audits clean. `pypdf` and
-`python-multipart` (which parse untrusted input) and `starlette` (pinned `>= 1.0.1`
-to resolve PYSEC-2026-161) are held at patched minimums; keep them current.
+`python-multipart` (which parse untrusted input) and `starlette` (floor `>= 1.3.1`
+in `pyproject.toml`, which includes the PYSEC-2026-161 fix) are held at patched
+minimums; keep them current.
 
 ## Data Handling Notes
 
