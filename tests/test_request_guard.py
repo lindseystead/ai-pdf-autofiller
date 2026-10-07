@@ -36,7 +36,7 @@ def _defaults(monkeypatch):
     reset_rate_limit_state()
 
 
-def _post(path: str, headers: dict[str, str], chunks: int) -> tuple[int, dict[str, Any], int]:
+def _post(path: str, headers: dict[str, str | bytes], chunks: int) -> tuple[int, dict[str, Any], int]:
     """POST ``chunks`` x 64 KiB to ``path``; return (status, json body, chunks pulled)."""
     pulled = 0
 
@@ -63,7 +63,9 @@ def _post(path: str, headers: dict[str, str], chunks: int) -> tuple[int, dict[st
         "raw_path": path.encode(),
         "query_string": b"",
         "root_path": "",
-        "headers": [(k.lower().encode(), v.encode()) for k, v in headers.items()],
+        "headers": [
+            (k.lower().encode(), v if isinstance(v, bytes) else v.encode()) for k, v in headers.items()
+        ],
         "client": ("203.0.113.9", 50000),
         "server": ("testserver", 80),
     }
@@ -131,3 +133,15 @@ def test_unprotected_routes_are_not_guarded(monkeypatch):
     monkeypatch.setattr(config, "API_AUTH_TOKEN", "secret-token")
     status, _, _ = _post("/not-a-route", {"content-length": str(10 * 1024**3)}, chunks=0)
     assert status in (404, 405)
+
+
+@pytest.mark.parametrize(
+    "declared", [b"\xb2", b"1\xb3", b"\xb9\xb9", "٣".encode(), b"-1", b"1e9", b" 10", b""]
+)
+@pytest.mark.parametrize("path", PROTECTED)
+def test_odd_content_length_never_causes_a_500(path, declared):
+    # Starlette decodes headers as latin-1, so superscript digits can arrive;
+    # str.isdigit() accepts them but int() does not.
+    headers = {**MULTIPART, "content-length": declared}
+    status, _, _ = _post(path, headers, chunks=1)
+    assert status != 500
