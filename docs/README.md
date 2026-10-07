@@ -1,6 +1,6 @@
 # Documentation Index
 
-Supporting documentation for the PDF Autofiller service. Claims in these docs match code and CI fixtures — not future plans.
+Supporting documentation for the PDF Autofiller service. These docs describe shipped behavior, not roadmap plans.
 
 ## Core docs
 
@@ -29,6 +29,6 @@ Supporting documentation for the PDF Autofiller service. Claims in these docs ma
 
 ## Landing page
 
-Static site: [docs/site/](site/). Source images live in [assets/](assets/).
+Static site: [site/](site/). Source images live in [assets/](assets/).
 
 Repo description, topics, and homepage are updated with `scripts/apply-repo-metadata.sh`.

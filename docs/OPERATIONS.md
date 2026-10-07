@@ -2,7 +2,7 @@
 
 ## Runtime Configuration
 
-Environment variables are read at process start (plain `os.getenv`). A Pydantic Settings refactor is intentionally deferred — keep configuration as documented here.
+Environment variables are read at process start with `os.getenv` (`PDF_JOB_BACKEND` is re-read for each job).
 
 - `MODEL_PROVIDER_API_KEY`: makes the optional OpenAI-compatible client available. Does **not** turn AI on by itself — callers must also pass `use_semantic_inference=true` and/or `strict=false` with `allow_fallback_mapping=true`
 - `API_AUTH_ENABLED`: enables API key enforcement on `POST /fill`, `/preview`, and `/inspect` (**default `true`**; set `false` only for trusted/local use)
@@ -14,13 +14,13 @@ Environment variables are read at process start (plain `os.getenv`). A Pydantic 
 - `PDF_JOB_BACKEND`: `process` (default) runs PDF work in a child process and **terminates** it on timeout; `thread` uses a soft timeout (test suite default)
 - `PDF_MAX_CONCURRENT`: max in-flight PDF jobs per process (default `2`)
 - `MAX_PDF_TEXT_CHARS`: cap on total extracted text retained/forwarded (default `2000000`)
-- `RATE_LIMIT_PER_MINUTE`: per-client request budget for authenticated PDF POSTs; `0` disables (default `60`)
+- `RATE_LIMIT_PER_MINUTE`: per-client request budget for `POST /fill`, `/preview`, and `/inspect`, applied after auth (and also when auth is disabled); `0` disables (default `60`)
 - `RATE_LIMIT_BACKEND`: `memory` (default, per-process) or `file` (flock-backed JSON store shared by workers on the **same host**/volume)
 - `RATE_LIMIT_STORE_PATH`: path for the file backend (default `/tmp/pdf-autofiller-rate-limit.json`)
 - `TRUST_PROXY_HEADERS`: when `true`, rate limiting keys on `X-Forwarded-For` instead of the socket peer (default `false`)
-- `TRUSTED_PROXY_COUNT`: number of reverse proxies that append to `X-Forwarded-For` (default `1`). The client is the entry this many hops from the **right**; leftward entries are client-supplied and ignored, so callers cannot rotate fake IPs to evade the limit
+- `TRUSTED_PROXY_COUNT`: number of reverse proxies that append to `X-Forwarded-For` (default `1`, minimum `1`). The client is the entry this many hops from the **right**; leftward entries are client-supplied and ignored, so callers cannot rotate fake IPs to evade the limit
 - `MAX_USER_DATA_DEPTH`: maximum nesting depth of `user_data` (default `16`); deeper payloads get `422 user_data_too_deep`
-- `FORM_ALIASES_DIR`: optional directory of JSON alias packs for deterministic field mapping. When set to a real directory it **replaces** (does not merge with) the packaged packs. If the path is missing or not a directory, the process logs a warning and falls back to package defaults. Packs load lazily via `get_default_registry()`; changing files requires a **process restart** (or `set_default_registry(AliasRegistry.load())`) — there is no file watcher / hot reload.
+- `FORM_ALIASES_DIR`: optional directory of JSON alias packs for deterministic field mapping. When set to a real directory it **replaces** (does not merge with) the packaged packs; the built-in synonym clusters still apply. If the path is missing or not a directory, the process logs a warning and falls back to package defaults. Packs load lazily via `get_default_registry()`; changing files requires a **process restart** (or `set_default_registry(AliasRegistry.load())`) — there is no file watcher / hot reload.
 - `LOG_LEVEL`: process log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`)
 - `LOG_FORMAT`: `text` (default) or `json` for one JSON object per log line (useful for aggregators)
 
@@ -31,7 +31,7 @@ Environment variables are read at process start (plain `os.getenv`). A Pydantic 
 - Protected: `POST /fill`, `/preview`, `/inspect`.
 - Protected POSTs are rate limited per client and reject PDFs over the page limit or that exceed the processing time budget. Timed-out jobs are killed when `PDF_JOB_BACKEND=process` (the default).
 - Uploads are read in bounded chunks so oversized files are rejected before the full body is buffered in memory.
-- `GET /health` reports dependency checks (`auth`, alias packs) and returns `degraded` when auth is misconfigured.
+- `GET /health` reports dependency checks (`auth`, `semantic_provider`, `rate_limit`, alias packs) and returns `degraded` when auth is misconfigured.
 - `POST /fill` writes uploads to a temporary working directory and returns the generated PDF directly.
 - Temporary files are cleaned up after request completion or failure, including error and timeout paths.
 - Responses include baseline security headers: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer` (playground HTML continues to work normally).
@@ -102,11 +102,11 @@ The landing page source is in `docs/site/`. A repo admin must enable Pages once:
 
 Until Pages is enabled, `.github/workflows/pages.yml` **skips the deploy with a warning** instead of failing CI. After enablement, the same workflow publishes to `https://lindseystead.github.io/ai-pdf-autofiller/`.
 
-## PyPI publish (deferred)
+## PyPI publishing (manual)
 
 **Not part of the automatic Release path.** Supported installs are GitHub Release wheels (`make install-release`), editable/`pip install -e .`, and GHCR.
 
-`.github/workflows/publish-pypi.yml` is **manual** (`workflow_dispatch` only) and uses Trusted Publishing (OIDC) with `environment: pypi` — no API token. When you have time, add a pending publisher on [PyPI](https://pypi.org/manage/account/publishing/) (Owner `lindseystead`, Repo `ai-pdf-autofiller`, Workflow `publish-pypi.yml`, Environment `pypi`), then `gh workflow run publish-pypi.yml --ref main`. Details: [RELEASE.md](RELEASE.md).
+`.github/workflows/publish-pypi.yml` is **manual** (`workflow_dispatch` only) and uses Trusted Publishing (OIDC) with `environment: pypi` — no API token. To enable it, add a pending publisher on [PyPI](https://pypi.org/manage/account/publishing/) (Owner `lindseystead`, Repo `ai-pdf-autofiller`, Workflow `publish-pypi.yml`, Environment `pypi`), then `gh workflow run publish-pypi.yml --ref main`. Details: [RELEASE.md](RELEASE.md).
 
 ## Deployment Assumptions
 

@@ -43,6 +43,8 @@ x-pdf-fields-written: 3
 x-pdf-fields-skipped-review: 
 x-pdf-fields-skipped-empty: 
 x-pdf-fields-skipped-unwritable: 
+x-pdf-fields-missing-required: 
+x-pdf-fields-unfilled: 2
 content-type: application/pdf
 x-content-type-options: nosniff
 

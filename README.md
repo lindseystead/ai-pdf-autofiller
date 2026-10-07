@@ -4,7 +4,7 @@
 
 # PDF Autofiller
 
-**Fill AcroForm PDFs from JSON. Common field names match by alias. The model stays off unless an API key is set.**
+**Fill AcroForm PDFs from JSON. Common field names match by alias. Optional AI is off by default.**
 
 Open-source FastAPI service · browser playground · Python SDK · Docker image
 
@@ -26,7 +26,7 @@ Open-source FastAPI service · browser playground · Python SDK · Docker image
 
 ## What it does
 
-Turn `{"firstname":"Jane","lastname":"Doe"}` into a filled PDF — even when the form uses `txtFirstName`, `given_name`, or other common synonyms. Opaque names like `field_12` use optional AI (off by default); `/inspect` flags them.
+Turn `{"firstname":"Jane","lastname":"Doe"}` into a filled PDF — even when the form uses `txtFirstName`, `given_name`, or other common synonyms. Opaque names like `field_12` can be addressed by exact name or mapped with optional AI; `/inspect` flags them.
 
 | Input | Output |
 |-------|--------|
@@ -34,7 +34,7 @@ Turn `{"firstname":"Jane","lastname":"Doe"}` into a filled PDF — even when the
 | JSON user profile | Mapped via aliases + normalization |
 | Optional AI (off by default) | Semantic inference for opaque field names |
 
-**Popular uses:** HR onboarding packets · insurance intake · workflow automation (n8n, Zapier, curl) · W-9-**shaped** AcroForms (synthetic fixtures in CI — not IRS-certified)
+**Popular uses:** HR onboarding packets · insurance intake · workflow automation (n8n, Zapier, curl) · W-9-shaped AcroForms (synthetic fixtures in CI — not IRS-certified)
 
 ## Playground
 
@@ -200,11 +200,3 @@ make test && make lint && make smoke-check && make corpus-check
 ## License
 
 MIT — [LICENSE](LICENSE)
-
----
-
-<div align="center">
-
-**Star the repo** if this saves you from mapping `txtFirstName` by hand.
-
-</div>
