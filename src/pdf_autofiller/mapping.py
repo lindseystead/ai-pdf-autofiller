@@ -33,10 +33,6 @@ from .user_data import flatten_user_data
 
 logger = logging.getLogger(__name__)
 
-# Backward-compatible module alias: live view of the default registry.
-# Prefer AliasRegistry / get_default_registry() in new code.
-FIELD_ALIASES: dict[str, list[str]] = get_default_registry().aliases
-
 # Deterministic expected-type hints for known semantics (and name patterns).
 # Used by fallback enrichment so coerce_value runs on the default (non-AI) path.
 _DATE_SEMANTICS = frozenset(
@@ -86,18 +82,6 @@ def expected_type_for_semantic(
 def alias_pack_status() -> dict[str, str]:
     """Return alias-pack metadata for health checks."""
     return get_default_registry().status()
-
-
-def alias_equivalence_set(key: str, registry: AliasRegistry | None = None) -> set[str]:
-    """
-    Return every normalized key that shares an alias pack with ``key``.
-
-    Alias packs are keyed by canonical semantics (``first_name``), but
-    field-name fallback often produces a synonym (``firstname`` after
-    stripping ``txt``). Matching must treat the whole cluster as equivalent
-    so ``given_name`` still maps when the derived semantic is ``firstname``.
-    """
-    return (registry or get_default_registry()).equivalence_set(key)
 
 
 def canonicalize_semantic(key: str, registry: AliasRegistry | None = None) -> str:
