@@ -1,15 +1,19 @@
-# Weekly dependency updates. Minor/patch bumps are grouped per ecosystem to
-# keep PR volume low; major bumps arrive as individual PRs for review.
+# Weekly dependency updates for GitHub Actions and the Docker base image.
+#
+# Python packages: routine version-update PRs are disabled
+# (open-pull-requests-limit: 0). requirements*.txt are generated from
+# poetry.lock, and Dependabot edits them as independent manifests, which
+# produces unresolvable pin sets. Security updates for Python packages are
+# still opened (they ignore this limit), and pip-audit in CI fails on any
+# advisory in the runtime dependencies. Upgrade Python packages with
+# `poetry update` followed by `make sync-requirements`.
 version: 2
 updates:
   - package-ecosystem: pip
     directory: /
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
-    groups:
-      python-minor-patch:
-        update-types: [minor, patch]
+    open-pull-requests-limit: 0
 
   - package-ecosystem: docker
     directory: /
