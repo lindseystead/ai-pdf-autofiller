@@ -50,7 +50,7 @@ Run it as a service so other apps, scripts or workflow tools (n8n, Zapier) can s
 and get the filled PDF back:
 
 ```bash
-docker run --rm -p 8000:8000 -e API_AUTH_ENABLED=false ghcr.io/lindseystead/ai-pdf-autofiller:latest
+docker run --rm -p 127.0.0.1:8000:8000 -e API_AUTH_ENABLED=false ghcr.io/lindseystead/ai-pdf-autofiller:latest
 # or without Docker, after pip install (listens on port 8000):
 # API_AUTH_ENABLED=false pdf-autofiller-api
 curl -F pdf_file=@sample_form.pdf -F 'user_data={"firstname":"Jane","lastname":"Doe","dob":"1990-01-01"}' \

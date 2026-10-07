@@ -2,7 +2,7 @@ services:
   pdf-autofiller:
     build: .
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"  # auth is off below: reachable from this machine only
     environment:
       API_AUTH_ENABLED: "false"
       LOG_LEVEL: INFO
