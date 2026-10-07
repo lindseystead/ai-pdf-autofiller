@@ -24,6 +24,9 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- Audit lines and `LOG_FORMAT=json` now apply however the server is started
+  (Docker, `make run-api`, plain uvicorn); before, only `pdf-autofiller-api`
+  configured logging
 - Malformed answers from the optional AI fallback (wrong JSON shape,
   non-numeric or out-of-range confidence, unknown keys) are skipped
   instead of crashing the fill; the model's reason text is capped
@@ -71,8 +74,8 @@ All notable changes to this project will be documented in this file.
 - README rewritten around one description (library or self-hosted API);
   removed the static coverage badge, hand-maintained test counts and
   unfinished placeholders
-- The missing-`API_AUTH_TOKEN` error now says how to fix it, and the API
-  entrypoint warns at startup
+- The missing-`API_AUTH_TOKEN` error now says how to fix it, and the server
+  warns at startup
 - GitHub Actions bumped to current major versions (off the deprecated Node.js 20
   runtime)
 - Dependabot no longer opens routine pip version PRs; Python security updates
