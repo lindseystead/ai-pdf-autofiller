@@ -12,7 +12,9 @@ from pypdf import PdfWriter
 from pdf_autofiller import api_service
 from pdf_autofiller.api import config
 from pdf_autofiller.api import routes as api_routes
+from pdf_autofiller.api.security import reset_rate_limit_state
 from pdf_autofiller.models import FieldSemantics, FormField, TextRegion
+from pdf_autofiller.pdf_writer import UnresolvedRequiredFieldsError
 from pdf_autofiller.pipeline import enrich_fields, page_context_by_number
 
 client = TestClient(api_service.app)
@@ -22,9 +24,9 @@ client = TestClient(api_service.app)
 def _isolate_request_guards(monkeypatch):
     """Run tests without auth and with a clean rate-limiter by default."""
     monkeypatch.setattr(config, "API_AUTH_ENABLED", False)
-    api_service._reset_rate_limit_state()
+    reset_rate_limit_state()
     yield
-    api_service._reset_rate_limit_state()
+    reset_rate_limit_state()
 
 
 def _minimal_pdf_bytes(pages: int = 1) -> bytes:
@@ -261,7 +263,7 @@ def test_fill_endpoint_file_rate_limit_shared(monkeypatch, tmp_path):
     monkeypatch.setattr(config, "RATE_LIMIT_PER_MINUTE", 1)
     monkeypatch.setattr(config, "RATE_LIMIT_BACKEND", "file")
     monkeypatch.setattr(config, "RATE_LIMIT_STORE_PATH", str(store))
-    api_service._reset_rate_limit_state()
+    reset_rate_limit_state()
 
     payload = {
         "files": {"pdf_file": ("input.pdf", _minimal_pdf_bytes(), "application/pdf")},
@@ -282,7 +284,7 @@ def test_unauthorized_does_not_consume_rate_limit(monkeypatch):
     monkeypatch.setattr(config, "API_AUTH_ENABLED", True)
     monkeypatch.setattr(config, "API_AUTH_TOKEN", "secret-token")
     monkeypatch.setattr(config, "RATE_LIMIT_PER_MINUTE", 1)
-    api_service._reset_rate_limit_state()
+    reset_rate_limit_state()
 
     payload = {
         "files": {"pdf_file": ("input.pdf", _minimal_pdf_bytes(), "application/pdf")},
@@ -483,7 +485,7 @@ def test_fill_endpoint_rejects_large_upload(monkeypatch):
 
 def test_fill_endpoint_returns_required_fields_unresolved_code(monkeypatch):
     def fake_pipeline(*_args, **_kwargs):
-        raise api_service.UnresolvedRequiredFieldsError(
+        raise UnresolvedRequiredFieldsError(
             missing_fields=["txtRequired"],
             skipped_fields=[],
         )

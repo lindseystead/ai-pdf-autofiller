@@ -15,6 +15,7 @@ import pytest
 
 from pdf_autofiller import api_service
 from pdf_autofiller.api import config
+from pdf_autofiller.api.security import reset_rate_limit_state
 
 CHUNK = b"x" * 65_536
 # Opens a valid multipart file part, so the parser keeps consuming the "x" chunks.
@@ -30,9 +31,9 @@ PROTECTED = ["/fill", "/preview", "/inspect"]
 def _defaults(monkeypatch):
     monkeypatch.setattr(config, "API_AUTH_ENABLED", False)
     monkeypatch.setattr(config, "MAX_UPLOAD_BYTES", 1_000_000)
-    api_service._reset_rate_limit_state()
+    reset_rate_limit_state()
     yield
-    api_service._reset_rate_limit_state()
+    reset_rate_limit_state()
 
 
 def _post(path: str, headers: dict[str, str], chunks: int) -> tuple[int, dict[str, Any], int]:
