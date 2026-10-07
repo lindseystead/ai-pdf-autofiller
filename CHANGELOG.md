@@ -19,6 +19,9 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- The CLI prints a one-line `Error:` instead of a Python traceback for
+  unreadable PDFs, page-limit and nesting-limit errors, and output paths
+  that cannot be written
 - `fill()`/`preview()` raise `TypeError` naming the type when `user_data` is
   not a dict, instead of an `AttributeError` from deep in the mapper
 - A non-ASCII `X-API-Key` returns 401 instead of 500, and a non-ASCII

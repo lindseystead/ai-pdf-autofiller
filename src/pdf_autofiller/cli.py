@@ -4,14 +4,29 @@ from __future__ import annotations
 
 import json
 import sys
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
 import click
 
 from pdf_autofiller import __version__
+from pdf_autofiller.pdf_reader import InvalidPdfError, PdfPageLimitError
 from pdf_autofiller.pdf_writer import UnresolvedRequiredFieldsError
 from pdf_autofiller.pipeline import fill, inspect, preview
+from pdf_autofiller.user_data import UserDataTooDeepError
+
+
+@contextmanager
+def _user_errors() -> Iterator[None]:
+    """Turn expected input/output failures into a one-line error, not a traceback."""
+    try:
+        yield
+    except (InvalidPdfError, PdfPageLimitError, UserDataTooDeepError, UnresolvedRequiredFieldsError) as exc:
+        raise click.ClickException(str(exc)) from exc
+    except OSError as exc:
+        raise click.ClickException(f"File error: {exc}") from exc
 
 
 def _load_user_data(data_file: Path | None, data_json: str | None) -> dict[str, Any]:
@@ -68,7 +83,8 @@ def version_cmd() -> None:
 )
 def inspect_cmd(pdf: Path, max_pages: int | None) -> None:
     """List AcroForm fields in PDF as JSON."""
-    result = inspect(pdf, max_pages=max_pages)
+    with _user_errors():
+        result = inspect(pdf, max_pages=max_pages)
     _echo_json(result.model_dump(mode="json"))
 
 
@@ -103,13 +119,14 @@ def preview_cmd(
 ) -> None:
     """Preview mapping decisions without writing a PDF."""
     user_data = _load_user_data(data_json, data_inline)
-    result = preview(
-        pdf,
-        user_data,
-        strict=strict,
-        allow_fallback_mapping=not strict,
-        use_semantic_inference=use_ai,
-    )
+    with _user_errors():
+        result = preview(
+            pdf,
+            user_data,
+            strict=strict,
+            allow_fallback_mapping=not strict,
+            use_semantic_inference=use_ai,
+        )
     _echo_json(result.model_dump(mode="json"))
 
 
@@ -174,7 +191,7 @@ def fill_cmd(
     """Fill PDF with JSON user data and write an output PDF."""
     user_data = _load_user_data(data_json, data_inline)
     out = output or pdf.with_name(f"{pdf.stem}_filled{pdf.suffix}")
-    try:
+    with _user_errors():
         report = fill(
             pdf,
             user_data,
@@ -185,10 +202,6 @@ def fill_cmd(
             flatten=flatten,
             allow_partial=allow_partial,
         )
-    except UnresolvedRequiredFieldsError as exc:
-        raise click.ClickException(str(exc)) from exc
-    except OSError as exc:
-        raise click.ClickException(f"Could not write output PDF: {exc}") from exc
 
     if json_report:
         payload = report.model_dump(mode="json")
