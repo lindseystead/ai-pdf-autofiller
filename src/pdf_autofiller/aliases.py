@@ -185,9 +185,9 @@ class AliasRegistry:
         return normalized
 
     def status(self) -> dict[str, str]:
-        """Metadata for health checks."""
+        """Metadata for health checks (no filesystem paths: /health is unauthenticated)."""
         return {
-            "alias_directory": str(self.pack_directory),
+            "alias_source": "packaged" if self.pack_directory == packaged_aliases_dir() else "custom",
             "alias_pack_count": str(self.pack_count),
         }
 
