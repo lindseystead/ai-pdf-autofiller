@@ -1,6 +1,8 @@
 """Tests for FastAPI service wrapper."""
 
 import io
+import json
+import logging
 from pathlib import Path
 
 import pytest
@@ -652,3 +654,18 @@ def test_password_protected_pdf_returns_422_with_reason(tmp_path, path):
     error = response.json()["detail"]["error"]
     assert error["code"] == "invalid_pdf"
     assert "password-protected" in error["details"]["reason"]
+
+
+def test_api_request_logs_never_contain_user_values(caplog):
+    secret = "SSN-987-65-4321-王"
+    user_data = json.dumps({"firstname": secret, "lastname": secret, "dob": secret, "zzz": secret})
+    with caplog.at_level(logging.DEBUG):
+        for path in ("/preview", "/fill"):
+            client.post(
+                path,
+                files={
+                    "pdf_file": ("input.pdf", Path("samples/sample_form.pdf").read_bytes(), "application/pdf")
+                },
+                data={"user_data": user_data, "allow_partial": "true"},
+            )
+    assert [r.getMessage() for r in caplog.records if secret in r.getMessage()] == []

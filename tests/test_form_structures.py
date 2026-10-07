@@ -7,6 +7,7 @@ flatten cleanup, and unfilled-field reporting.
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 import pytest
@@ -308,3 +309,25 @@ def test_pdf_without_fields_says_so_in_every_result(tmp_path: Path) -> None:
         assert any("no fillable form fields" in hint for hint in hints), hints
     assert filled.report.written_fields == []
     assert filled.mapping.unmapped_user_keys == ["firstname"]
+
+
+SECRET = "SSN-987-65-4321-王"
+
+
+def test_user_values_never_reach_logs(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    form = (
+        FormBuilder()
+        .text("ssn")
+        .text("note", max_len=3)
+        .checkbox("agree")
+        .radio("gender", ["Male", "Female"])
+        .save(tmp_path / "secret.pdf")
+    )
+    data = {"ssn": SECRET, "note": SECRET, "agree": SECRET, "gender": SECRET, "unused": SECRET}
+    with caplog.at_level(logging.DEBUG):
+        preview(form, data)
+        fill(form, data, tmp_path / "out.pdf", allow_partial=True)
+        fill(form, data, tmp_path / "flat.pdf", allow_partial=True, flatten=True)
+    messages = [record.getMessage() for record in caplog.records]
+    assert [m for m in messages if SECRET in m] == []
+    assert any("'<redacted>' contains characters not supported" in m for m in messages)  # kept, not dropped

@@ -19,6 +19,9 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- User values no longer appear in logs: a debug message that echoed
+  unmatched checkbox/radio values is removed, and pypdf's font-encoding
+  warning has the field text redacted
 - A PDF with no fillable fields (scanned, flat or XFA-only) gets a
   `mapping_hints` entry saying so from inspect, preview and fill, instead of
   looking like a fill that matched nothing
