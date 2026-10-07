@@ -14,6 +14,11 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Sample PDFs are now readable forms (title, labels, boxed fields in order)
+  instead of blank pages; a coordinate bug had also stacked fields bottom-up.
+  One generator, `scripts/create_sample_forms.py`, replaces
+  `create_sample_form.py` and `create_corpus_forms.py`. Field names are
+  unchanged; `tests/test_samples.py` guards the layout
 - `publish-pypi.yml` now also runs when a GitHub Release is published
   (manual dispatch kept for retries)
 - README: quickstart-first layout (`pip install pdf-autofiller`, CLI, Docker),

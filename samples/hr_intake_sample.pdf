@@ -17,12 +17,13 @@ endobj
 /Type /Catalog
 /Pages 2 0 R
 /AcroForm <<
-/Fields [ 6 0 R 7 0 R 8 0 R 9 0 R 10 0 R 11 0 R ]
+/Fields [ 8 0 R 9 0 R 10 0 R 11 0 R 12 0 R 13 0 R ]
 /NeedAppearances true
-/DA (\057Helv 0 Tf 0 g)
+/DA (\057Helv 11 Tf 0 g)
 /DR <<
 /Font <<
 /Helv 5 0 R
+/ZaDb 6 0 R
 >>
 >>
 >>
@@ -32,10 +33,15 @@ endobj
 <<
 /Type /Page
 /Resources <<
+/Font <<
+/F1 5 0 R
+/F2 7 0 R
+>>
 >>
 /MediaBox [ 0.0 0.0 612 792 ]
 /Parent 2 0 R
-/Annots [ 6 0 R 7 0 R 8 0 R 9 0 R 10 0 R 11 0 R ]
+/Contents 14 0 R
+/Annots [ 8 0 R 9 0 R 10 0 R 11 0 R 12 0 R 13 0 R ]
 >>
 endobj
 5 0 obj
@@ -48,66 +54,82 @@ endobj
 endobj
 6 0 obj
 <<
-/Type /Annot
-/Subtype /Widget
-/Rect [ 100 72 400 92 ]
-/FT /Tx
-/T (txtEmployeeName)
-/Ff 2
-/F 4
+/Type /Font
+/Subtype /Type1
+/BaseFont /ZapfDingbats
 >>
 endobj
 7 0 obj
 <<
-/Type /Annot
-/Subtype /Widget
-/Rect [ 100 122 300 142 ]
-/FT /Tx
-/T (txtSSN)
-/Ff 2
-/F 4
+/Type /Font
+/Subtype /Type1
+/BaseFont /Helvetica-Bold
+/Encoding /WinAnsiEncoding
 >>
 endobj
 8 0 obj
 <<
 /Type /Annot
 /Subtype /Widget
-/Rect [ 100 172 400 192 ]
-/FT /Tx
-/T (txtEmployer)
-/Ff 2
+/T (txtEmployeeName)
+/Rect [ 72 638 372 658 ]
 /F 4
+/FT /Tx
+/Ff 2
 >>
 endobj
 9 0 obj
 <<
 /Type /Annot
 /Subtype /Widget
-/Rect [ 100 222 350 242 ]
-/FT /Tx
-/T (txtJobTitle)
-/Ff 0
+/T (txtSSN)
+/Rect [ 72 588 252 608 ]
 /F 4
+/FT /Tx
+/Ff 2
 >>
 endobj
 10 0 obj
 <<
 /Type /Annot
 /Subtype /Widget
-/Rect [ 100 272 300 292 ]
-/FT /Tx
-/T (txtStartDate)
-/Ff 0
+/T (txtEmployer)
+/Rect [ 72 538 372 558 ]
 /F 4
+/FT /Tx
+/Ff 2
 >>
 endobj
 11 0 obj
 <<
 /Type /Annot
 /Subtype /Widget
-/FT /Btn
+/T (txtJobTitle)
+/Rect [ 72 488 322 508 ]
+/F 4
+/FT /Tx
+/Ff 0
+>>
+endobj
+12 0 obj
+<<
+/Type /Annot
+/Subtype /Widget
+/T (txtStartDate)
+/Rect [ 72 438 232 458 ]
+/F 4
+/FT /Tx
+/Ff 0
+>>
+endobj
+13 0 obj
+<<
+/Type /Annot
+/Subtype /Widget
 /T (chkConsent)
-/Rect [ 100 322 120 342 ]
+/Rect [ 72 409 86 423 ]
+/F 4
+/FT /Btn
 /AP <<
 /N <<
 /Yes <<
@@ -118,29 +140,53 @@ endobj
 >>
 /AS /Off
 /V /Off
-/F 4
 >>
 endobj
+14 0 obj
+<<
+/Length 575
+>>
+stream
+BT /F2 18 Tf 72 720 Td (New Employee Intake) Tj ET
+BT /F1 9 Tf 72 702 Td (Synthetic sample for testing PDF Autofiller. Not an official form.) Tj ET
+0.3 0.33 0.39 RG 0.75 w
+BT /F1 10 Tf 72 662 Td (Employee name *) Tj ET
+72 638 300 20 re S
+BT /F1 10 Tf 72 612 Td (Social Security number *) Tj ET
+72 588 180 20 re S
+BT /F1 10 Tf 72 562 Td (Employer *) Tj ET
+72 538 300 20 re S
+BT /F1 10 Tf 72 512 Td (Job title) Tj ET
+72 488 250 20 re S
+BT /F1 10 Tf 72 462 Td (Start date) Tj ET
+72 438 160 20 re S
+BT /F1 10 Tf 94 412 Td (I consent to a background check) Tj ET
+72 409 14 14 re S
+endstream
+endobj
 xref
-0 12
+0 15
 0000000000 65535 f 
 0000000015 00000 n 
 0000000054 00000 n 
 0000000113 00000 n 
-0000000308 00000 n 
-0000000452 00000 n 
-0000000549 00000 n 
-0000000664 00000 n 
-0000000772 00000 n 
-0000000885 00000 n 
-0000000998 00000 n 
-0000001113 00000 n 
+0000000323 00000 n 
+0000000518 00000 n 
+0000000615 00000 n 
+0000000688 00000 n 
+0000000790 00000 n 
+0000000906 00000 n 
+0000001013 00000 n 
+0000001126 00000 n 
+0000001239 00000 n 
+0000001353 00000 n 
+0000001517 00000 n 
 trailer
 <<
-/Size 12
+/Size 15
 /Root 3 0 R
 /Info 1 0 R
 >>
 startxref
-1279
+2144
 %%EOF

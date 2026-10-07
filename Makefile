@@ -59,7 +59,7 @@ run-sample:
 	PYTHONPATH=src python3 -m scripts.demo_workflow samples/sample_form.pdf
 
 create-sample:
-	python3 scripts/create_sample_form.py
+	python3 -m scripts.create_sample_forms
 
 run-api:
 	PYTHONPATH=src python3 -m uvicorn pdf_autofiller.api_service:app --host 0.0.0.0 --port 8000

@@ -17,12 +17,13 @@ endobj
 /Type /Catalog
 /Pages 2 0 R
 /AcroForm <<
-/Fields [ 6 0 R 7 0 R 8 0 R 9 0 R 10 0 R ]
+/Fields [ 8 0 R 9 0 R 10 0 R 11 0 R 12 0 R ]
 /NeedAppearances true
-/DA (\057Helv 0 Tf 0 g)
+/DA (\057Helv 11 Tf 0 g)
 /DR <<
 /Font <<
 /Helv 5 0 R
+/ZaDb 6 0 R
 >>
 >>
 >>
@@ -32,10 +33,15 @@ endobj
 <<
 /Type /Page
 /Resources <<
+/Font <<
+/F1 5 0 R
+/F2 7 0 R
+>>
 >>
 /MediaBox [ 0.0 0.0 612 792 ]
 /Parent 2 0 R
-/Annots [ 6 0 R 7 0 R 8 0 R 9 0 R 10 0 R ]
+/Contents 13 0 R
+/Annots [ 8 0 R 9 0 R 10 0 R 11 0 R 12 0 R ]
 >>
 endobj
 5 0 obj
@@ -48,78 +54,116 @@ endobj
 endobj
 6 0 obj
 <<
-/Type /Annot
-/Subtype /Widget
-/Rect [ 100 72 400 92 ]
-/FT /Tx
-/T (txtEmployeeName)
-/Ff 2
-/F 4
+/Type /Font
+/Subtype /Type1
+/BaseFont /ZapfDingbats
 >>
 endobj
 7 0 obj
 <<
-/Type /Annot
-/Subtype /Widget
-/Rect [ 100 122 280 142 ]
-/FT /Tx
-/T (txtStartDate)
-/Ff 2
-/F 4
+/Type /Font
+/Subtype /Type1
+/BaseFont /Helvetica-Bold
+/Encoding /WinAnsiEncoding
 >>
 endobj
 8 0 obj
 <<
 /Type /Annot
 /Subtype /Widget
-/Rect [ 100 172 350 192 ]
-/FT /Tx
-/T (txtManager)
-/Ff 0
+/T (txtEmployeeName)
+/Rect [ 72 638 372 658 ]
 /F 4
+/FT /Tx
+/Ff 2
 >>
 endobj
 9 0 obj
 <<
 /Type /Annot
 /Subtype /Widget
-/Rect [ 100 222 300 242 ]
-/FT /Tx
-/T (txtDepartment)
-/Ff 0
+/T (txtStartDate)
+/Rect [ 72 588 232 608 ]
 /F 4
+/FT /Tx
+/Ff 2
 >>
 endobj
 10 0 obj
 <<
 /Type /Annot
 /Subtype /Widget
-/Rect [ 100 272 260 292 ]
-/FT /Tx
-/T (txtEmployeeId)
-/Ff 0
+/T (txtManager)
+/Rect [ 72 538 322 558 ]
 /F 4
+/FT /Tx
+/Ff 0
 >>
 endobj
+11 0 obj
+<<
+/Type /Annot
+/Subtype /Widget
+/T (txtDepartment)
+/Rect [ 72 488 292 508 ]
+/F 4
+/FT /Tx
+/Ff 0
+>>
+endobj
+12 0 obj
+<<
+/Type /Annot
+/Subtype /Widget
+/T (txtEmployeeId)
+/Rect [ 72 438 232 458 ]
+/F 4
+/FT /Tx
+/Ff 0
+>>
+endobj
+13 0 obj
+<<
+/Length 477
+>>
+stream
+BT /F2 18 Tf 72 720 Td (New Hire Notice) Tj ET
+BT /F1 9 Tf 72 702 Td (Synthetic sample for testing PDF Autofiller. Not an official form.) Tj ET
+0.3 0.33 0.39 RG 0.75 w
+BT /F1 10 Tf 72 662 Td (Employee name *) Tj ET
+72 638 300 20 re S
+BT /F1 10 Tf 72 612 Td (Start date *) Tj ET
+72 588 160 20 re S
+BT /F1 10 Tf 72 562 Td (Manager) Tj ET
+72 538 250 20 re S
+BT /F1 10 Tf 72 512 Td (Department) Tj ET
+72 488 220 20 re S
+BT /F1 10 Tf 72 462 Td (Employee ID) Tj ET
+72 438 160 20 re S
+endstream
+endobj
 xref
-0 11
+0 14
 0000000000 65535 f 
 0000000015 00000 n 
 0000000054 00000 n 
 0000000113 00000 n 
-0000000301 00000 n 
-0000000438 00000 n 
-0000000535 00000 n 
-0000000650 00000 n 
-0000000764 00000 n 
-0000000876 00000 n 
-0000000991 00000 n 
+0000000316 00000 n 
+0000000504 00000 n 
+0000000601 00000 n 
+0000000674 00000 n 
+0000000776 00000 n 
+0000000892 00000 n 
+0000001005 00000 n 
+0000001117 00000 n 
+0000001232 00000 n 
+0000001347 00000 n 
 trailer
 <<
-/Size 11
+/Size 14
 /Root 3 0 R
 /Info 1 0 R
 >>
 startxref
-1107
+1876
 %%EOF

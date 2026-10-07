@@ -17,12 +17,13 @@ endobj
 /Type /Catalog
 /Pages 2 0 R
 /AcroForm <<
-/Fields [ 6 0 R 7 0 R 8 0 R 9 0 R 10 0 R 11 0 R 12 0 R ]
+/Fields [ 8 0 R 9 0 R 10 0 R 11 0 R 12 0 R 13 0 R 14 0 R ]
 /NeedAppearances true
-/DA (\057Helv 0 Tf 0 g)
+/DA (\057Helv 11 Tf 0 g)
 /DR <<
 /Font <<
 /Helv 5 0 R
+/ZaDb 6 0 R
 >>
 >>
 >>
@@ -32,10 +33,15 @@ endobj
 <<
 /Type /Page
 /Resources <<
+/Font <<
+/F1 5 0 R
+/F2 7 0 R
+>>
 >>
 /MediaBox [ 0.0 0.0 612 792 ]
 /Parent 2 0 R
-/Annots [ 6 0 R 7 0 R 8 0 R 9 0 R 10 0 R 11 0 R 12 0 R ]
+/Contents 15 0 R
+/Annots [ 8 0 R 9 0 R 10 0 R 11 0 R 12 0 R 13 0 R 14 0 R ]
 >>
 endobj
 5 0 obj
@@ -48,102 +54,144 @@ endobj
 endobj
 6 0 obj
 <<
-/Type /Annot
-/Subtype /Widget
-/Rect [ 100 72 420 92 ]
-/FT /Tx
-/T (txtNameLine1)
-/Ff 2
-/F 4
+/Type /Font
+/Subtype /Type1
+/BaseFont /ZapfDingbats
 >>
 endobj
 7 0 obj
 <<
-/Type /Annot
-/Subtype /Widget
-/Rect [ 100 122 420 142 ]
-/FT /Tx
-/T (txtBusinessName)
-/Ff 0
-/F 4
+/Type /Font
+/Subtype /Type1
+/BaseFont /Helvetica-Bold
+/Encoding /WinAnsiEncoding
 >>
 endobj
 8 0 obj
 <<
 /Type /Annot
 /Subtype /Widget
-/Rect [ 100 172 280 192 ]
-/FT /Tx
-/T (txtEIN)
-/Ff 2
+/T (txtNameLine1)
+/Rect [ 72 638 412 658 ]
 /F 4
+/FT /Tx
+/Ff 2
 >>
 endobj
 9 0 obj
 <<
 /Type /Annot
 /Subtype /Widget
-/Rect [ 100 222 420 242 ]
-/FT /Tx
-/T (txtAddr1)
-/Ff 2
+/T (txtBusinessName)
+/Rect [ 72 588 412 608 ]
 /F 4
+/FT /Tx
+/Ff 0
 >>
 endobj
 10 0 obj
 <<
 /Type /Annot
 /Subtype /Widget
-/Rect [ 100 272 300 292 ]
-/FT /Tx
-/T (txtCity)
-/Ff 2
+/T (txtEIN)
+/Rect [ 72 538 252 558 ]
 /F 4
+/FT /Tx
+/Ff 2
 >>
 endobj
 11 0 obj
 <<
 /Type /Annot
 /Subtype /Widget
-/Rect [ 100 322 180 342 ]
-/FT /Tx
-/T (txtState)
-/Ff 2
+/T (txtAddr1)
+/Rect [ 72 488 412 508 ]
 /F 4
+/FT /Tx
+/Ff 2
 >>
 endobj
 12 0 obj
 <<
 /Type /Annot
 /Subtype /Widget
-/Rect [ 100 372 220 392 ]
-/FT /Tx
-/T (txtZIP)
-/Ff 2
+/T (txtCity)
+/Rect [ 72 438 292 458 ]
 /F 4
+/FT /Tx
+/Ff 2
 >>
 endobj
+13 0 obj
+<<
+/Type /Annot
+/Subtype /Widget
+/T (txtState)
+/Rect [ 72 388 152 408 ]
+/F 4
+/FT /Tx
+/Ff 2
+>>
+endobj
+14 0 obj
+<<
+/Type /Annot
+/Subtype /Widget
+/T (txtZIP)
+/Rect [ 72 338 192 358 ]
+/F 4
+/FT /Tx
+/Ff 2
+>>
+endobj
+15 0 obj
+<<
+/Length 711
+>>
+stream
+BT /F2 18 Tf 72 720 Td (Taxpayer Information \(W-9-shaped sample\)) Tj ET
+BT /F1 9 Tf 72 702 Td (Synthetic sample for testing PDF Autofiller. Not an official form.) Tj ET
+0.3 0.33 0.39 RG 0.75 w
+BT /F1 10 Tf 72 662 Td (Name \(as shown on your income tax return\) *) Tj ET
+72 638 340 20 re S
+BT /F1 10 Tf 72 612 Td (Business name, if different) Tj ET
+72 588 340 20 re S
+BT /F1 10 Tf 72 562 Td (Employer identification number *) Tj ET
+72 538 180 20 re S
+BT /F1 10 Tf 72 512 Td (Address \(number, street, apt.\) *) Tj ET
+72 488 340 20 re S
+BT /F1 10 Tf 72 462 Td (City *) Tj ET
+72 438 220 20 re S
+BT /F1 10 Tf 72 412 Td (State *) Tj ET
+72 388 80 20 re S
+BT /F1 10 Tf 72 362 Td (ZIP code *) Tj ET
+72 338 120 20 re S
+endstream
+endobj
 xref
-0 13
+0 16
 0000000000 65535 f 
 0000000015 00000 n 
 0000000054 00000 n 
 0000000113 00000 n 
-0000000315 00000 n 
-0000000466 00000 n 
-0000000563 00000 n 
-0000000675 00000 n 
-0000000792 00000 n 
-0000000900 00000 n 
-0000001010 00000 n 
-0000001120 00000 n 
-0000001231 00000 n 
+0000000330 00000 n 
+0000000532 00000 n 
+0000000629 00000 n 
+0000000702 00000 n 
+0000000804 00000 n 
+0000000917 00000 n 
+0000001033 00000 n 
+0000001141 00000 n 
+0000001251 00000 n 
+0000001360 00000 n 
+0000001470 00000 n 
+0000001578 00000 n 
 trailer
 <<
-/Size 13
+/Size 16
 /Root 3 0 R
 /Info 1 0 R
 >>
 startxref
-1340
+2341
 %%EOF
