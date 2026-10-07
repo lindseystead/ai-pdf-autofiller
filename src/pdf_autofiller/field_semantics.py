@@ -30,10 +30,10 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 MODEL = "gpt-4o-mini"
-# The SDK defaults (600 s, 2 retries) could hold a library or CLI call for
-# half an hour; the API path is also bounded by the job timeout.
-REQUEST_TIMEOUT_SECONDS = 30.0
-MAX_RETRIES = 1
+# A run makes at most two provider calls (inference + fallback), and both must
+# finish inside the API job timeout (PDF_READ_TIMEOUT_SECONDS, 20 s by default).
+REQUEST_TIMEOUT_SECONDS = 8.0
+MAX_RETRIES = 0
 
 
 def strip_json_code_fence(content: str) -> str:
