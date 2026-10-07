@@ -1,7 +1,7 @@
 $ curl -s http://127.0.0.1:8000/health | jq '{status,version:.version,semantic:.checks.semantic_provider}'
 {
   "status": "ok",
-  "version": "0.6.3",
+  "version": "0.7.0",
   "semantic": "unconfigured"
 }
 
