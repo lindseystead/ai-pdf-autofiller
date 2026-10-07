@@ -71,7 +71,7 @@ class FillReportResponse(BaseModel):
     )
     ai_assisted_fields: list[str] = Field(
         default_factory=list,
-        description="Written fields whose mapping the AI step chose (see FillReport)",
+        description="Written fields whose mapping an AI feature chose (see FillReport)",
     )
     display_warnings: list[str] = Field(
         default_factory=list,

@@ -83,7 +83,7 @@ curl -s http://localhost:8000/health
 ## Testing Without Provider Credentials
 
 Deterministic paths, including every command above, run without `MODEL_PROVIDER_API_KEY`.
-Semantic inference (`--ai`) and fallback mapping (`--no-strict`) require valid provider credentials.
+AI field inference (`--ai`) and the AI key fallback (`--no-strict`) require valid provider credentials.
 
 ## Quality Commands
 

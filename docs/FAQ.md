@@ -2,7 +2,7 @@
 
 ## How is this different from AI-only PDF fillers / SaaS?
 
-PDF Autofiller is **deterministic-first**. Field names are matched via normalization and alias packs (for example `txtFirstName` ↔ `firstname` / `given_name`) with **no API key and no network call**. Optional semantic inference and AI fallback exist for opaque names like `field_12`, but they are **off by default**. `/inspect` marks such names with `name_quality: "opaque"` and returns `mapping_hints`.
+PDF Autofiller is **deterministic-first**. Field names are matched via normalization and alias packs (for example `txtFirstName` ↔ `firstname` / `given_name`) with **no API key and no network call**. Optional AI field inference and the AI key fallback exist for opaque names like `field_12`, but they are **off by default**. `/inspect` marks such names with `name_quality: "opaque"` and returns `mapping_hints`.
 
 Compared with typical SaaS / AI-only tools:
 
@@ -65,7 +65,7 @@ Local `fill()` / the CLI and the server `POST /fill` path share `run_fill_pipeli
 
 ## What does `strict` mean?
 
-`strict=true` (default) turns off **AI fallback mapping** only. It does **not** allow incomplete required fields. `/fill` still returns `required_fields_unresolved` when required widgets cannot be mapped or written — unless you pass `allow_partial=true` (CLI `--allow-partial`, library `fill(..., allow_partial=True)`), which returns the PDF and lists the empty required fields in `missing_required_fields`.
+`strict=true` (default) turns off the **AI key fallback** only. It does **not** allow incomplete required fields. `/fill` still returns `required_fields_unresolved` when required widgets cannot be mapped or written — unless you pass `allow_partial=true` (CLI `--allow-partial`, library `fill(..., allow_partial=True)`), which returns the PDF and lists the empty required fields in `missing_required_fields`.
 
 ## Dates on the default path
 

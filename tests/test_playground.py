@@ -24,7 +24,7 @@ def test_playground_page_renders_html():
     assert 'id="previewBtn"' in response.text
     assert 'id="flatten"' in response.text
     assert 'id="needAppearances"' in response.text
-    assert "disable AI fallback" in response.text
+    assert "disable AI key fallback" in response.text
     assert 'type="password"' in response.text
 
 

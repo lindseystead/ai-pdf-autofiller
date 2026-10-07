@@ -360,7 +360,7 @@ async def preview_pdf(
     strict: bool = Form(
         True,
         description=(
-            "When true, disables AI fallback mapping only. Required fields are still enforced on /fill."
+            "When true, disables the AI key fallback only. Required fields are still enforced on /fill."
         ),
     ),
     allow_fallback_mapping: bool = Form(False),
@@ -430,7 +430,7 @@ async def fill(
     strict: bool = Form(
         True,
         description=(
-            "When true, disables AI fallback mapping only. "
+            "When true, disables the AI key fallback only. "
             "Required fields are still enforced before a PDF is returned."
         ),
     ),

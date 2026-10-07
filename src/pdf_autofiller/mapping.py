@@ -1,10 +1,11 @@
 """
 Data mapping engine for PDF form filling.
 
-Mapping is deterministic-first (normalized keys, aliases, coercion).
-Provider-backed fallback is optional and only used for unresolved high-value fields.
+Mapping is deterministic-first: normalized names, alias clusters, and dates and
+numbers validated without rewriting. The opt-in AI key fallback asks the model to
+pick a user key only for unresolved fields that are required or confidently typed.
 
-Privacy: the optional provider fallback shares user-data *key names* and value
+Privacy: the AI key fallback shares user-data *key names* and value
 *types* only — never the raw user values — so PII does not leave the service
 through this path.
 """
@@ -255,7 +256,7 @@ def semantic_fallback_mapping(
     user_data: dict[str, Any],
 ) -> dict[str, tuple[str, str | None, float, str]]:
     """
-    Use provider-backed fallback to map unmapped fields when deterministic matching fails.
+    AI key fallback: ask the model which user key each unresolved field should get.
 
     Only key names and value *types* are sent to the provider — never raw values.
     """
@@ -334,7 +335,7 @@ Example response:
             result[field.field.name] = (matched_key, coerced_value, confidence, reason)
         return result
     except (RuntimeError, json.JSONDecodeError, TypeError, ValueError, KeyError) as exc:
-        logger.warning("Provider fallback mapping failed: %s", exc)
+        logger.warning("AI key fallback failed: %s", exc)
         return {}
 
 

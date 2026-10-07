@@ -1,12 +1,12 @@
 """
-Provider-backed semantic inference for form fields.
+AI field inference: the only module that calls the AI provider (OpenAI).
 
-This module isolates model calls and response parsing so the rest of the
-pipeline can stay deterministic when the provider is unavailable.
+Used by AI field inference (`use_semantic_inference`) and, through
+create_json_completion, by the AI key fallback in mapping.py. Both are opt-in
+and need MODEL_PROVIDER_API_KEY.
 
-Privacy: prompts sent to the external provider include field metadata and
-nearby page text, but never a field's current value (which may be PII). This
-path is opt-in and only active when a provider API key is configured.
+Privacy: prompts include field metadata and the start of each page's text, but
+never a field's current value (which may be PII).
 """
 
 import json
@@ -49,20 +49,13 @@ def strip_json_code_fence(content: str) -> str:
 
 
 class SemanticClient:
-    """
-    Wrapper around the provider client with graceful degradation.
-
-    Handles cases where the provider SDK is not installed or credentials are not
-    configured. This allows the rest of the system to work even if provider-backed
-    features are unavailable.
-    """
+    """Thin wrapper over the OpenAI client; ``is_available()`` is False when no client could be built."""
 
     def __init__(self, api_key: str | None = None):
-        """
-        Initialize client, falling back to stub if unavailable.
+        """Build the provider client from ``api_key`` or MODEL_PROVIDER_API_KEY.
 
-        Checks for an API key in the environment when one is not provided directly.
-        Silently fails to stub mode if initialization fails.
+        If the SDK or key is missing, or setup fails (logged as a warning),
+        ``is_available()`` returns False.
         """
         self.api_key = api_key or os.getenv("MODEL_PROVIDER_API_KEY")
         self._client = None

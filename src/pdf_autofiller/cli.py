@@ -109,14 +109,14 @@ def inspect_cmd(pdf: Path, max_pages: int | None) -> None:
     "--strict/--no-strict",
     default=True,
     show_default=True,
-    help="--no-strict lets the AI pick a key for unresolved fields (needs MODEL_PROVIDER_API_KEY).",
+    help="--no-strict enables the AI key fallback for unresolved fields (needs MODEL_PROVIDER_API_KEY).",
 )
 @click.option(
     "--ai/--no-ai",
     "use_ai",
     default=False,
     show_default=True,
-    help="Enable optional semantic inference (needs MODEL_PROVIDER_API_KEY).",
+    help="Enable AI field inference (needs MODEL_PROVIDER_API_KEY).",
 )
 def preview_cmd(
     pdf: Path,
@@ -159,14 +159,14 @@ def preview_cmd(
     "--strict/--no-strict",
     default=True,
     show_default=True,
-    help="--no-strict lets the AI pick a key for unresolved fields (needs MODEL_PROVIDER_API_KEY).",
+    help="--no-strict enables the AI key fallback for unresolved fields (needs MODEL_PROVIDER_API_KEY).",
 )
 @click.option(
     "--ai/--no-ai",
     "use_ai",
     default=False,
     show_default=True,
-    help="Enable optional semantic inference (needs MODEL_PROVIDER_API_KEY).",
+    help="Enable AI field inference (needs MODEL_PROVIDER_API_KEY).",
 )
 @click.option(
     "--flatten/--no-flatten",
@@ -222,7 +222,7 @@ def fill_cmd(
         click.echo(f"Wrote {out} ({written} field{'s' if written != 1 else ''} written)")
         if report.ai_assisted_fields:
             click.echo(
-                "Mapped by the AI step (review these): " + ", ".join(report.ai_assisted_fields),
+                "Mapped by AI (review these): " + ", ".join(report.ai_assisted_fields),
                 err=True,
             )
         if report.missing_required_fields:
