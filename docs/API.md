@@ -275,7 +275,7 @@ Canonical catalog (also exposed in OpenAPI on `/fill`, `/preview`, `/inspect`):
 | `invalid_pdf_signature` | 415 | Bytes do not start with `%PDF-` |
 | `payload_too_large` | 413 | Over `MAX_UPLOAD_BYTES` |
 | `pdf_too_many_pages` | 413 | Over `MAX_PDF_PAGES` |
-| `invalid_pdf` | 422 | Has a PDF header but cannot be parsed (corrupt/truncated) |
+| `invalid_pdf` | 422 | Has a PDF header but cannot be parsed (corrupt, truncated or password-protected); `details.reason` says which |
 | `pdf_processing_timeout` | 503 | Over `PDF_READ_TIMEOUT_SECONDS` |
 | `rate_limited` | 429 | Per-client budget exceeded (`Retry-After`) |
 | `unauthorized` | 401 | Missing/wrong API key |

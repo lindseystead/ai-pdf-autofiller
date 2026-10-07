@@ -632,3 +632,23 @@ def test_non_ascii_configured_token_still_authenticates(monkeypatch):
     files = {"pdf_file": ("input.pdf", _minimal_pdf_bytes(), "application/pdf")}
     ok = client.post("/inspect", headers={"X-API-Key": "clé-secrète".encode()}, files=files)
     assert ok.status_code == 200
+
+
+@pytest.mark.parametrize("path", ["/fill", "/preview", "/inspect"])
+def test_password_protected_pdf_returns_422_with_reason(tmp_path, path):
+    from pypdf import PdfReader, PdfWriter
+
+    writer = PdfWriter(clone_from=PdfReader("samples/sample_form.pdf"))
+    writer.encrypt(user_password="open-sesame", owner_password="owner", algorithm="RC4-128")
+    locked = tmp_path / "locked.pdf"
+    writer.write(locked)
+
+    response = client.post(
+        path,
+        files={"pdf_file": ("locked.pdf", locked.read_bytes(), "application/pdf")},
+        data={"user_data": '{"firstname": "Jane"}'},
+    )
+    assert response.status_code == 422
+    error = response.json()["detail"]["error"]
+    assert error["code"] == "invalid_pdf"
+    assert "password-protected" in error["details"]["reason"]

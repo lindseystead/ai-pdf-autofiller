@@ -14,7 +14,7 @@ import os
 from pathlib import Path
 
 from pypdf import PdfReader
-from pypdf.errors import PyPdfError
+from pypdf.errors import FileNotDecryptedError, PyPdfError
 
 from . import acroform_fields
 from .models import DocumentMetadata, DocumentStructure, TextRegion
@@ -86,6 +86,9 @@ def read_pdf(pdf_path: Path, *, max_pages: int | None = None) -> DocumentStructu
         # pypdf resolves the trailer /Info lazily; a non-dictionary entry
         # raises here, so it belongs inside the parse guard.
         metadata_dict: dict[str, object] = dict(reader.metadata or {})
+    except FileNotDecryptedError as exc:
+        # pypdf opens PDFs with an empty user password itself; this one needs a real one.
+        raise InvalidPdfError("PDF is password-protected; provide an unlocked copy") from exc
     except (PyPdfError, ValueError, KeyError, TypeError) as exc:
         # pypdf surfaces malformed structure as assorted exception types;
         # normalize them so callers can report a client error, not a crash.
