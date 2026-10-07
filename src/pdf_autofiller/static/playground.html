@@ -204,17 +204,9 @@
     let selectedFile = null;
     let filledBlob = null;
 
-    function setStatus(message, kind = '', asHtml = false) {
+    function setStatus(message, kind = '') {
       statusEl.className = 'status' + (kind ? ' ' + kind : '');
-      if (asHtml) {
-        statusEl.replaceChildren();
-        const allowed = document.createElement('span');
-        // Only allow a tiny set of intentional emphasis tags from our own strings.
-        allowed.innerHTML = message;
-        statusEl.appendChild(allowed);
-      } else {
-        statusEl.textContent = message;
-      }
+      statusEl.textContent = message;  // messages can echo PDF field names: never parse as HTML
     }
 
     function authHeaders() {

@@ -43,3 +43,11 @@ def test_playground_default_json_is_valid():
     payload = json.loads(match.group(1))
     assert isinstance(payload, dict)
     assert "firstname" in payload
+
+
+def test_playground_has_no_html_injection_sinks():
+    # Status and report text echo server errors that can contain field names
+    # taken from the uploaded PDF, so the page must only ever set textContent.
+    html = client.get("/playground").text
+    for sink in ("innerHTML", "outerHTML", "insertAdjacentHTML", "document.write"):
+        assert sink not in html
