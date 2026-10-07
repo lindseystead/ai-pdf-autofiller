@@ -32,6 +32,8 @@ report = fill("sample_form.pdf", {"firstname": "Jane", "lastname": "Doe", "dob":
 print(report.written_fields)  # ['txtDOB', 'txtFirstName', 'txtLastName']
 ```
 
+<img src="docs/assets/sample-filled.png" alt="The sample form after running the example: first name, last name and date of birth filled; email left blank" width="600" />
+
 Fills are **strict** by default: if a required field can't be resolved, nothing is written and the
 error lists what's missing. Pass `allow_partial=True` to write anyway and check
 `report.missing_required_fields`.
