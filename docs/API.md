@@ -275,6 +275,7 @@ Canonical catalog (also exposed in OpenAPI on `/fill`, `/preview`, `/inspect`):
 | `invalid_user_data_json` | 422 | `user_data` is not valid JSON |
 | `invalid_user_data_type` | 422 | `user_data` is not a JSON object |
 | `user_data_too_deep` | 422 | `user_data` nests deeper than `MAX_USER_DATA_DEPTH` (default 16) |
+| `conflicting_options` | 422 | `allow_fallback_mapping=true` sent with `strict=true` (strict mode disables the AI key fallback) |
 | `unsupported_media_type` | 415 | Upload is not a PDF content-type |
 | `invalid_pdf_signature` | 415 | Bytes do not start with `%PDF-` |
 | `payload_too_large` | 413 | Over `MAX_UPLOAD_BYTES` |

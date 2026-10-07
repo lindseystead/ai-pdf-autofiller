@@ -20,6 +20,10 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- `allow_fallback_mapping=True` with `strict=True` (the default) now raises
+  `ValueError` in the library and returns `422 conflicting_options` from the
+  API, instead of silently not running the AI fallback; the playground's two
+  checkboxes now untick each other
 - Mapping decisions now include `ai_assisted`; AI-chosen mappings carry the
   model's confidence and an `AI: ` reason instead of reading as "Direct match"
 - A value addressed to one field by its full path (`applicant.name`) no longer
