@@ -28,7 +28,7 @@ Example response:
 {
   "status": "ok",
   "service": "pdf-autofiller",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "checks": {
     "auth": "disabled",
     "semantic_provider": "unconfigured",
@@ -52,7 +52,7 @@ curl -s http://localhost:8000/version
 ```
 
 ```json
-{"service": "pdf-autofiller", "version": "0.7.0"}
+{"service": "pdf-autofiller", "version": "0.8.0"}
 ```
 
 ### `GET /samples/sample_form.pdf`

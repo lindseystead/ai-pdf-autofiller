@@ -1,6 +1,6 @@
 [project]
 name = "pdf-autofiller"
-version = "0.7.0"
+version = "0.8.0"
 description = "Fill PDF forms from JSON, as a Python library or a self-hosted API, with a report of every field written or skipped"
 readme = "README.md"
 requires-python = ">=3.11,<4.0"
