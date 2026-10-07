@@ -6,6 +6,9 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- `FillReport.ai_assisted_fields` (also `X-PDF-Fields-AI-Assisted`, the JSON
+  report, the CLI and the playground) lists written fields whose mapping the
+  optional AI step chose
 - AES-encrypted PDFs (128- and 256-bit) can be read: `pypdf` is now
   installed with its `crypto` extra, which brings in `cryptography`
 - `examples/quickstart.py` + `examples/README.md`, exercised by

@@ -338,3 +338,21 @@ def test_user_values_never_reach_logs(tmp_path: Path, caplog: pytest.LogCaptureF
     messages = [record.getMessage() for record in caplog.records]
     assert [m for m in messages if SECRET in m] == []
     assert any("'<redacted>' contains characters not supported" in m for m in messages)  # kept, not dropped
+
+
+def test_fill_report_names_every_written_field_the_ai_chose(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from pdf_autofiller import pipeline
+
+    monkeypatch.setattr(pipeline, "SemanticClient", _FakeSemanticClient)
+    form = FormBuilder().text("Text1").text("Text2").text("phone").save(tmp_path / "opaque.pdf")
+    report = fill(
+        form,
+        {"ssn": "123-45-6789", "email": "a@b.co", "phone": "555"},
+        tmp_path / "out.pdf",
+        use_semantic_inference=True,
+        allow_partial=True,
+    )
+    assert report.ai_assisted_fields == ["Text2"]  # Text1 was low-confidence, so not written
+    assert "phone" in report.written_fields and "phone" not in report.ai_assisted_fields

@@ -141,6 +141,13 @@ class FillReport(BaseModel):
         default_factory=list,
         description="Form fields that received no value (no matching key in user data)",
     )
+    ai_assisted_fields: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Written fields whose mapping the optional AI step chose. The value is the "
+            "caller's own, but which field received it was a model decision: review these."
+        ),
+    )
     display_warnings: list[str] = Field(
         default_factory=list,
         description=(

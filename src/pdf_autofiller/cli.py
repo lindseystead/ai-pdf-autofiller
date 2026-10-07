@@ -210,6 +210,11 @@ def fill_cmd(
     else:
         written = len(report.written_fields)
         click.echo(f"Wrote {out} ({written} field{'s' if written != 1 else ''} written)")
+        if report.ai_assisted_fields:
+            click.echo(
+                "Mapped by the AI step (review these): " + ", ".join(report.ai_assisted_fields),
+                err=True,
+            )
         if report.missing_required_fields:
             click.echo(
                 "Required fields still empty: " + ", ".join(report.missing_required_fields),
