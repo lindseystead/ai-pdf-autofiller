@@ -35,6 +35,7 @@ from pdf_autofiller.user_data import UserDataTooDeepError, validate_user_data_de
 
 from . import config
 from .errors import (
+    ERROR_CATALOG,
     MUTATING_ERROR_CODES,
     api_error,
     openapi_error_responses,
@@ -132,10 +133,39 @@ def _audit_log_fill(
 
 
 @contextmanager
+def _unexpected_errors(code: str) -> Iterator[None]:
+    """Pass API errors through; log anything else and answer with a generic 500 ``code``."""
+    try:
+        yield
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Unhandled error (%s)", code)
+        raise api_error(status_code=500, code=code, message=ERROR_CATALOG[code][1]) from exc
+
+
+async def _save_pdf_upload(pdf_file: UploadFile, temp_dir: tempfile.TemporaryDirectory) -> Path:
+    """Validate the upload (type, size, %PDF- header) and write it into ``temp_dir``."""
+    require_pdf_upload(pdf_file)
+    content = await read_bounded_upload(pdf_file)
+    require_pdf_signature(content)
+    input_path = Path(temp_dir.name) / "input.pdf"
+    input_path.write_bytes(content)
+    return input_path
+
+
+@contextmanager
 def _pdf_job_errors() -> Iterator[None]:
     """Translate pipeline job failures into client-facing API errors."""
     try:
         yield
+    except UnresolvedRequiredFieldsError as exc:
+        raise api_error(
+            status_code=422,
+            code="required_fields_unresolved",
+            message="Required fields unresolved",
+            details={"missing_fields": exc.missing_fields, "skipped_fields": exc.skipped_fields},
+        ) from exc
     except TimeoutError as exc:
         raise api_error(
             status_code=503,
@@ -265,56 +295,39 @@ async def inspect_pdf(
     pdf_file: UploadFile = File(...),
 ) -> InspectResponse:
     """List AcroForm fields so clients can draft matching JSON without guessing."""
-    temp_dir = None
+    temp_dir = tempfile.TemporaryDirectory(prefix="pdf-autofiller-inspect-")
     try:
-        require_pdf_upload(pdf_file)
-        content = await read_bounded_upload(pdf_file)
-        require_pdf_signature(content)
-
-        temp_dir = tempfile.TemporaryDirectory(prefix="pdf-autofiller-inspect-")
-        input_path = Path(temp_dir.name) / "input.pdf"
-        input_path.write_bytes(content)
-
-        with _pdf_job_errors():
-            inventory = await asyncio.to_thread(
-                execute_pdf_job,
-                inspect_local,
-                input_path,
-                timeout_seconds=config.PDF_READ_TIMEOUT_SECONDS,
-                max_pages=config.MAX_PDF_PAGES,
+        with _unexpected_errors("pdf_inspect_failed"):
+            input_path = await _save_pdf_upload(pdf_file, temp_dir)
+            with _pdf_job_errors():
+                inventory = await asyncio.to_thread(
+                    execute_pdf_job,
+                    inspect_local,
+                    input_path,
+                    timeout_seconds=config.PDF_READ_TIMEOUT_SECONDS,
+                    max_pages=config.MAX_PDF_PAGES,
+                )
+            fields = [
+                InspectField(
+                    name=field.name,
+                    field_type=field.field_type,
+                    required=field.required,
+                    page_number=field.page_number,
+                    current_value=field.value,
+                    name_quality=("opaque" if is_opaque_field_name(field.name) else "readable"),
+                )
+                for field in inventory.fields
+            ]
+            return InspectResponse(
+                pages=inventory.pages,
+                field_count=inventory.field_count,
+                fields=fields,
+                opaque_field_count=inventory.opaque_field_count,
+                opaque_fields=list(inventory.opaque_fields),
+                mapping_hints=list(inventory.mapping_hints),
             )
-
-        fields = [
-            InspectField(
-                name=field.name,
-                field_type=field.field_type,
-                required=field.required,
-                page_number=field.page_number,
-                current_value=field.value,
-                name_quality=("opaque" if is_opaque_field_name(field.name) else "readable"),
-            )
-            for field in inventory.fields
-        ]
-        return InspectResponse(
-            pages=inventory.pages,
-            field_count=inventory.field_count,
-            fields=fields,
-            opaque_field_count=inventory.opaque_field_count,
-            opaque_fields=list(inventory.opaque_fields),
-            mapping_hints=list(inventory.mapping_hints),
-        )
-    except HTTPException:
-        raise
-    except Exception as exc:
-        logger.exception("PDF inspect request failed")
-        raise api_error(
-            status_code=500,
-            code="pdf_inspect_failed",
-            message="PDF inspect failed",
-        ) from exc
     finally:
-        if temp_dir is not None:
-            temp_dir.cleanup()
+        temp_dir.cleanup()
         await pdf_file.close()
 
 
@@ -343,51 +356,33 @@ async def preview_pdf(
     use_semantic_inference: bool = Form(False),
 ) -> PreviewResponse:
     """Return mapping decisions without writing a PDF (inspect → map debug loop)."""
-    temp_dir = None
+    temp_dir = tempfile.TemporaryDirectory(prefix="pdf-autofiller-preview-")
     try:
-        require_pdf_upload(pdf_file)
-        parsed_user_data = _parse_user_data(user_data)
-        content = await read_bounded_upload(pdf_file)
-        require_pdf_signature(content)
-
-        temp_dir = tempfile.TemporaryDirectory(prefix="pdf-autofiller-preview-")
-        input_path = Path(temp_dir.name) / "input.pdf"
-        input_path.write_bytes(content)
-
-        with _pdf_job_errors():
-            mapping_result, field_count, page_count = await asyncio.to_thread(
-                execute_pdf_job,
-                run_preview_pipeline,
-                input_path,
-                parsed_user_data,
-                timeout_seconds=config.PDF_READ_TIMEOUT_SECONDS,
-                strict=strict,
-                allow_fallback_mapping=allow_fallback_mapping,
-                use_semantic_inference=use_semantic_inference,
-                max_pages=config.MAX_PDF_PAGES,
+        with _unexpected_errors("pdf_preview_failed"):
+            parsed_user_data = _parse_user_data(user_data)
+            input_path = await _save_pdf_upload(pdf_file, temp_dir)
+            with _pdf_job_errors():
+                mapping_result, field_count, page_count = await asyncio.to_thread(
+                    execute_pdf_job,
+                    run_preview_pipeline,
+                    input_path,
+                    parsed_user_data,
+                    timeout_seconds=config.PDF_READ_TIMEOUT_SECONDS,
+                    strict=strict,
+                    allow_fallback_mapping=allow_fallback_mapping,
+                    use_semantic_inference=use_semantic_inference,
+                    max_pages=config.MAX_PDF_PAGES,
+                )
+            return PreviewResponse(
+                pages=page_count,
+                field_count=field_count,
+                decisions=[PreviewDecision(**d.model_dump()) for d in mapping_result.decisions],
+                missing_required=list(mapping_result.missing_required),
+                unmapped_user_keys=list(mapping_result.unmapped_user_keys),
+                mapping_hints=list(mapping_result.mapping_hints),
             )
-
-        decisions = [PreviewDecision(**d.model_dump()) for d in mapping_result.decisions]
-        return PreviewResponse(
-            pages=page_count,
-            field_count=field_count,
-            decisions=decisions,
-            missing_required=list(mapping_result.missing_required),
-            unmapped_user_keys=list(mapping_result.unmapped_user_keys),
-            mapping_hints=list(mapping_result.mapping_hints),
-        )
-    except HTTPException:
-        raise
-    except Exception as exc:
-        logger.exception("PDF preview request failed")
-        raise api_error(
-            status_code=500,
-            code="pdf_preview_failed",
-            message="PDF preview failed",
-        ) from exc
     finally:
-        if temp_dir is not None:
-            temp_dir.cleanup()
+        temp_dir.cleanup()
         await pdf_file.close()
 
 
@@ -445,104 +440,77 @@ async def fill(
     ),
 ) -> Response:
     """Fill a PDF form from uploaded file and user data."""
-    temp_dir = None
-    response_started = False
-
+    temp_dir = tempfile.TemporaryDirectory(prefix="pdf-autofiller-")
+    response_started = False  # once a response owns temp_dir, it cleans it up afterwards
     try:
-        require_pdf_upload(pdf_file)
-        parsed_user_data = _parse_user_data(user_data)
+        with _unexpected_errors("pdf_fill_failed"):
+            parsed_user_data = _parse_user_data(user_data)
+            input_path = await _save_pdf_upload(pdf_file, temp_dir)
+            output_path = input_path.with_name("output_filled.pdf")
 
-        temp_dir = tempfile.TemporaryDirectory(prefix="pdf-autofiller-")
-        temp_path = Path(temp_dir.name)
-        input_path = temp_path / "input.pdf"
-        output_path = temp_path / "output_filled.pdf"
+            with _pdf_job_errors():
+                fill_report, mapping_result, fields_total, page_count = await asyncio.to_thread(
+                    execute_pdf_job,
+                    run_fill_pipeline,
+                    input_path,
+                    output_path,
+                    parsed_user_data,
+                    timeout_seconds=config.PDF_READ_TIMEOUT_SECONDS,
+                    strict=strict,
+                    allow_fallback_mapping=allow_fallback_mapping,
+                    use_semantic_inference=use_semantic_inference,
+                    max_pages=config.MAX_PDF_PAGES,
+                    flatten=flatten,
+                    need_appearances=need_appearances,
+                    allow_partial=allow_partial,
+                )
 
-        content = await read_bounded_upload(pdf_file)
-        require_pdf_signature(content)
-        input_path.write_bytes(content)
-
-        with _pdf_job_errors():
-            fill_report, mapping_result, fields_total, page_count = await asyncio.to_thread(
-                execute_pdf_job,
-                run_fill_pipeline,
-                input_path,
-                output_path,
-                parsed_user_data,
-                timeout_seconds=config.PDF_READ_TIMEOUT_SECONDS,
-                strict=strict,
-                allow_fallback_mapping=allow_fallback_mapping,
+            wants_json = _wants_json_fill_report(request)
+            _audit_log_fill(
+                request,
+                fields_total=fields_total,
+                report=fill_report,
+                missing_required=len(mapping_result.missing_required),
                 use_semantic_inference=use_semantic_inference,
-                max_pages=config.MAX_PDF_PAGES,
-                flatten=flatten,
-                need_appearances=need_appearances,
-                allow_partial=allow_partial,
+                allow_fallback_mapping=allow_fallback_mapping,
+                response_mode="json" if wants_json else "pdf",
             )
 
-        wants_json = _wants_json_fill_report(request)
-        _audit_log_fill(
-            request,
-            fields_total=fields_total,
-            report=fill_report,
-            missing_required=len(mapping_result.missing_required),
-            use_semantic_inference=use_semantic_inference,
-            allow_fallback_mapping=allow_fallback_mapping,
-            response_mode="json" if wants_json else "pdf",
-        )
+            if wants_json:
+                pdf_bytes = output_path.read_bytes()
+                decisions = [PreviewDecision(**d.model_dump()) for d in mapping_result.decisions]
+                payload = FillReportResponse(
+                    pages=page_count,
+                    field_count=fields_total,
+                    written_fields=list(fill_report.written_fields),
+                    skipped_review_fields=list(fill_report.skipped_review_fields),
+                    skipped_empty_fields=list(fill_report.skipped_empty_fields),
+                    skipped_unwritable_fields=list(fill_report.skipped_unwritable_fields),
+                    display_warnings=list(fill_report.display_warnings),
+                    missing_required=list(mapping_result.missing_required),
+                    missing_required_fields=list(fill_report.missing_required_fields),
+                    unfilled_fields=list(fill_report.unfilled_fields),
+                    unmapped_user_keys=list(mapping_result.unmapped_user_keys),
+                    decisions=decisions,
+                    mapping_hints=list(mapping_result.mapping_hints),
+                    pdf_base64=base64.b64encode(pdf_bytes).decode("ascii"),
+                )
+                response_started = True
+                return JSONResponse(
+                    content=payload.model_dump(),
+                    headers=_fill_report_headers(fill_report),
+                    background=BackgroundTask(temp_dir.cleanup),
+                )
 
-        if wants_json:
-            pdf_bytes = output_path.read_bytes()
-            decisions = [PreviewDecision(**d.model_dump()) for d in mapping_result.decisions]
-            payload = FillReportResponse(
-                pages=page_count,
-                field_count=fields_total,
-                written_fields=list(fill_report.written_fields),
-                skipped_review_fields=list(fill_report.skipped_review_fields),
-                skipped_empty_fields=list(fill_report.skipped_empty_fields),
-                skipped_unwritable_fields=list(fill_report.skipped_unwritable_fields),
-                display_warnings=list(fill_report.display_warnings),
-                missing_required=list(mapping_result.missing_required),
-                missing_required_fields=list(fill_report.missing_required_fields),
-                unfilled_fields=list(fill_report.unfilled_fields),
-                unmapped_user_keys=list(mapping_result.unmapped_user_keys),
-                decisions=decisions,
-                mapping_hints=list(mapping_result.mapping_hints),
-                pdf_base64=base64.b64encode(pdf_bytes).decode("ascii"),
-            )
             response_started = True
-            return JSONResponse(
-                content=payload.model_dump(),
+            return FileResponse(
+                path=output_path,
+                media_type="application/pdf",
+                filename=f"{Path(pdf_file.filename or 'filled').stem}_filled.pdf",
                 headers=_fill_report_headers(fill_report),
                 background=BackgroundTask(temp_dir.cleanup),
             )
-
-        response_started = True
-        return FileResponse(
-            path=output_path,
-            media_type="application/pdf",
-            filename=f"{Path(pdf_file.filename or 'filled').stem}_filled.pdf",
-            headers=_fill_report_headers(fill_report),
-            background=BackgroundTask(temp_dir.cleanup),
-        )
-    except UnresolvedRequiredFieldsError as exc:
-        raise api_error(
-            status_code=422,
-            code="required_fields_unresolved",
-            message="Required fields unresolved",
-            details={
-                "missing_fields": exc.missing_fields,
-                "skipped_fields": exc.skipped_fields,
-            },
-        ) from exc
-    except HTTPException:
-        raise
-    except Exception as exc:
-        logger.exception("PDF fill request failed")
-        raise api_error(
-            status_code=500,
-            code="pdf_fill_failed",
-            message="PDF fill failed",
-        ) from exc
     finally:
-        if temp_dir is not None and not response_started:
+        if not response_started:
             temp_dir.cleanup()
         await pdf_file.close()
