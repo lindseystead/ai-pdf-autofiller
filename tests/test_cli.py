@@ -3,6 +3,7 @@
 import json
 from pathlib import Path
 
+import pytest
 from click.testing import CliRunner
 
 from pdf_autofiller.cli import main
@@ -89,3 +90,83 @@ def test_cli_rejects_non_object_json(tmp_path: Path):
     result = runner.invoke(main, ["preview", str(SAMPLE_PDF), str(bad)])
     assert result.exit_code != 0
     assert "JSON object" in result.output
+
+
+def _bad_pdfs(tmp_path: Path) -> dict[str, Path]:
+    sample = SAMPLE_PDF.read_bytes()
+    files = {
+        "text": b"hello, not a pdf",
+        "empty": b"",
+        "truncated": sample[: len(sample) // 2],
+        "header_only": b"%PDF-1.7\n",
+    }
+    paths = {}
+    for name, content in files.items():
+        path = tmp_path / f"{name}.pdf"
+        path.write_bytes(content)
+        paths[name] = path
+    return paths
+
+
+def _assert_clean_error(result, *fragments: str) -> None:
+    assert result.exit_code == 1, result.output
+    assert isinstance(result.exception, SystemExit), result.exception  # not an uncaught error
+    assert "Traceback" not in result.output
+    assert result.output.startswith("Error: ")
+    for fragment in fragments:
+        assert fragment in result.output
+
+
+@pytest.mark.parametrize("kind", ["text", "empty", "truncated", "header_only"])
+@pytest.mark.parametrize("command", ["inspect", "preview", "fill"])
+def test_cli_reports_unreadable_pdf_without_traceback(tmp_path: Path, kind: str, command: str):
+    pdf = _bad_pdfs(tmp_path)[kind]
+    args = [command, str(pdf)]
+    if command != "inspect":
+        args += ["--data", "{}"]
+    if command == "fill":
+        args += ["-o", str(tmp_path / "out.pdf")]
+    _assert_clean_error(CliRunner().invoke(main, args), "Could not parse PDF")
+    assert not (tmp_path / "out.pdf").exists()
+
+
+@pytest.mark.parametrize("command", ["preview", "fill"])
+def test_cli_reports_overly_nested_data_without_traceback(tmp_path: Path, command: str):
+    nested = "{}"
+    for _ in range(40):
+        nested = '{"a": ' + nested + "}"
+    args = [command, str(SAMPLE_PDF), "--data", nested]
+    if command == "fill":
+        args += ["-o", str(tmp_path / "out.pdf")]
+    _assert_clean_error(CliRunner().invoke(main, args), "nests deeper")
+
+
+def test_cli_reports_page_limit_without_traceback():
+    result = CliRunner().invoke(main, ["inspect", str(SAMPLE_PDF), "--max-pages", "0"])
+    _assert_clean_error(result, "page")
+
+
+def test_cli_reports_unwritable_output_without_traceback(tmp_path: Path):
+    blocker = tmp_path / "not_a_dir"
+    blocker.write_text("a file where a directory should be")
+    args = ["fill", str(SAMPLE_PDF), "--data", json.dumps(SAMPLE_DATA), "-o", str(blocker / "out.pdf")]
+    _assert_clean_error(CliRunner().invoke(main, args), "File error", "not_a_dir")
+
+
+@pytest.mark.parametrize("command", ["inspect", "preview", "fill"])
+def test_cli_rejects_unreadable_input_file_as_usage_error(tmp_path: Path, command: str):
+    pdf = tmp_path / "locked.pdf"
+    pdf.write_bytes(SAMPLE_PDF.read_bytes())
+    pdf.chmod(0)
+    try:
+        args = [command, str(pdf)]
+        if command != "inspect":
+            args += ["--data", "{}"]
+        if command == "fill":
+            args += ["-o", str(tmp_path / "out.pdf")]
+        result = CliRunner().invoke(main, args)
+    finally:
+        pdf.chmod(0o600)
+    assert result.exit_code == 2  # click validates readability before any work
+    assert isinstance(result.exception, SystemExit)
+    assert "is not readable" in result.output
