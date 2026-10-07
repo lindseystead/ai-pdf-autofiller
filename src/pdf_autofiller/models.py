@@ -144,7 +144,7 @@ class FillReport(BaseModel):
     ai_assisted_fields: list[str] = Field(
         default_factory=list,
         description=(
-            "Written fields whose mapping the optional AI step chose. The value is the "
+            "Written fields whose mapping AI field inference or the AI key fallback chose. The value is the "
             "caller's own, but which field received it was a model decision: review these."
         ),
     )

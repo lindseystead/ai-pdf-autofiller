@@ -76,8 +76,9 @@ def semantic_provider_status(api_key: str | None = None) -> str:
     """
     Report semantic-provider readiness for health checks.
 
-    Returns one of: ``available``, ``unconfigured``, ``sdk_missing``. This only
-    says whether a client can be built, not that inference will succeed.
+    Returns ``available``, ``unconfigured`` (no API key) or ``sdk_missing`` (a key
+    is set but no client could be built: the openai package is missing or client
+    setup failed). This only says whether a client exists, not that calls will succeed.
     """
     client = SemanticClient(api_key=api_key)
     if client.is_available():

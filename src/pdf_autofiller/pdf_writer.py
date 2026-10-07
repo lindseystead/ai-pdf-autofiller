@@ -1,8 +1,8 @@
 """
 PDF writer for mapped field values.
 
-This module applies validated mapping decisions to an output PDF and enforces
-required-field completion before writing.
+This module applies validated mapping decisions to an output PDF and refuses to
+write while required fields are unresolved, unless ``allow_partial`` is set.
 """
 
 import logging
@@ -42,12 +42,10 @@ _BUTTON_FALSY = {"false", "no", "off", "0", "unchecked", "n", ""}
 
 
 class UnresolvedRequiredFieldsError(PdfAutofillerError):
-    """
-    Exception raised when required fields can't be filled.
+    """Raised when required fields stay unresolved and ``allow_partial`` is false.
 
-    This happens when required fields are missing from user data or were
-    skipped due to requires_review=True. The system won't write incomplete
-    forms to avoid producing invalid documents.
+    A required field is unresolved when no user key matched it or its mapping
+    was flagged ``requires_review``.
     """
 
     def __init__(self, missing_fields: list[str], skipped_fields: list[str]):

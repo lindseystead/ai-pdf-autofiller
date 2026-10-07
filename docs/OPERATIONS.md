@@ -35,7 +35,7 @@ Environment variables are read at process start with `os.getenv` (`PDF_JOB_BACKE
 - `POST /fill` writes uploads to a temporary working directory and returns the generated PDF directly.
 - Temporary files are cleaned up after request completion or failure, including error and timeout paths.
 - Responses include baseline security headers: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer` (playground HTML continues to work normally).
-- Privacy: provider-backed features send field metadata and nearby page text to an external service, but **never the raw user-data values or a field's current value** — only key names and value type names are shared. Disable these features by leaving `MODEL_PROVIDER_API_KEY` unset and the semantic/fallback flags off.
+- Privacy: the AI features send field metadata and nearby page text to an external service, but **never the raw user-data values or a field's current value** — only key names and value type names are shared. Disable these features by leaving `MODEL_PROVIDER_API_KEY` unset and the semantic/fallback flags off.
 
 ## Rate limiting (single worker vs multi-worker)
 

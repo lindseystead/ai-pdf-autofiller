@@ -10,7 +10,7 @@ Redirects to `/playground` (temporary redirect).
 
 Serves the browser playground UI for trying fills without curl.
 
-The playground exposes checkboxes for `strict`, `allow_fallback_mapping` (AI fallback), `use_semantic_inference`, `flatten`, `allow_partial`, and `need_appearances`. Use curl (or the SDK) when you need full control over form flags and headers.
+The playground exposes checkboxes for `strict`, `allow_fallback_mapping` (AI key fallback), `use_semantic_inference` (AI field inference), `flatten`, `allow_partial`, and `need_appearances`. Use curl (or the SDK) when you need full control over form flags and headers.
 
 ### `GET /health`
 
@@ -112,7 +112,7 @@ Required form fields:
 
 Optional form fields (same semantics as `/fill`):
 
-- `strict` (default `true`) — disables AI fallback mapping only
+- `strict` (default `true`) — disables the AI key fallback only
 - `allow_fallback_mapping` (default `false`) — also requires `strict=false`
 - `use_semantic_inference` (default `false`) — a single batched semantic inference call when enabled
 
@@ -148,7 +148,7 @@ Example response:
 }
 ```
 
-`ai_assisted` is `true` when the optional AI step chose the mapping (its reason starts with
+`ai_assisted` is `true` when AI field inference or the AI key fallback chose the mapping (its reason starts with
 `AI: `). The value itself always comes from your `user_data`; the model only picks which key
 fills the field, and its own confidence is used when lower. Decisions below 0.80 confidence
 have `requires_review: true` and are not written.
@@ -175,8 +175,8 @@ Required form fields:
 
 Optional form fields:
 
-- `strict`: when `true`, **disables AI fallback mapping only** (default `true`). Required fields are still enforced on `/fill` regardless of this flag.
-- `allow_fallback_mapping`: when `true`, allows fallback mapping for unresolved high-value fields (default `false`; also requires `strict=false`)
+- `strict`: when `true`, **disables the AI key fallback only** (default `true`). Required fields are still enforced on `/fill` regardless of this flag.
+- `allow_fallback_mapping`: when `true`, runs the AI key fallback for unresolved required or confidently typed fields (default `false`; also requires `strict=false`)
 - `use_semantic_inference`: when `true`, enables a single batched semantic inference call before mapping (default `false`)
 - `flatten`: when `true`, burns field appearances into page content and removes widget annotations (default `false`)
 - `allow_partial`: when `true`, returns the PDF even if required fields are unresolved; they are listed in `missing_required_fields` / `X-PDF-Fields-Missing-Required` (default `false` → `422 required_fields_unresolved`)
@@ -212,7 +212,7 @@ fields that were dropped instead of silently losing them:
 - `X-PDF-Fields-Skipped-Empty`: comma-separated field names skipped because the mapped value was empty
 - `X-PDF-Fields-Skipped-Unwritable`: comma-separated entries `field (reason)` when a mapped value could not be written (`missing_widget`, `signature_field`, `unresolved_button_state`, `unresolved_choice_option`, `exceeds_max_length:N`, `font_encoding` on flatten, or `write_failed`)
 - `X-PDF-Fields-Display-Warnings`: comma-separated entries `field (font_encoding)` for written values the form's standard font cannot draw (for example CJK). The stored value is correct, but previews that use the pre-drawn appearance may show it garbled. With `flatten=true` these fields are refused instead
-- `X-PDF-Fields-AI-Assisted`: comma-separated written fields whose mapping the optional AI step chose. The value is always from your `user_data`, but which field received it was a model decision, so review these
+- `X-PDF-Fields-AI-Assisted`: comma-separated written fields whose mapping AI field inference or the AI key fallback chose. The value is always from your `user_data`, but which field received it was a model decision, so review these
 - `X-PDF-Fields-Missing-Required`: comma-separated required fields left empty (only non-empty on `allow_partial=true` fills)
 - `X-PDF-Fields-Unfilled`: **count** of form fields that received no value from `user_data` (the full list is `unfilled_fields` in the JSON report)
 

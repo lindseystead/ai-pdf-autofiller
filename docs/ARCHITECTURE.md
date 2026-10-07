@@ -19,7 +19,7 @@ api/ ───┘    (api/jobs.py runs each pipeline call in a killable worker p
 | `user_data.py` | Flattens nested JSON to dotted paths; type and depth checks |
 | `field_utils.py` | Leaf names of hierarchical fields, required flag, opaque-name and no-fields hints |
 | `aliases.py` | `AliasRegistry`: key normalization, built-in synonym clusters, JSON packs in `form_aliases/` |
-| `mapping.py` | Matches user keys to fields; validates (never rewrites) dates and numbers; optional AI fallback |
+| `mapping.py` | Matches user keys to fields; validates (never rewrites) dates and numbers; optional AI key fallback |
 | `field_semantics.py` | The only module that calls the AI provider |
 | `pdf_writer.py` | Writes values and enforces widget rules (button states, choice options, `/MaxLen`, fonts) |
 | `models.py` | Pydantic contracts between stages: `MappingResult`, `FieldMappingDecision`, `FillReport` |
@@ -49,7 +49,7 @@ flowchart TD
   L --> M[FillReport]
 ```
 
-1. **Read.** `read_pdf` extracts fields and page text. Page text is only used by the AI step.
+1. **Read.** `read_pdf` extracts fields and page text. Page text is only used by AI field inference.
 2. **Enrich.** Each field gets a meaning (`first_name`, `date_of_birth`, …) and an expected
    type, from its name and the alias registry. With `use_semantic_inference`, the AI supplies
    them instead in one batched call; any failure is logged and falls back to the name-based
@@ -67,13 +67,13 @@ flowchart TD
 
 ## How AI is used
 
-Both AI steps are off by default and need `MODEL_PROVIDER_API_KEY`. Each provider call times
+Both AI features are off by default and need `MODEL_PROVIDER_API_KEY`. Each provider call times
 out after 8 s without retrying, so both fit inside the API's 20 s job timeout.
 
 | Step | Turned on by | Sent to the provider | Returned and checked |
 |------|--------------|----------------------|----------------------|
-| Field meaning (`field_semantics.py`) | `use_semantic_inference` / `--ai` | Field names, types, required flags, whether each field already has a value (never the value), and the first 500 characters of the text on the field's page | A meaning, type and confidence per field; unknown field names and invalid entries are dropped |
-| Key choice (`mapping.py`) | `strict=false` + `allow_fallback_mapping` / `--no-strict` | For unresolved fields that are required or confidently typed: name, meaning, expected type and required flag; your **key names** and value **types** (never values) | For each field, one of your keys and a confidence in [0, 1]; anything else is dropped |
+| AI field inference (`field_semantics.py`) | `use_semantic_inference` / `--ai` | Field names, types, required flags, whether each field already has a value (never the value), and the first 500 characters of the text on the field's page | A meaning, type and confidence per field; unknown field names and invalid entries are dropped |
+| AI key fallback (`mapping.py`) | `strict=false` + `allow_fallback_mapping` / `--no-strict` | For unresolved fields that are required or confidently typed: name, meaning, expected type and required flag; your **key names** and value **types** (never values) | For each field, one of your keys and a confidence in [0, 1]; anything else is dropped |
 
 What the AI can and cannot do:
 
