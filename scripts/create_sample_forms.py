@@ -57,7 +57,28 @@ def _text(font: str, size: int, x: float, y: float, text: str) -> str:
     return f"BT /{font} {size} Tf {x} {y} Td {_pdf_string(text)} Tj ET"
 
 
-def _widget(name: str, rect: list[float], *, required: bool, checkbox: bool) -> DictionaryObject:
+def _checkbox_appearance(writer: PdfWriter, zapf_dingbats: object, *, checked: bool) -> object:
+    """Form XObject for one checkbox state: a ZapfDingbats check mark, or nothing."""
+    stream = DecodedStreamObject()
+    stream.set_data(b"q BT /ZaDb 11 Tf 0 g 2 3 Td (4) Tj ET Q" if checked else b"")
+    stream.update(
+        {
+            NameObject("/Type"): NameObject("/XObject"),
+            NameObject("/Subtype"): NameObject("/Form"),
+            NameObject("/BBox"): ArrayObject(
+                [NumberObject(0), NumberObject(0)] + [NumberObject(CHECKBOX_SIZE)] * 2
+            ),
+            NameObject("/Resources"): DictionaryObject(
+                {NameObject("/Font"): DictionaryObject({NameObject("/ZaDb"): zapf_dingbats})}
+            ),
+        }
+    )
+    return writer._add_object(stream)
+
+
+def _widget(
+    writer: PdfWriter, zapf_dingbats: object, name: str, rect: list[float], *, required: bool, checkbox: bool
+) -> DictionaryObject:
     widget = DictionaryObject(
         {
             NameObject("/Type"): NameObject("/Annot"),
@@ -69,7 +90,10 @@ def _widget(name: str, rect: list[float], *, required: bool, checkbox: bool) -> 
     )
     if checkbox:
         off_on = DictionaryObject(
-            {NameObject("/Yes"): DictionaryObject(), NameObject("/Off"): DictionaryObject()}
+            {
+                NameObject("/Yes"): _checkbox_appearance(writer, zapf_dingbats, checked=True),
+                NameObject("/Off"): _checkbox_appearance(writer, zapf_dingbats, checked=False),
+            }
         )
         widget[NameObject("/FT")] = NameObject("/Btn")
         widget[NameObject("/AP")] = DictionaryObject({NameObject("/N"): off_on})
@@ -161,7 +185,7 @@ def build_form(output_path: Path, title: str, fields: list[Field]) -> None:
         ops.append(f"{rect[0]} {rect[1]} {rect[2] - rect[0]} {rect[3] - rect[1]} re S")
 
         widget_ref = writer._add_object(
-            _widget(field.name, rect, required=field.required, checkbox=field.checkbox)
+            _widget(writer, zapf_dingbats, field.name, rect, required=field.required, checkbox=field.checkbox)
         )
         annotations.append(widget_ref)
         acro_form[NameObject("/Fields")].append(widget_ref)

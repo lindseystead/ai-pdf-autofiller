@@ -31,3 +31,13 @@ def test_sample_matches_generator_and_is_readable(filename: str):
         assert 0 <= left < right <= width and 0 <= bottom < top <= height
         tops.append(top)
     assert tops == sorted(tops, reverse=True)
+
+
+def test_sample_checkbox_draws_a_check_mark_when_checked():
+    reader = PdfReader(SAMPLES_DIR / "hr_intake_sample.pdf")
+    (checkbox,) = (a.get_object() for a in reader.pages[0]["/Annots"] if a.get_object().get("/FT") == "/Btn")
+    states = checkbox["/AP"]["/N"]
+    on = states["/Yes"].get_object().get_data()
+    off = states["/Off"].get_object().get_data()
+    assert b"ZaDb" in on and b"Tj" in on  # a ZapfDingbats check mark is drawn
+    assert b"Tj" not in off  # unchecked draws nothing
