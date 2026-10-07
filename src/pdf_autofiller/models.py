@@ -26,8 +26,6 @@ class TextRegion(BaseModel):
 
     text: str = Field(description="Extracted text content")
     page_number: int = Field(description="Page number where text appears (1-indexed)")
-    x: float | None = Field(default=None, description="X coordinate of text region")
-    y: float | None = Field(default=None, description="Y coordinate of text region")
 
 
 class DocumentMetadata(BaseModel):

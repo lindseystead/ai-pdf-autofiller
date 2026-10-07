@@ -232,7 +232,6 @@ def find_deterministic_match(
 def semantic_fallback_mapping(
     unmapped_fields: list[EnrichedFormField],
     user_data: dict[str, Any],
-    api_key: str | None = None,
 ) -> dict[str, tuple[str, str | None, float, str]]:
     """
     Use provider-backed fallback to map unmapped fields when deterministic matching fails.
@@ -242,7 +241,7 @@ def semantic_fallback_mapping(
     if not unmapped_fields:
         return {}
 
-    client = SemanticClient(api_key=api_key)
+    client = SemanticClient()
     if not client.is_available():
         logger.info("Provider fallback skipped: semantic client unavailable")
         return {}
@@ -328,7 +327,6 @@ def map_user_data_to_fields(
     *,
     strict: bool = False,
     allow_fallback_mapping: bool = False,
-    api_key: str | None = None,
     registry: AliasRegistry | None = None,
     use_semantic_inference: bool = False,
 ) -> MappingResult:
@@ -419,7 +417,7 @@ def map_user_data_to_fields(
         ]
 
         if high_value_fields:
-            fallback_mappings = semantic_fallback_mapping(high_value_fields, flat.values, api_key)
+            fallback_mappings = semantic_fallback_mapping(high_value_fields, flat.values)
 
             for enriched_field in high_value_fields[:]:
                 field_name = enriched_field.field.name
