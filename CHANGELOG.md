@@ -4,7 +4,22 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- `render-demo.yaml`: public-demo Render blueprint (auth off, 10 req/min per
+  client, 1 MiB / 10-page uploads, no AI key); `render.yaml` remains the
+  private, auth-on blueprint
+- `examples/quickstart.py` + `examples/README.md`, exercised by
+  `tests/test_examples.py`; `examples/` is linted in CI
+
 ### Changed
+
+- `publish-pypi.yml` now also runs when a GitHub Release is published
+  (manual dispatch kept for retries)
+- README: quickstart-first layout (`pip install pdf-autofiller`, CLI, Docker),
+  install methods collapsed to pip / Docker / source, comparison table, PyPI
+  badge and Deploy to Render button; removed static coverage badge and
+  hand-maintained test counts
 
 - GitHub Actions bumped to current major versions (off the deprecated Node.js 20
   runtime)
