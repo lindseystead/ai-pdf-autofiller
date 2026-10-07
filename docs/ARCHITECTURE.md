@@ -72,8 +72,8 @@ out after 8 s without retrying, so both fit inside the API's 20 s job timeout.
 
 | Step | Turned on by | Sent to the provider | Returned and checked |
 |------|--------------|----------------------|----------------------|
-| Field meaning (`field_semantics.py`) | `use_semantic_inference` / `--ai` | Field names, types, required flags, whether each field already has a value (never the value), and the first 500 characters of each field's page text | A meaning, type and confidence per field; unknown field names and invalid entries are dropped |
-| Key choice (`mapping.py`) | `strict=false` + `allow_fallback_mapping` / `--no-strict` | Unresolved field names and meanings, your **key names** and value **types** (never values) | For each field, one of your keys and a confidence in [0, 1]; anything else is dropped |
+| Field meaning (`field_semantics.py`) | `use_semantic_inference` / `--ai` | Field names, types, required flags, whether each field already has a value (never the value), and the first 500 characters of the text on the field's page | A meaning, type and confidence per field; unknown field names and invalid entries are dropped |
+| Key choice (`mapping.py`) | `strict=false` + `allow_fallback_mapping` / `--no-strict` | For unresolved fields that are required or confidently typed: name, meaning, expected type and required flag; your **key names** and value **types** (never values) | For each field, one of your keys and a confidence in [0, 1]; anything else is dropped |
 
 What the AI can and cannot do:
 

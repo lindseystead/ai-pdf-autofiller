@@ -51,7 +51,8 @@ and get the filled PDF back:
 
 ```bash
 docker run --rm -p 8000:8000 -e API_AUTH_ENABLED=false ghcr.io/lindseystead/ai-pdf-autofiller:latest
-# or without Docker, after pip install: API_AUTH_ENABLED=false pdf-autofiller-api
+# or without Docker, after pip install (listens on port 8000):
+# API_AUTH_ENABLED=false pdf-autofiller-api
 curl -F pdf_file=@sample_form.pdf -F 'user_data={"firstname":"Jane","lastname":"Doe","dob":"1990-01-01"}' \
   http://localhost:8000/fill -o filled.pdf
 ```
@@ -68,7 +69,7 @@ clients send it as `X-API-Key`. See [docs/OPERATIONS.md](docs/OPERATIONS.md).
 | `GET` | `/health`, `/version` | Health check and version |
 
 All routes and error codes: [docs/API.md](docs/API.md). A Python client is included:
-`PDFAutofillerClient("http://localhost:8000", api_key="…").fill_to_file(...)`.
+`PDFAutofillerClient("http://localhost:8000", api_key="YOUR_TOKEN").fill_to_file("form.pdf", data, "filled.pdf")`.
 
 The server includes a small test page at `/playground` for trying fills without writing code:
 
