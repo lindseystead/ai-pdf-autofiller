@@ -18,6 +18,9 @@ tmp_main="$(mktemp)"
 tmp_dev="$(mktemp)"
 trap 'rm -f "$tmp_main" "$tmp_dev"' EXIT
 
+# poetry builds environment markers from sets, so their order follows Python's
+# hash seed; pin it so the output (and CI's diff against it) is deterministic.
+export PYTHONHASHSEED=0
 poetry export -f requirements.txt --only main --without-hashes -o "$tmp_main"
 poetry export -f requirements.txt --with dev --without-hashes -o "$tmp_dev"
 
