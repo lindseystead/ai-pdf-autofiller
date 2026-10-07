@@ -74,10 +74,10 @@ def page_context_by_number(text_regions: list[TextRegion]) -> dict[int, str]:
 
 def semantic_provider_status(api_key: str | None = None) -> str:
     """
-    Honest provider readiness for health checks.
+    Report semantic-provider readiness for health checks.
 
-    Returns one of: ``available``, ``unconfigured``, ``sdk_missing``.
-    Does not claim inference "worked" — only whether a live client can be built.
+    Returns one of: ``available``, ``unconfigured``, ``sdk_missing``. This only
+    says whether a client can be built, not that inference will succeed.
     """
     client = SemanticClient(api_key=api_key)
     if client.is_available():
@@ -97,8 +97,8 @@ def enrich_fields(
     """Enrich extracted fields with semantic inference or deterministic fallback.
 
     When inference is requested, fields are sent in a **single** provider call.
-    Partial or total failure logs a warning and falls back to deterministic
-    name-based semantics per field — never silent.
+    On partial or total failure it logs a warning and falls back to deterministic
+    name-based semantics for the affected fields.
     """
     inferred: dict[str, FieldSemantics] = {}
     batch_failed = False
