@@ -14,6 +14,8 @@ import threading
 import traceback
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
+from multiprocessing.connection import Connection, wait
+from multiprocessing.process import BaseProcess
 from typing import Any, TypeVar
 
 logger = logging.getLogger(__name__)
@@ -44,13 +46,13 @@ def _process_target(
     func: Callable[..., T],
     args: tuple[Any, ...],
     kwargs: dict[str, Any],
-    queue: mp.Queue,
+    conn: Connection,
 ) -> None:
-    """Child-process entry: put (ok, result) or (err, payload) on the queue."""
+    """Child-process entry: send (ok, result) or (err, payload) to the parent."""
     try:
-        queue.put(("ok", func(*args, **kwargs)))
+        conn.send(("ok", func(*args, **kwargs)))
     except Exception as exc:
-        queue.put(
+        conn.send(
             (
                 "err",
                 {
@@ -112,6 +114,14 @@ def _raise_serialized_error(payload: dict[str, Any]) -> None:
     raise RuntimeError(f"{err_type}: {message}")
 
 
+def _kill(process: BaseProcess) -> None:
+    process.terminate()
+    process.join(1.0)
+    if process.is_alive():
+        process.kill()
+        process.join(1.0)
+
+
 def _run_in_process(
     func: Callable[..., T],
     args: tuple[Any, ...],
@@ -119,27 +129,29 @@ def _run_in_process(
     timeout_seconds: float,
 ) -> T:
     ctx = mp.get_context("spawn")
-    queue: mp.Queue = ctx.Queue(maxsize=1)
+    receiver, sender = ctx.Pipe(duplex=False)
     process = ctx.Process(
         target=_process_target,
-        args=(func, args, kwargs, queue),
+        args=(func, args, kwargs, sender),
         daemon=True,
     )
     process.start()
-    process.join(timeout_seconds)
-
-    if process.is_alive():
-        process.terminate()
-        process.join(1.0)
-        if process.is_alive():
-            process.kill()
+    sender.close()  # the child holds its own copy; EOF on receiver means it is gone
+    try:
+        # Read the result before joining: a large result blocks the child in
+        # send() until the parent receives it, so join-then-read deadlocks.
+        ready = wait([receiver, process.sentinel], timeout_seconds)
+        if not ready:
+            _kill(process)
+            raise TimeoutError(f"PDF job exceeded {timeout_seconds}s and was terminated")
+        try:
+            status, payload = receiver.recv()
+        except EOFError:
             process.join(1.0)
-        raise TimeoutError(f"PDF job exceeded {timeout_seconds}s and was terminated")
-
-    if queue.empty():
-        raise RuntimeError(f"PDF job exited without a result (exitcode={process.exitcode})")
-
-    status, payload = queue.get()
+            raise RuntimeError(f"PDF job exited without a result (exitcode={process.exitcode})") from None
+    finally:
+        receiver.close()
+    process.join(1.0)
     if status == "ok":
         return payload  # type: ignore[no-any-return]
     _raise_serialized_error(payload)
