@@ -13,7 +13,7 @@ from pathlib import Path
 from fastapi import HTTPException, Request
 
 from . import config
-from .errors import api_error
+from .errors import ERROR_CATALOG, api_error
 
 logger = logging.getLogger(__name__)
 
@@ -185,7 +185,7 @@ def require_api_key(request: Request) -> None:
         raise api_error(
             status_code=500,
             code="server_auth_config_error",
-            message="Server authentication configuration error",
+            message=ERROR_CATALOG["server_auth_config_error"][1],
         )
 
     incoming_token = request.headers.get(config.API_KEY_HEADER)
