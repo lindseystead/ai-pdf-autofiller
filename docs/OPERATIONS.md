@@ -104,7 +104,7 @@ Until Pages is enabled, `.github/workflows/pages.yml` **skips the deploy with a 
 
 ## PyPI publishing (manual)
 
-**Not part of the automatic Release path.** Supported installs are GitHub Release wheels (`make install-release`), editable/`pip install -e .`, and GHCR.
+**Not part of the automatic Release path.** Supported installs are `pip install git+https://github.com/lindseystead/ai-pdf-autofiller.git`, GitHub Release wheels (`make install-release`), editable `pip install -e .`, and the GHCR image.
 
 `.github/workflows/publish-pypi.yml` is **manual** (`workflow_dispatch` only) and uses Trusted Publishing (OIDC) with `environment: pypi` — no API token. To enable it, add a pending publisher on [PyPI](https://pypi.org/manage/account/publishing/) (Owner `lindseystead`, Repo `ai-pdf-autofiller`, Workflow `publish-pypi.yml`, Environment `pypi`), then `gh workflow run publish-pypi.yml --ref main`. Details: [RELEASE.md](RELEASE.md).
 

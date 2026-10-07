@@ -59,6 +59,8 @@ curl -s http://localhost:8000/version
 
 Returns the bundled sample AcroForm used by the playground one-click demo.
 This endpoint is **unauthenticated** (same as `/health`, `/version`, and `/playground`).
+The sample ships with the Docker image and source checkouts; a pip-installed server returns
+`404 sample_not_found`.
 
 ### `POST /inspect`
 
@@ -204,6 +206,7 @@ On PDF success the response body is `application/pdf`. OpenAPI documents both `a
 Successful responses also include fill-outcome headers so clients can detect
 fields that were dropped instead of silently losing them:
 
+- `X-Request-ID`: the request's own `X-Request-ID`, or a generated UUID (on every response)
 - `X-PDF-Fields-Written`: count of fields that received a value
 - `X-PDF-Fields-Skipped-Review`: comma-separated field names skipped because the mapping was flagged for review
 - `X-PDF-Fields-Skipped-Empty`: comma-separated field names skipped because the mapped value was empty

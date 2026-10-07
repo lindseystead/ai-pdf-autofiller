@@ -6,7 +6,7 @@ Auth note: production defaults require `X-API-Key`. For local try paths set `API
 
 ## n8n — importable workflow
 
-1. Start API: `API_AUTH_ENABLED=false make run-api` (or point at your host + API key)
+1. Start API: `API_AUTH_ENABLED=false make run-api` (or point at your host + API key). The first step downloads `/samples/sample_form.pdf`, which the Docker image and source checkouts serve but a pip-installed server does not
 2. In n8n: **Workflows → Import from File** → [`n8n-fill-workflow.json`](n8n-fill-workflow.json)
 3. Edit **Set Profile + Base URL** if your host is not `http://localhost:8000`
 4. For production, add Header Auth (`X-API-Key`) on the HTTP Request nodes
