@@ -18,6 +18,22 @@ from .models import FillReport, MappingResult
 
 logger = logging.getLogger(__name__)
 
+
+class _RedactFieldText(logging.Filter):
+    """Keep field values out of pypdf's "not supported by font encoding" warning.
+
+    pypdf passes the value as the ``text`` argument; the same condition is
+    reported to callers through ``FillReport.display_warnings`` instead.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if isinstance(record.args, dict) and "text" in record.args:
+            record.args = {**record.args, "text": "<redacted>"}
+        return True
+
+
+logging.getLogger("pypdf.generic._appearance_stream").addFilter(_RedactFieldText())
+
 # Values that toggle an AcroForm button field. Anything else is treated as an
 # explicit export state (e.g. a radio-group option) and matched against the
 # field's declared states.
@@ -125,7 +141,7 @@ def _resolve_button_value(field_obj, value: str) -> str | None:
     if normalized in _BUTTON_FALSY:
         return "/Off"
 
-    logger.debug("Could not resolve button value %r to a known state; skipping", value)
+    logger.debug("Button value did not match any known state; skipping")
     return None
 
 
