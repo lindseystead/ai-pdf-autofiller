@@ -17,12 +17,13 @@ endobj
 /Type /Catalog
 /Pages 2 0 R
 /AcroForm <<
-/Fields [ 6 0 R 7 0 R 8 0 R 9 0 R 10 0 R ]
+/Fields [ 8 0 R 9 0 R 10 0 R 11 0 R 12 0 R ]
 /NeedAppearances true
-/DA (\057Helv 0 Tf 0 g)
+/DA (\057Helv 11 Tf 0 g)
 /DR <<
 /Font <<
 /Helv 5 0 R
+/ZaDb 6 0 R
 >>
 >>
 >>
@@ -32,10 +33,15 @@ endobj
 <<
 /Type /Page
 /Resources <<
+/Font <<
+/F1 5 0 R
+/F2 7 0 R
+>>
 >>
 /MediaBox [ 0.0 0.0 612 792 ]
 /Parent 2 0 R
-/Annots [ 6 0 R 7 0 R 8 0 R 9 0 R 10 0 R ]
+/Contents 13 0 R
+/Annots [ 8 0 R 9 0 R 10 0 R 11 0 R 12 0 R ]
 >>
 endobj
 5 0 obj
@@ -48,78 +54,116 @@ endobj
 endobj
 6 0 obj
 <<
-/Type /Annot
-/Subtype /Widget
-/Rect [ 100 72 380 92 ]
-/FT /Tx
-/T (EmployeeFirstName\137AF\137text)
-/Ff 2
-/F 4
+/Type /Font
+/Subtype /Type1
+/BaseFont /ZapfDingbats
 >>
 endobj
 7 0 obj
 <<
-/Type /Annot
-/Subtype /Widget
-/Rect [ 100 122 380 142 ]
-/FT /Tx
-/T (EmployeeLastName\137AF\137text)
-/Ff 2
-/F 4
+/Type /Font
+/Subtype /Type1
+/BaseFont /Helvetica-Bold
+/Encoding /WinAnsiEncoding
 >>
 endobj
 8 0 obj
 <<
 /Type /Annot
 /Subtype /Widget
-/Rect [ 100 172 260 192 ]
-/FT /Tx
-/T (DateOfBirth\137AF\137date)
-/Ff 2
+/T (EmployeeFirstName\137AF\137text)
+/Rect [ 72 638 352 658 ]
 /F 4
+/FT /Tx
+/Ff 2
 >>
 endobj
 9 0 obj
 <<
 /Type /Annot
 /Subtype /Widget
-/Rect [ 100 222 380 242 ]
-/FT /Tx
-/T (EmailAddress\137AF\137text)
-/Ff 0
+/T (EmployeeLastName\137AF\137text)
+/Rect [ 72 588 352 608 ]
 /F 4
+/FT /Tx
+/Ff 2
 >>
 endobj
 10 0 obj
 <<
 /Type /Annot
 /Subtype /Widget
-/Rect [ 100 272 280 292 ]
-/FT /Tx
-/T (PrimaryPhone\137AF\137text)
-/Ff 0
+/T (DateOfBirth\137AF\137date)
+/Rect [ 72 538 232 558 ]
 /F 4
+/FT /Tx
+/Ff 2
 >>
 endobj
+11 0 obj
+<<
+/Type /Annot
+/Subtype /Widget
+/T (EmailAddress\137AF\137text)
+/Rect [ 72 488 352 508 ]
+/F 4
+/FT /Tx
+/Ff 0
+>>
+endobj
+12 0 obj
+<<
+/Type /Annot
+/Subtype /Widget
+/T (PrimaryPhone\137AF\137text)
+/Rect [ 72 438 252 458 ]
+/F 4
+/FT /Tx
+/Ff 0
+>>
+endobj
+13 0 obj
+<<
+/Length 493
+>>
+stream
+BT /F2 18 Tf 72 720 Td (Vendor Onboarding Form) Tj ET
+BT /F1 9 Tf 72 702 Td (Synthetic sample for testing PDF Autofiller. Not an official form.) Tj ET
+0.3 0.33 0.39 RG 0.75 w
+BT /F1 10 Tf 72 662 Td (First name *) Tj ET
+72 638 280 20 re S
+BT /F1 10 Tf 72 612 Td (Last name *) Tj ET
+72 588 280 20 re S
+BT /F1 10 Tf 72 562 Td (Date of birth *) Tj ET
+72 538 160 20 re S
+BT /F1 10 Tf 72 512 Td (Email address) Tj ET
+72 488 280 20 re S
+BT /F1 10 Tf 72 462 Td (Primary phone) Tj ET
+72 438 180 20 re S
+endstream
+endobj
 xref
-0 11
+0 14
 0000000000 65535 f 
 0000000015 00000 n 
 0000000054 00000 n 
 0000000113 00000 n 
-0000000301 00000 n 
-0000000438 00000 n 
-0000000535 00000 n 
-0000000666 00000 n 
-0000000798 00000 n 
-0000000925 00000 n 
-0000001053 00000 n 
+0000000316 00000 n 
+0000000504 00000 n 
+0000000601 00000 n 
+0000000674 00000 n 
+0000000776 00000 n 
+0000000908 00000 n 
+0000001039 00000 n 
+0000001166 00000 n 
+0000001294 00000 n 
+0000001422 00000 n 
 trailer
 <<
-/Size 11
+/Size 14
 /Root 3 0 R
 /Info 1 0 R
 >>
 startxref
-1182
+1967
 %%EOF

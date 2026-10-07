@@ -17,12 +17,13 @@ endobj
 /Type /Catalog
 /Pages 2 0 R
 /AcroForm <<
-/Fields [ 6 0 R 7 0 R 8 0 R 9 0 R 10 0 R 11 0 R 12 0 R ]
+/Fields [ 8 0 R 9 0 R 10 0 R 11 0 R 12 0 R 13 0 R 14 0 R ]
 /NeedAppearances true
-/DA (\057Helv 0 Tf 0 g)
+/DA (\057Helv 11 Tf 0 g)
 /DR <<
 /Font <<
 /Helv 5 0 R
+/ZaDb 6 0 R
 >>
 >>
 >>
@@ -32,10 +33,15 @@ endobj
 <<
 /Type /Page
 /Resources <<
+/Font <<
+/F1 5 0 R
+/F2 7 0 R
+>>
 >>
 /MediaBox [ 0.0 0.0 612 792 ]
 /Parent 2 0 R
-/Annots [ 6 0 R 7 0 R 8 0 R 9 0 R 10 0 R 11 0 R 12 0 R ]
+/Contents 15 0 R
+/Annots [ 8 0 R 9 0 R 10 0 R 11 0 R 12 0 R 13 0 R 14 0 R ]
 >>
 endobj
 5 0 obj
@@ -48,102 +54,144 @@ endobj
 endobj
 6 0 obj
 <<
-/Type /Annot
-/Subtype /Widget
-/Rect [ 100 72 420 92 ]
-/FT /Tx
-/T (txtStreet)
-/Ff 2
-/F 4
+/Type /Font
+/Subtype /Type1
+/BaseFont /ZapfDingbats
 >>
 endobj
 7 0 obj
 <<
-/Type /Annot
-/Subtype /Widget
-/Rect [ 100 122 420 142 ]
-/FT /Tx
-/T (txtAddress2)
-/Ff 0
-/F 4
+/Type /Font
+/Subtype /Type1
+/BaseFont /Helvetica-Bold
+/Encoding /WinAnsiEncoding
 >>
 endobj
 8 0 obj
 <<
 /Type /Annot
 /Subtype /Widget
-/Rect [ 100 172 300 192 ]
-/FT /Tx
-/T (txtTown)
-/Ff 2
+/T (txtStreet)
+/Rect [ 72 638 412 658 ]
 /F 4
+/FT /Tx
+/Ff 2
 >>
 endobj
 9 0 obj
 <<
 /Type /Annot
 /Subtype /Widget
-/Rect [ 100 222 180 242 ]
-/FT /Tx
-/T (txtProvince)
-/Ff 2
+/T (txtAddress2)
+/Rect [ 72 588 412 608 ]
 /F 4
+/FT /Tx
+/Ff 0
 >>
 endobj
 10 0 obj
 <<
 /Type /Annot
 /Subtype /Widget
-/Rect [ 100 272 220 292 ]
-/FT /Tx
-/T (txtPostcode)
-/Ff 2
+/T (txtTown)
+/Rect [ 72 538 292 558 ]
 /F 4
+/FT /Tx
+/Ff 2
 >>
 endobj
 11 0 obj
 <<
 /Type /Annot
 /Subtype /Widget
-/Rect [ 100 322 360 342 ]
-/FT /Tx
-/T (txtEmail)
-/Ff 2
+/T (txtProvince)
+/Rect [ 72 488 192 508 ]
 /F 4
+/FT /Tx
+/Ff 2
 >>
 endobj
 12 0 obj
 <<
 /Type /Annot
 /Subtype /Widget
-/Rect [ 100 372 280 392 ]
-/FT /Tx
-/T (txtMobile)
-/Ff 0
+/T (txtPostcode)
+/Rect [ 72 438 192 458 ]
 /F 4
+/FT /Tx
+/Ff 2
 >>
 endobj
+13 0 obj
+<<
+/Type /Annot
+/Subtype /Widget
+/T (txtEmail)
+/Rect [ 72 388 352 408 ]
+/F 4
+/FT /Tx
+/Ff 2
+>>
+endobj
+14 0 obj
+<<
+/Type /Annot
+/Subtype /Widget
+/T (txtMobile)
+/Rect [ 72 338 252 358 ]
+/F 4
+/FT /Tx
+/Ff 0
+>>
+endobj
+15 0 obj
+<<
+/Length 608
+>>
+stream
+BT /F2 18 Tf 72 720 Td (Contact Details) Tj ET
+BT /F1 9 Tf 72 702 Td (Synthetic sample for testing PDF Autofiller. Not an official form.) Tj ET
+0.3 0.33 0.39 RG 0.75 w
+BT /F1 10 Tf 72 662 Td (Street address *) Tj ET
+72 638 340 20 re S
+BT /F1 10 Tf 72 612 Td (Address line 2) Tj ET
+72 588 340 20 re S
+BT /F1 10 Tf 72 562 Td (Town / city *) Tj ET
+72 538 220 20 re S
+BT /F1 10 Tf 72 512 Td (Province / state *) Tj ET
+72 488 120 20 re S
+BT /F1 10 Tf 72 462 Td (Postcode *) Tj ET
+72 438 120 20 re S
+BT /F1 10 Tf 72 412 Td (Email *) Tj ET
+72 388 280 20 re S
+BT /F1 10 Tf 72 362 Td (Mobile) Tj ET
+72 338 180 20 re S
+endstream
+endobj
 xref
-0 13
+0 16
 0000000000 65535 f 
 0000000015 00000 n 
 0000000054 00000 n 
 0000000113 00000 n 
-0000000315 00000 n 
-0000000466 00000 n 
-0000000563 00000 n 
-0000000672 00000 n 
-0000000785 00000 n 
-0000000894 00000 n 
-0000001007 00000 n 
-0000001121 00000 n 
-0000001232 00000 n 
+0000000330 00000 n 
+0000000532 00000 n 
+0000000629 00000 n 
+0000000702 00000 n 
+0000000804 00000 n 
+0000000914 00000 n 
+0000001026 00000 n 
+0000001135 00000 n 
+0000001248 00000 n 
+0000001361 00000 n 
+0000001471 00000 n 
+0000001582 00000 n 
 trailer
 <<
-/Size 13
+/Size 16
 /Root 3 0 R
 /Info 1 0 R
 >>
 startxref
-1344
+2242
 %%EOF
