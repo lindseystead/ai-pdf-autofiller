@@ -64,7 +64,8 @@ packages = [
 python = "^3.11"
 # pypdf and python-multipart parse untrusted input; floors track patched
 # (CVE-fixed) releases and must stay current.
-pypdf = "^6.19.0"
+# The crypto extra installs `cryptography`, which pypdf needs to open AES-encrypted PDFs.
+pypdf = { version = "^6.19.0", extras = ["crypto"] }
 pydantic = "^2.0.0"
 openai = "^1.0.0"
 # FastAPI >= 0.136 supports starlette >= 1.0. starlette is pinned explicitly
