@@ -6,7 +6,7 @@ Public surface:
 - ``PDFAutofillerClient`` — optional HTTP client for a running API
 """
 
-__version__ = "0.6.3"
+__version__ = "0.7.0"
 
 from .client import PDFAutofillerClient, PDFAutofillError
 from .pipeline import fill, fill_detailed, inspect, preview, run_fill_pipeline

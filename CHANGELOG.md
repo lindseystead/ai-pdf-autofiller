@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.7.0]
+
 ### Added
 
 - CLI entry point `pdf-autofiller` (`inspect` / `preview` / `fill`) plus
@@ -42,9 +44,12 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-- **Dates are validated, not rewritten.** Valid dates are written exactly as
+- **Breaking:** dates are validated, not rewritten. Valid dates are written exactly as
   sent (previously normalized to `YYYY-MM-DD`, which mis-formatted US forms and
   silently guessed month vs. day order). Two-digit years are flagged for review
+- CI enforces `ruff format --check` (also part of `make lint`)
+- Dependabot opens weekly update PRs for Python packages, the Docker base
+  image and GitHub Actions
 
 ## [0.6.3]
 
