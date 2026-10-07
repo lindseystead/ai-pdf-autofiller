@@ -143,6 +143,14 @@ class FillReport(BaseModel):
         default_factory=list,
         description="Form fields that received no value (no matching key in user data)",
     )
+    display_warnings: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Written fields whose text the form's standard font cannot draw (e.g. CJK). "
+            "The stored value is correct; previews that use the pre-drawn appearance may "
+            "show it garbled. Format: 'field_name (reason)'."
+        ),
+    )
 
 
 class InspectResult(BaseModel):

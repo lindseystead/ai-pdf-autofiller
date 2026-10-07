@@ -19,6 +19,10 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- Text the standard PDF font cannot draw (e.g. CJK) is no longer reported
+  as a clean write: it is listed in the new `display_warnings` report field
+  (`X-PDF-Fields-Display-Warnings`), and refused under `flatten=True` so
+  garbled glyphs are not burned into the page
 - `flatten=True` no longer erases values that were already in the form
 - Dropdowns whose options are `[export, display]` pairs (most state and
   country lists) can be filled by either value; the export value is written

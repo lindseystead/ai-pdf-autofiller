@@ -155,6 +155,15 @@ def _max_length(field_obj) -> int | None:
     return None
 
 
+def _standard_font_can_draw(value: str) -> bool:
+    """Whether pypdf's appearance stream (standard 14 fonts, WinAnsi) can draw ``value``."""
+    try:
+        value.encode("cp1252")
+    except UnicodeEncodeError:
+        return False
+    return True
+
+
 def _choice_options(field_obj) -> list[tuple[str, str]]:
     """Return ``(export, display)`` pairs for a choice (``/Ch``) field.
 
@@ -279,6 +288,8 @@ def fill_pdf(
     skipped_unwritable_fields: list[str] = []
     field_values: dict[str, str] = {}
 
+    display_warnings: list[str] = []
+
     def _mark_unwritable(name: str, reason: str) -> None:
         skipped_unwritable_fields.append(f"{name} ({reason})")
         logger.warning("Unwritable mapped field %s: %s", name, reason)
@@ -330,6 +341,11 @@ def fill_pdf(
                     _mark_unwritable(field_name, "unresolved_choice_option")
                     continue
                 value = resolved_choice
+            if field_ft in ("/Tx", "/Ch") and not _standard_font_can_draw(value):
+                if flatten:  # would burn garbled glyphs into the page
+                    _mark_unwritable(field_name, "font_encoding")
+                    continue
+                display_warnings.append(f"{field_name} (font_encoding)")
             field_values[field_name] = value
             continue
 
@@ -447,4 +463,5 @@ def fill_pdf(
         skipped_unwritable_fields=skipped_unwritable_fields,
         missing_required_fields=sorted(set(missing_required) | set(skipped_required_fields)),
         unfilled_fields=unfilled_fields,
+        display_warnings=display_warnings,
     )
