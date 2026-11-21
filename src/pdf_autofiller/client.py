@@ -26,8 +26,8 @@ class _BorrowedClient:
         return None
 
 
-class PDFAutofillError(PdfAutofillerError):
-    """Raised when the API returns an error response."""
+class PDFAutofillerClientError(PdfAutofillerError):
+    """Raised when the API returns an error response or an unusable payload."""
 
     def __init__(self, status_code: int, code: str, message: str, details: dict[str, Any] | None = None):
         self.status_code = status_code
@@ -37,8 +37,12 @@ class PDFAutofillError(PdfAutofillerError):
         super().__init__(f"{code}: {message}")
 
 
+# Previous public name. Same class, so existing ``except PDFAutofillError`` handlers still work.
+PDFAutofillError = PDFAutofillerClientError
+
+
 class PDFAutofillerClient:
-    """Simple client for the PDF Autofiller fill endpoint."""
+    """HTTP client for a running PDF Autofiller API."""
 
     def __init__(
         self,
@@ -68,7 +72,9 @@ class PDFAutofillerClient:
             response.raise_for_status()
             payload = response.json()
             if not isinstance(payload, dict):
-                raise PDFAutofillError(500, "invalid_response", "Health endpoint returned non-object JSON")
+                raise PDFAutofillerClientError(
+                    500, "invalid_response", "Health endpoint returned non-object JSON"
+                )
             return payload
 
     def _pdf_upload(
@@ -99,7 +105,9 @@ class PDFAutofillerClient:
             self._raise_api_error(response)
         payload = response.json()
         if not isinstance(payload, dict):
-            raise PDFAutofillError(500, "invalid_response", "Inspect endpoint returned non-object JSON")
+            raise PDFAutofillerClientError(
+                500, "invalid_response", "Inspect endpoint returned non-object JSON"
+            )
         return payload
 
     def preview(
@@ -131,7 +139,9 @@ class PDFAutofillerClient:
             self._raise_api_error(response)
         payload = response.json()
         if not isinstance(payload, dict):
-            raise PDFAutofillError(500, "invalid_response", "Preview endpoint returned non-object JSON")
+            raise PDFAutofillerClientError(
+                500, "invalid_response", "Preview endpoint returned non-object JSON"
+            )
         return payload
 
     def fill(
@@ -183,7 +193,9 @@ class PDFAutofillerClient:
         if accept.startswith("application/json"):
             payload = response.json()
             if not isinstance(payload, dict):
-                raise PDFAutofillError(500, "invalid_response", "Fill JSON response was not an object")
+                raise PDFAutofillerClientError(
+                    500, "invalid_response", "Fill JSON response was not an object"
+                )
             return payload, response_headers
         return response.content, response_headers
 
@@ -203,7 +215,7 @@ class PDFAutofillerClient:
         kwargs.setdefault("accept", "application/pdf")
         filled, headers = self.fill(pdf, user_data, **kwargs)
         if not isinstance(filled, (bytes, bytearray)):
-            raise PDFAutofillError(
+            raise PDFAutofillerClientError(
                 500,
                 "invalid_response",
                 "fill_to_file requires Accept: application/pdf",
@@ -217,7 +229,7 @@ class PDFAutofillerClient:
         try:
             payload = response.json()
         except json.JSONDecodeError as exc:
-            raise PDFAutofillError(
+            raise PDFAutofillerClientError(
                 response.status_code,
                 "invalid_response",
                 response.text or "Request failed",
@@ -226,14 +238,14 @@ class PDFAutofillerClient:
         detail = payload.get("detail", payload)
         if isinstance(detail, dict) and "error" in detail:
             error = detail["error"]
-            raise PDFAutofillError(
+            raise PDFAutofillerClientError(
                 response.status_code,
                 str(error.get("code", "api_error")),
                 str(error.get("message", "Request failed")),
                 error.get("details") if isinstance(error.get("details"), dict) else None,
             )
 
-        raise PDFAutofillError(
+        raise PDFAutofillerClientError(
             response.status_code,
             "api_error",
             str(detail),

@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+import pdf_autofiller
 from pdf_autofiller import fill, fill_detailed, inspect, preview
 from pdf_autofiller.aliases import AliasRegistry, set_default_registry
 
@@ -145,7 +146,7 @@ def test_dict_subclasses_and_non_string_keys_are_accepted():
 
 @pytest.mark.parametrize("entry", ["fill", "preview"])
 def test_ai_fallback_with_strict_mode_is_rejected_not_ignored(tmp_path: Path, entry):
-    with pytest.raises(ValueError, match="strict=False"):
+    with pytest.raises(pdf_autofiller.ConflictingOptionsError, match="strict=False"):
         if entry == "fill":
             fill(SAMPLE, {"firstname": "Jane"}, tmp_path / "out.pdf", allow_fallback_mapping=True)
         else:

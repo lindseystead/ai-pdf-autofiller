@@ -117,7 +117,7 @@ def test_enrich_fields_logs_inference_failure(monkeypatch, caplog):
 
     assert len(enriched) == 1
     assert enriched[0].semantics.semantic_meaning == "first_name"
-    assert "Batch semantic inference failed" in caplog.text
+    assert "AI field inference failed" in caplog.text
 
 
 def test_fill_endpoint_rejects_invalid_json():

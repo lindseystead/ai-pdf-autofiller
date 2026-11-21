@@ -51,11 +51,11 @@ pdf-autofiller preview form.pdf profile.json
 pdf-autofiller fill form.pdf profile.json -o filled.pdf
 ```
 
-Local `fill()` / the CLI and the server `POST /fill` path share `run_fill_pipeline` (same mapping and writer behavior). `PDFAutofillerClient` is an HTTP client that calls the remote `/fill` endpoint.
+Local `fill()` / the CLI and the server `POST /fill` path share `pipeline.run_fill_pipeline` (same mapping and writer behavior). `PDFAutofillerClient` is an HTTP client that calls the remote `/fill` endpoint. HTTP failures raise `PDFAutofillerClientError` (`PDFAutofillError` is the same class).
 
 ## Preview before fill
 
-`POST /preview` runs read → enrich → map and returns JSON decisions **without** writing a PDF. Use it in the playground (**Preview Mapping**) or from curl to debug misses before `/fill`.
+`POST /preview` runs read → enrich → map and returns JSON decisions **without** writing a PDF. Use it in the playground (**Preview mapping**) or from curl to debug misses before `/fill`.
 
 ## Signatures and choice fields
 

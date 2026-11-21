@@ -13,11 +13,13 @@ from pdf_autofiller import PdfAutofillerError, fill, preview
 @pytest.mark.parametrize(
     "name",
     [
+        "ConflictingOptionsError",
         "InvalidPdfError",
         "PdfPageLimitError",
         "UnresolvedRequiredFieldsError",
         "UserDataTooDeepError",
         "PDFAutofillError",
+        "PDFAutofillerClientError",
     ],
 )
 def test_public_errors_are_exported_and_share_the_base(name):
@@ -30,6 +32,8 @@ def test_value_errors_stay_value_errors():
     # Callers that already catch ValueError must keep working.
     assert issubclass(pdf_autofiller.InvalidPdfError, ValueError)
     assert issubclass(pdf_autofiller.UserDataTooDeepError, ValueError)
+    assert issubclass(pdf_autofiller.ConflictingOptionsError, ValueError)
+    assert pdf_autofiller.PDFAutofillError is pdf_autofiller.PDFAutofillerClientError
 
 
 def test_one_except_clause_catches_each_failure_mode(tmp_path: Path):

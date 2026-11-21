@@ -4,6 +4,26 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Security
+
+- `pdf-autofiller-api` listens on `127.0.0.1` by default. The README's
+  auth-off command was the one local path that still bound every interface.
+  Set `API_HOST=0.0.0.0` to expose that process. Docker is unchanged: the
+  image listens on `0.0.0.0` inside the container, and publish the port on
+  localhost when auth is off
+
+### Changed
+
+- Asking for the AI key fallback while `strict=True` raises
+  `ConflictingOptionsError`. It is a `PdfAutofillerError` and still a
+  `ValueError`, so existing `except ValueError` handlers keep working
+- HTTP client failures are `PDFAutofillerClientError`. `PDFAutofillError`
+  is the same class
+- User-facing text uses "AI field inference" for the optional provider step.
+  The request field stays `use_semantic_inference`
+- `run_fill_pipeline` is no longer re-exported from the package root. Import
+  it from `pdf_autofiller.pipeline`
+
 ## [0.8.0] - 2026-10-07
 
 ### Security

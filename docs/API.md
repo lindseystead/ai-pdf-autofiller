@@ -39,7 +39,7 @@ Example response:
 }
 ```
 
-`status` is `degraded` when auth is enabled but `API_AUTH_TOKEN` is unset (`checks.auth` = `misconfigured`). Alias packs are reported via `checks.alias_source` (`packaged`, or `custom` when `FORM_ALIASES_DIR` is in use) and `checks.alias_pack_count`; the directory path itself is not exposed. `semantic_provider` is one of `available` | `unconfigured` | `sdk_missing` — it does not claim inference succeeded on a request. `rate_limit` is `in_process`, `shared_file`, or `disabled` depending on `RATE_LIMIT_PER_MINUTE` / `RATE_LIMIT_BACKEND`.
+`status` is `degraded` when auth is enabled but `API_AUTH_TOKEN` is unset (`checks.auth` = `misconfigured`). Alias packs are reported via `checks.alias_source` (`packaged`, or `custom` when `FORM_ALIASES_DIR` is in use) and `checks.alias_pack_count`; the directory path itself is not exposed. `semantic_provider` reports whether AI field inference can run: `available`, `unconfigured`, or `sdk_missing`. It does not claim a request's inference succeeded. The check keeps this name so existing health monitors do not break. `rate_limit` is `in_process`, `shared_file`, or `disabled` depending on `RATE_LIMIT_PER_MINUTE` / `RATE_LIMIT_BACKEND`.
 
 ### `GET /version`
 
@@ -68,7 +68,7 @@ Accepts a PDF upload and returns AcroForm field metadata so clients can draft JS
 Each field includes `name_quality` (`readable` or `opaque`). The response always
 includes `opaque_field_count`, `opaque_fields`, and `mapping_hints`; they are
 non-empty when names look machine-generated (hints suggest exact widget keys,
-alias packs, or semantic inference).
+alias packs, or AI field inference).
 
 Example:
 
@@ -114,7 +114,7 @@ Optional form fields (same semantics as `/fill`):
 
 - `strict` (default `true`) — disables the AI key fallback only
 - `allow_fallback_mapping` (default `false`) — also requires `strict=false`
-- `use_semantic_inference` (default `false`) — a single batched semantic inference call when enabled
+- `use_semantic_inference` (default `false`) — AI field inference: one batched provider call when enabled
 
 Example:
 
@@ -177,7 +177,7 @@ Optional form fields:
 
 - `strict`: when `true`, **disables the AI key fallback only** (default `true`). Required fields are still enforced on `/fill` regardless of this flag.
 - `allow_fallback_mapping`: when `true`, runs the AI key fallback for unresolved required or confidently typed fields (default `false`; also requires `strict=false`)
-- `use_semantic_inference`: when `true`, enables a single batched semantic inference call before mapping (default `false`)
+- `use_semantic_inference`: when `true`, runs AI field inference (one batched provider call) before mapping (default `false`)
 - `flatten`: when `true`, burns field appearances into page content and removes widget annotations (default `false`)
 - `allow_partial`: when `true`, returns the PDF even if required fields are unresolved; they are listed in `missing_required_fields` / `X-PDF-Fields-Missing-Required` (default `false` → `422 required_fields_unresolved`)
 - `need_appearances`: when `true` (default), sets AcroForm `/NeedAppearances` so PDF viewers regenerate visible glyphs from written `/V` values. pypdf's `auto_regenerate` flag only toggles this bit — it does not embed new appearance streams. Use `flatten=true` when you need burned-in visuals without relying on the viewer.
