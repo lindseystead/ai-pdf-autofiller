@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from .aliases import AliasRegistry
+from .errors import ConflictingOptionsError
 from .field_semantics import SemanticClient
 from .field_utils import field_leaf_name, is_opaque_field_name, opaque_mapping_hints
 from .mapping import (
@@ -51,7 +52,7 @@ def fallback_semantics(
     semantic = canonicalize_semantic(normalized, registry=registry) if normalized else "unknown_field"
     expected_type = expected_type_for_semantic(semantic, field_type=field.field_type)
     # Opaque widget names rarely match JSON keys via normalize alone — keep
-    # confidence low so callers prefer exact keys, aliases, or semantic inference.
+    # confidence low so callers prefer exact keys, aliases, or AI field inference.
     confidence = 0.35 if is_opaque_field_name(field.name) else 0.5
 
     return EnrichedFormField(
@@ -65,7 +66,7 @@ def fallback_semantics(
 
 
 def page_context_by_number(text_regions: list[TextRegion]) -> dict[int, str]:
-    """Group extracted page text for optional semantic inference."""
+    """Group extracted page text for optional AI field inference."""
     grouped_regions: dict[int, list[str]] = {}
     for region in text_regions:
         grouped_regions.setdefault(region.page_number, []).append(region.text)
@@ -95,11 +96,11 @@ def enrich_fields(
     page_context: dict[int, str] | None = None,
     registry: AliasRegistry | None = None,
 ) -> list[EnrichedFormField]:
-    """Enrich extracted fields with semantic inference or deterministic fallback.
+    """Enrich extracted fields with AI field inference or deterministic fallback.
 
-    When inference is requested, fields are sent in a **single** provider call.
-    On partial or total failure it logs a warning and falls back to deterministic
-    name-based semantics for the affected fields.
+    When inference is requested (``use_semantic_inference``), fields are sent in a
+    **single** provider call. On partial or total failure it logs a warning and
+    falls back to deterministic name-based semantics for the affected fields.
     """
     inferred: dict[str, FieldSemantics] = {}
     batch_failed = False
@@ -110,7 +111,7 @@ def enrich_fields(
         except (RuntimeError, ValueError) as exc:
             batch_failed = True
             logger.warning(
-                "Batch semantic inference failed for %d fields; using deterministic fallback: %s",
+                "AI field inference failed for %d fields; using deterministic fallback: %s",
                 len(fields),
                 exc,
             )
@@ -149,7 +150,7 @@ def inspect(pdf: str | Path, *, max_pages: int | None = None) -> InspectResult:
 def require_consistent_options(*, strict: bool, allow_fallback_mapping: bool) -> None:
     """Strict mode disables the AI key fallback, so asking for both is a caller error."""
     if strict and allow_fallback_mapping:
-        raise ValueError(
+        raise ConflictingOptionsError(
             "allow_fallback_mapping=True needs strict=False (strict mode disables the AI key fallback)"
         )
 

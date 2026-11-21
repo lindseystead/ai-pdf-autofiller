@@ -46,4 +46,4 @@ def test_opaque_mapping_hints_for_unmatched():
     )
     assert hints
     assert any("opaque" in hint.lower() for hint in hints)
-    assert any("semantic inference" in hint.lower() for hint in hints)
+    assert any("ai field inference" in hint.lower() for hint in hints)

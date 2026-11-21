@@ -115,12 +115,12 @@ def opaque_mapping_hints(
     hints.append(
         f"{len(opaque)} field name(s) look opaque (e.g. {sample}). "
         "Key user_data by the exact /inspect widget names, add a FORM_ALIASES_DIR pack, "
-        "or enable use_semantic_inference when a provider key is configured."
+        "or enable AI field inference (use_semantic_inference) when a provider key is configured."
     )
     unmatched = [name for name in (unmatched_opaque or []) if is_opaque_field_name(name)]
     if unmatched and not use_semantic_inference:
         hints.append(
-            "Opaque fields were left unmapped with semantic inference off — "
+            "Opaque fields were left unmapped with AI field inference off — "
             "re-run /preview with use_semantic_inference=true or supply exact widget keys."
         )
     return hints

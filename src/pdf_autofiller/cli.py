@@ -12,11 +12,9 @@ from typing import Any
 import click
 
 from pdf_autofiller import __version__
+from pdf_autofiller.errors import PdfAutofillerError
 from pdf_autofiller.field_semantics import SemanticClient
-from pdf_autofiller.pdf_reader import InvalidPdfError, PdfPageLimitError
-from pdf_autofiller.pdf_writer import UnresolvedRequiredFieldsError
 from pdf_autofiller.pipeline import fill, inspect, preview
-from pdf_autofiller.user_data import UserDataTooDeepError
 
 
 @contextmanager
@@ -24,7 +22,7 @@ def _user_errors() -> Iterator[None]:
     """Turn expected input/output failures into a one-line error, not a traceback."""
     try:
         yield
-    except (InvalidPdfError, PdfPageLimitError, UserDataTooDeepError, UnresolvedRequiredFieldsError) as exc:
+    except PdfAutofillerError as exc:
         raise click.ClickException(str(exc)) from exc
     except OSError as exc:
         raise click.ClickException(f"File error: {exc}") from exc

@@ -2,7 +2,7 @@
 PDF extraction utilities.
 
 This module is intentionally extraction-only: it reads metadata, fields, and text,
-and does not perform any semantic inference.
+and does not call the AI provider.
 
 Because it parses untrusted documents, it enforces two denial-of-service guards:
 an optional page-count limit (rejected before any extraction) and a cap on the

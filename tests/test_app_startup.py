@@ -9,6 +9,7 @@ from __future__ import annotations
 import importlib
 import logging
 
+import pytest
 from fastapi.testclient import TestClient
 
 from pdf_autofiller.api import config
@@ -34,6 +35,34 @@ def test_creating_the_app_without_starting_it_leaves_logging_alone(monkeypatch):
     calls = _count_configure_calls(monkeypatch)
     app_module.create_app()
     assert calls == []
+
+
+def test_console_script_binds_loopback_unless_api_host_is_set(monkeypatch):
+    captured: dict[str, object] = {}
+
+    def fake_run(app_path: str, **kwargs: object) -> None:
+        captured["app"] = app_path
+        captured.update(kwargs)
+
+    monkeypatch.delenv("API_HOST", raising=False)
+    monkeypatch.delenv("API_PORT", raising=False)
+    monkeypatch.setattr("uvicorn.run", fake_run)
+    app_module.run()
+    assert captured["app"] == "pdf_autofiller.api_service:app"
+    assert captured["host"] == "127.0.0.1"
+    assert captured["port"] == 8000
+
+    monkeypatch.setenv("API_HOST", "0.0.0.0")
+    monkeypatch.setenv("API_PORT", "9000")
+    app_module.run()
+    assert captured["host"] == "0.0.0.0"
+    assert captured["port"] == 9000
+
+
+def test_console_script_rejects_a_bad_port(monkeypatch):
+    monkeypatch.setenv("API_PORT", "nope")
+    with pytest.raises(SystemExit, match="API_PORT"):
+        app_module.run()
 
 
 def test_startup_warns_when_auth_is_on_without_a_token(monkeypatch, caplog):

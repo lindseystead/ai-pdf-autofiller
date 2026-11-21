@@ -23,10 +23,10 @@ api/ ───┘    (api/jobs.py runs each pipeline call in a killable worker p
 | `field_semantics.py` | The only module that calls the AI provider |
 | `pdf_writer.py` | Writes values and enforces widget rules (button states, choice options, `/MaxLen`, fonts) |
 | `models.py` | Pydantic contracts between stages: `MappingResult`, `FieldMappingDecision`, `FillReport` |
-| `cli.py`, `__main__.py` | `pdf-autofiller inspect`, `preview` and `fill` (also `python -m pdf_autofiller`) |
+| `cli.py`, `__main__.py` | `pdf-autofiller inspect`, `preview` and `fill` (also `python -m pdf_autofiller`). Expected failures surface as `PdfAutofillerError`, which the CLI prints as one line |
 | `client.py` | HTTP client for a remote server |
 | `api/` | FastAPI app: routes, upload guard middleware, auth and rate limits, error catalog, job runner |
-| `api_service.py` | ASGI / console-script entrypoint (`pdf_autofiller.api_service:app`) |
+| `api_service.py` | ASGI entrypoint (`pdf_autofiller.api_service:app`). `pdf-autofiller-api` calls `run()`, which binds `127.0.0.1` unless `API_HOST` is set |
 | `playground.py`, `static/` | The browser test page served at `/playground` |
 
 ## Fill flow
