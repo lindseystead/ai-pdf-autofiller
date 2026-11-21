@@ -51,7 +51,7 @@ pdf-autofiller preview form.pdf profile.json
 pdf-autofiller fill form.pdf profile.json -o filled.pdf
 ```
 
-Local `fill()` / the CLI and the server `POST /fill` path share `pipeline.run_fill_pipeline` (same mapping and writer behavior). `PDFAutofillerClient` is an HTTP client that calls the remote `/fill` endpoint. HTTP failures raise `PDFAutofillerClientError` (`PDFAutofillError` is the same class).
+Local `fill()` / the CLI and the server `POST /fill` path share `pipeline.run_fill_pipeline` (same mapping and writer behavior). `PDFAutofillerClient` is an HTTP client that calls the remote `/fill` endpoint. A non-200 response from `inspect()`, `preview()`, or `fill()` raises `PDFAutofillerClientError` (`PDFAutofillError` is the same class). `health()` reports the HTTP status directly, so a failed health check raises `httpx.HTTPStatusError`. A connection failure on any method raises an httpx transport error.
 
 ## Preview before fill
 
