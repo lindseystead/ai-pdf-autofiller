@@ -11,6 +11,9 @@ All notable changes to this project will be documented in this file.
   Set `API_HOST=0.0.0.0` to expose that process. Docker is unchanged: the
   image listens on `0.0.0.0` inside the container, and publish the port on
   localhost when auth is off
+- Runtime pins move to `pypdf` 6.21.4 and `certifi` 2026.11.20 (`certifi`
+  floor `2026.10.18`). Those are the patched releases for the advisories
+  `pip-audit` reports against `pypdf` 6.19.0 and `certifi` 2026.1.4
 
 ### Changed
 
