@@ -12,7 +12,7 @@ Give it a fillable PDF form and your data as JSON; it fills the form and tells y
 it filled and what it left blank. Runs locally with no AI and no network calls by default.
 
 [![CI](https://github.com/lindseystead/ai-pdf-autofiller/actions/workflows/test.yml/badge.svg)](https://github.com/lindseystead/ai-pdf-autofiller/actions/workflows/test.yml)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11%E2%80%933.14-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%E2%80%933.15-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 </div>
@@ -170,7 +170,7 @@ pip install -r requirements-dev.txt && pip install -e .
 make test lint
 ```
 
-CI runs the tests on Python 3.11 to 3.14 with an 85% coverage floor. See
+CI runs the tests on Python 3.11 to 3.15 with an 85% coverage floor. See
 [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/TESTING.md](docs/TESTING.md).
 
 ## License
