@@ -28,7 +28,7 @@ Use [GitHub Private Vulnerability Reporting](https://github.com/lindseystead/ai-
   (which parse untrusted input) are pinned to patched minimum versions.
 - Static analysis checks run in CI (`ruff`, `mypy`).
 
-## Request-Path Controls (`POST /fill`, `/preview`, `/inspect`)
+## Request-Path Controls (`POST /fill`, `/batch`, `/preview`, `/inspect`)
 
 - **Authentication is enabled by default and fails closed.** Disable only for
   trusted/local use via `API_AUTH_ENABLED=false`.

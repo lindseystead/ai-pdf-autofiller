@@ -3,7 +3,7 @@
 | File | What it shows |
 |------|---------------|
 | [quickstart.py](quickstart.py) | Fill `samples/sample_form.pdf` from a Python dict with the local library (no server) |
-| [batch_fill.py](batch_fill.py) | Fill that form once per person in [contractors.json](contractors.json) |
+| [batch_fill.py](batch_fill.py) | Fill that form once per person in [contractors.json](contractors.json). [contractors.csv](contractors.csv) is the same list for `pdf-autofiller batch form.pdf contractors.csv` |
 
 Run from the repository root after `pip install -e .`:
 

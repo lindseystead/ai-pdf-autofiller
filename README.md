@@ -90,13 +90,15 @@ The same thing from the command line:
 pdf-autofiller fill sample_form.pdf --data '{"firstname":"Jane","lastname":"Doe","dob":"1990-01-01"}' -o filled.pdf
 ```
 
-To fill that form for a whole list (a contractor file, a hiring spreadsheet exported as JSON), pass an array. One incomplete row is reported and the rest are still written:
+To fill that form for a whole list, start from the form itself, then pass JSON or a spreadsheet exported as CSV. One incomplete row is reported and the rest are still written:
 
 ```bash
+pdf-autofiller inspect sample_form.pdf --template
 pdf-autofiller batch sample_form.pdf examples/contractors.json -o out/contractors --filename-key lastname
+pdf-autofiller batch sample_form.pdf people.csv --dry-run
 ```
 
-Each PDF lands in `out/contractors/` (`Doe.pdf`, `Lee.pdf`). The command prints a JSON report and exits non-zero if any row failed. The same call from Python is `fill_batch`.
+Each PDF lands in `out/contractors/` (`Doe.pdf`, `Lee.pdf`), next to `fill-report.json`. The command prints the same report and exits non-zero if any row failed. `--dry-run` checks every row and writes nothing. The same calls from Python are `fill_template`, `fill_batch`, and `preview_batch`.
 
 ## Self-hosted API
 
@@ -117,6 +119,7 @@ clients send it as `X-API-Key`. See [docs/OPERATIONS.md](docs/OPERATIONS.md).
 | Method | Path | Description |
 |--------|------|-------------|
 | `POST` | `/fill` | PDF + JSON in, filled PDF out |
+| `POST` | `/batch` | One PDF plus a JSON, JSONL, or CSV list; one filled PDF per row |
 | `POST` | `/preview` | Show how each field would be mapped, without writing |
 | `POST` | `/inspect` | List the form's fields |
 | `GET` | `/playground` | Test page for trying fills in the browser |

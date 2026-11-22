@@ -249,6 +249,37 @@ When no options are declared, the mapped value is written as-is.
 
 **Signature (`/Sig`) fields are not filled** — digital signature widgets are unsupported.
 
+### `POST /batch`
+
+Accepts one PDF and a list of records. The response is always JSON. A row that cannot be filled is counted in `failed` and the HTTP status stays 200. `dry_run=true` maps every row and omits `pdf_base64`.
+
+Required form fields:
+
+- `pdf_file`: the source PDF upload
+- `records`: a JSON array, JSONL text, or CSV text (including the header row)
+
+Optional form fields:
+
+- `records_format`: `json` (default), `jsonl`, or `csv`
+- `dry_run`: `true` writes nothing and returns no PDF bytes (default `false`)
+- `filename_key`: record field used as each PDF's filename
+- `on_error`: `continue` (default) or `stop`
+- `strict`, `allow_fallback_mapping`, `use_semantic_inference`, `flatten`, `need_appearances`, `allow_partial`: same meaning as `POST /fill`
+
+The records text is limited to 1 MiB. The record count defaults to 25 (`BATCH_MAX_RECORDS`, ceiling 500). CSV cells stay strings. The whole batch shares `PDF_READ_TIMEOUT_SECONDS`.
+
+```bash
+curl -s -X POST http://localhost:8000/batch \
+  -F "pdf_file=@samples/sample_form.pdf;type=application/pdf" \
+  -F "records_format=csv" \
+  -F "dry_run=true" \
+  -F $'records=firstname,lastname,dob\nJane,Doe,1990-01-01\n'
+```
+
+Response fields: `written`, `failed`, `dry_run`, and `items` (`index`, `filename`, `written_fields`, `missing_required_fields`, `unfilled_fields`, `error`, `pdf_base64`).
+
+Authentication and rate limits match `POST /fill`.
+
 ## Error Contract
 
 API errors return a JSON payload with a machine-readable code:
@@ -267,13 +298,15 @@ API errors return a JSON payload with a machine-readable code:
 }
 ```
 
-Canonical catalog (also exposed in OpenAPI on `/fill`, `/preview`, `/inspect`):
+Canonical catalog (also exposed in OpenAPI on `/fill`, `/batch`, `/preview`, `/inspect`):
 
 | Code | HTTP | When |
 |------|------|------|
 | `request_validation_error` | 422 | Missing/invalid multipart fields |
 | `invalid_user_data_json` | 422 | `user_data` is not valid JSON |
 | `invalid_user_data_type` | 422 | `user_data` is not a JSON object |
+| `invalid_records` | 422 | Batch records are not a usable JSON array, JSONL file, or CSV |
+| `too_many_records` | 422 | Batch has more records than `BATCH_MAX_RECORDS` |
 | `user_data_too_deep` | 422 | `user_data` nests deeper than `MAX_USER_DATA_DEPTH` (default 16) |
 | `conflicting_options` | 422 | `allow_fallback_mapping=true` sent with `strict=true` (strict mode disables the AI key fallback) |
 | `unsupported_media_type` | 415 | Upload is not a PDF content-type |
@@ -289,13 +322,14 @@ Canonical catalog (also exposed in OpenAPI on `/fill`, `/preview`, `/inspect`):
 | `pdf_fill_failed` | 500 | Unexpected fill failure |
 | `pdf_preview_failed` | 500 | Unexpected preview failure |
 | `pdf_inspect_failed` | 500 | Unexpected inspect failure |
+| `pdf_batch_failed` | 500 | Unexpected batch failure |
 | `sample_not_found` | 404 | Bundled sample PDF missing |
 
 Source of truth in code: `pdf_autofiller.api.errors.ERROR_CATALOG`.
 
 ## Authentication
 
-Authentication applies to `POST /fill`, `POST /preview`, and `POST /inspect`. It is **enabled by default**
+Authentication applies to `POST /fill`, `POST /batch`, `POST /preview`, and `POST /inspect`. It is **enabled by default**
 (`API_AUTH_ENABLED=true`) and can be disabled for trusted/local use by setting
 `API_AUTH_ENABLED=false`.
 

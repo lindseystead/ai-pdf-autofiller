@@ -13,7 +13,8 @@ api/ ───┘    (api/jobs.py runs each pipeline call in a killable worker p
 
 | Module | Responsibility |
 |--------|----------------|
-| `pipeline.py` | Orchestrates read → enrich → map → write; exports `fill`, `fill_batch`, `fill_detailed`, `preview`, `inspect` |
+| `pipeline.py` | Orchestrates read → enrich → map → write; exports `fill`, `fill_batch`, `fill_template`, `preview_batch`, `fill_detailed`, `preview`, `inspect` |
+| `records.py` | Parses a JSON array, JSONL, or CSV into records. CSV cells stay strings |
 | `pdf_reader.py` | Reads metadata, form fields and page text (`InvalidPdfError`, page limit, password detection) |
 | `acroform_fields.py` | Walks the AcroForm tree; shared by reader and writer |
 | `user_data.py` | Flattens nested JSON to dotted paths; type and depth checks |

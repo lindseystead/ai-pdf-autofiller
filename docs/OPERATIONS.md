@@ -7,16 +7,17 @@ Environment variables are read at process start with `os.getenv` (`PDF_JOB_BACKE
 - `MODEL_PROVIDER_API_KEY`: makes the optional OpenAI-compatible client available. Does **not** turn AI on by itself — callers must also pass `use_semantic_inference=true` and/or `strict=false` with `allow_fallback_mapping=true`
 - `API_HOST`: bind address for the `pdf-autofiller-api` console script only (**default `127.0.0.1`**). Set `0.0.0.0` when that process itself must accept remote connections. The Docker image does not use this variable; it listens on `0.0.0.0` inside the container, and `-p 127.0.0.1:8000:8000` is what keeps an auth-off container on this machine
 - `API_PORT`: port for the `pdf-autofiller-api` console script (default `8000`)
-- `API_AUTH_ENABLED`: enables API key enforcement on `POST /fill`, `/preview`, and `/inspect` (**default `true`**; set `false` only for trusted/local use)
+- `API_AUTH_ENABLED`: enables API key enforcement on `POST /fill`, `/batch`, `/preview`, and `/inspect` (**default `true`**; set `false` only for trusted/local use)
+- `BATCH_MAX_RECORDS`: records allowed in one batch, read on each batch (default `25`, hard ceiling `500`). The batch also rejects records text over 1 MiB and shares `PDF_READ_TIMEOUT_SECONDS`
 - `API_AUTH_TOKEN`: expected token value when auth is enabled
 - `API_KEY_HEADER`: header name used for the incoming token
 - `MAX_UPLOAD_BYTES`: maximum accepted PDF size in bytes (default 5 MiB)
 - `MAX_PDF_PAGES`: maximum accepted page count, rejected before extraction (default `200`)
-- `PDF_READ_TIMEOUT_SECONDS`: wall-clock budget for **full pipeline processing** on `/fill`, `/preview`, and `/inspect` — not only PDF parsing; covers enrich/map/write as well (default `20`)
+- `PDF_READ_TIMEOUT_SECONDS`: wall-clock budget for **full pipeline processing** on `/fill`, `/batch`, `/preview`, and `/inspect` — not only PDF parsing; covers enrich/map/write as well (default `20`)
 - `PDF_JOB_BACKEND`: `process` (default) runs PDF work in a child process and **terminates** it on timeout; `thread` uses a soft timeout (test suite default)
 - `PDF_MAX_CONCURRENT`: max in-flight PDF jobs per process (default `2`)
 - `MAX_PDF_TEXT_CHARS`: cap on total extracted text retained/forwarded (default `2000000`)
-- `RATE_LIMIT_PER_MINUTE`: per-client request budget for `POST /fill`, `/preview`, and `/inspect`, applied after auth (and also when auth is disabled); `0` disables (default `60`)
+- `RATE_LIMIT_PER_MINUTE`: per-client request budget for `POST /fill`, `/batch`, `/preview`, and `/inspect`, applied after auth (and also when auth is disabled); `0` disables (default `60`)
 - `RATE_LIMIT_BACKEND`: `memory` (default, per-process) or `file` (flock-backed JSON store shared by workers on the **same host**/volume)
 - `RATE_LIMIT_STORE_PATH`: path for the file backend (default `/tmp/pdf-autofiller-rate-limit.json`)
 - `TRUST_PROXY_HEADERS`: when `true`, rate limiting keys on `X-Forwarded-For` instead of the socket peer (default `false`)
@@ -30,9 +31,9 @@ Environment variables are read at process start with `os.getenv` (`PDF_JOB_BACKE
 
 - Authentication is **enabled by default** and fails closed: if `API_AUTH_ENABLED` is true but `API_AUTH_TOKEN` is unset, protected POSTs return `500 server_auth_config_error` rather than serving openly.
 - Unauthenticated: `GET /`, `/playground`, `/health`, `/version`, `/samples/sample_form.pdf`.
-- Protected: `POST /fill`, `/preview`, `/inspect`.
+- Protected: `POST /fill`, `/batch`, `/preview`, `/inspect`.
 - Protected POSTs are rate limited per client and reject PDFs over the page limit or that exceed the processing time budget. Timed-out jobs are killed when `PDF_JOB_BACKEND=process` (the default).
-- On `POST /fill`, `/preview` and `/inspect`, auth and rate limits are checked before the request body is read, and the body is cut off with `413` once it passes `MAX_UPLOAD_BYTES` plus 1 MiB for the form envelope and `user_data` (whether or not `Content-Length` is sent). The PDF part itself is then held to `MAX_UPLOAD_BYTES`.
+- On `POST /fill`, `/batch`, `/preview` and `/inspect`, auth and rate limits are checked before the request body is read, and the body is cut off with `413` once it passes `MAX_UPLOAD_BYTES` plus 1 MiB for the form envelope and `user_data` (whether or not `Content-Length` is sent). The PDF part itself is then held to `MAX_UPLOAD_BYTES`. `POST /batch` also rejects records text over 1 MiB.
 - `GET /health` reports dependency checks (`auth`, `semantic_provider`, `rate_limit`, alias packs) and returns `degraded` when auth is misconfigured.
 - `POST /fill` writes uploads to a temporary working directory and returns the generated PDF directly.
 - Temporary files are cleaned up after request completion or failure, including error and timeout paths.
