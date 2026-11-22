@@ -20,8 +20,9 @@ All notable changes to this project will be documented in this file.
 - `fill_batch` and `pdf-autofiller batch` fill one template for every object
   in a JSON array, JSONL file, or CSV. Each success is its own PDF. A failed
   row is reported and the rest continue unless `--stop-on-error` is set. The
-  command prints a JSON report, writes `fill-report.json` beside the PDFs,
-  and exits non-zero when any row failed. `examples/batch_fill.py` runs this
+  command writes `fill-report.json` beside the PDFs and, unless
+  `--stop-on-error` stops the run, prints that report and exits non-zero
+  when any row failed. `examples/batch_fill.py` runs this
   against `examples/contractors.json`
 - `fill_template` and `pdf-autofiller inspect --template` print a starter
   object for a form. `preview_batch` and `batch --dry-run` check every row
