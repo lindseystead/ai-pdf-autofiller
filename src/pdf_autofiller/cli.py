@@ -7,14 +7,15 @@ import sys
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import click
 
 from pdf_autofiller import __version__
 from pdf_autofiller.errors import PdfAutofillerError
 from pdf_autofiller.field_semantics import SemanticClient
-from pdf_autofiller.pipeline import fill, fill_batch, inspect, preview
+from pdf_autofiller.pipeline import fill, fill_batch, fill_template, inspect, preview, preview_batch
+from pdf_autofiller.records import parse_records
 
 
 @contextmanager
@@ -28,38 +29,13 @@ def _user_errors() -> Iterator[None]:
         raise click.ClickException(f"File error: {exc}") from exc
 
 
-def _load_records(path: Path, *, jsonl: bool) -> list[dict[str, Any]]:
-    """Load a JSON array, or one JSON object per line when ``jsonl`` is set."""
+def _load_records(path: Path, *, fmt: Literal["json", "jsonl", "csv"]) -> list[dict[str, Any]]:
+    """Load records as a JSON array, JSONL, or CSV."""
     try:
-        raw = path.read_text(encoding="utf-8")
+        raw = path.read_text(encoding="utf-8-sig")
     except OSError as exc:
         raise click.ClickException(f"Could not read records file: {exc}") from exc
-
-    records: list[Any]
-    if jsonl:
-        records = []
-        for line_number, line in enumerate(raw.splitlines(), start=1):
-            if not line.strip():
-                continue
-            try:
-                records.append(json.loads(line))
-            except json.JSONDecodeError as exc:
-                raise click.ClickException(f"Invalid JSON on line {line_number}: {exc}") from exc
-    else:
-        try:
-            parsed = json.loads(raw)
-        except json.JSONDecodeError as exc:
-            raise click.ClickException(f"Invalid JSON: {exc}") from exc
-        if not isinstance(parsed, list):
-            raise click.ClickException("Records file must be a JSON array of objects.")
-        records = parsed
-
-    if not records:
-        raise click.UsageError("Records file has no objects.")
-    for index, record in enumerate(records):
-        if not isinstance(record, dict):
-            raise click.ClickException(f"Record {index} must be a JSON object.")
-    return records
+    return parse_records(raw, fmt=fmt)
 
 
 def _load_user_data(data_file: Path | None, data_json: str | None) -> dict[str, Any]:
@@ -121,10 +97,16 @@ def version_cmd() -> None:
     default=None,
     help="Only read the first N pages.",
 )
-def inspect_cmd(pdf: Path, max_pages: int | None) -> None:
+@click.option(
+    "--template",
+    is_flag=True,
+    default=False,
+    help="Print a starter JSON object for this form instead of the field inventory.",
+)
+def inspect_cmd(pdf: Path, max_pages: int | None, template: bool) -> None:
     """List AcroForm fields in PDF as JSON."""
     with _user_errors():
-        result = inspect(pdf, max_pages=max_pages)
+        result = fill_template(pdf, max_pages=max_pages) if template else inspect(pdf, max_pages=max_pages)
     _echo_json(result.model_dump(mode="json"))
 
 
@@ -271,8 +253,8 @@ def fill_cmd(
     "-o",
     "--output-dir",
     type=click.Path(file_okay=False, path_type=Path),
-    required=True,
-    help="Directory for one PDF per record.",
+    default=None,
+    help="Directory for one PDF per record. Also receives fill-report.json.",
 )
 @click.option(
     "--filename-key",
@@ -284,6 +266,19 @@ def fill_cmd(
     is_flag=True,
     default=False,
     help="Read one JSON object per line instead of a JSON array.",
+)
+@click.option(
+    "--csv",
+    "csv_mode",
+    is_flag=True,
+    default=False,
+    help="Read a CSV with a header row. Also assumed for a .csv path.",
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    default=False,
+    help="Report what would be written. Creates no PDFs and no report file.",
 )
 @click.option(
     "--stop-on-error/--continue-on-error",
@@ -303,28 +298,54 @@ def batch_cmd(
     output_dir: Path,
     filename_key: str | None,
     jsonl: bool,
+    csv_mode: bool,
+    dry_run: bool,
     stop_on_error: bool,
     strict: bool,
     use_ai: bool,
     flatten: bool,
     allow_partial: bool,
 ) -> None:
-    """Fill one PDF template for every record in a JSON list."""
+    """Fill one PDF template for every record in a JSON list or CSV."""
+    if jsonl and csv_mode:
+        raise click.UsageError("Pass either --jsonl or --csv, not both.")
+    if not dry_run and output_dir is None:
+        raise click.UsageError("-o/--output-dir is required unless --dry-run.")
     _require_provider_for(use_ai=use_ai, strict=strict)
-    loaded = _load_records(records, jsonl=jsonl)
+    fmt: Literal["json", "jsonl", "csv"]
+    if csv_mode or records.suffix.lower() == ".csv":
+        fmt = "csv"
+    elif jsonl:
+        fmt = "jsonl"
+    else:
+        fmt = "json"
     with _user_errors():
-        report = fill_batch(
-            pdf,
-            loaded,
-            output_dir,
-            filename_key=filename_key,
-            on_error="stop" if stop_on_error else "continue",
-            strict=strict,
-            allow_fallback_mapping=not strict,
-            use_semantic_inference=use_ai,
-            flatten=flatten,
-            allow_partial=allow_partial,
-        )
+        loaded = _load_records(records, fmt=fmt)
+        on_error: Literal["continue", "stop"] = "stop" if stop_on_error else "continue"
+        if dry_run:
+            report = preview_batch(
+                pdf,
+                loaded,
+                on_error=on_error,
+                strict=strict,
+                allow_fallback_mapping=not strict,
+                use_semantic_inference=use_ai,
+                allow_partial=allow_partial,
+            )
+        else:
+            assert output_dir is not None
+            report = fill_batch(
+                pdf,
+                loaded,
+                output_dir,
+                filename_key=filename_key,
+                on_error=on_error,
+                strict=strict,
+                allow_fallback_mapping=not strict,
+                use_semantic_inference=use_ai,
+                flatten=flatten,
+                allow_partial=allow_partial,
+            )
     payload = report.model_dump(mode="json")
     _echo_json(payload)
     if report.failed:
