@@ -90,6 +90,14 @@ The same thing from the command line:
 pdf-autofiller fill sample_form.pdf --data '{"firstname":"Jane","lastname":"Doe","dob":"1990-01-01"}' -o filled.pdf
 ```
 
+To fill that form for a whole list (a contractor file, a hiring spreadsheet exported as JSON), pass an array. One incomplete row is reported and the rest are still written:
+
+```bash
+pdf-autofiller batch sample_form.pdf examples/contractors.json -o out/contractors --filename-key lastname
+```
+
+Each PDF lands in `out/contractors/` (`Doe.pdf`, `Lee.pdf`). The command prints a JSON report and exits non-zero if any row failed. The same call from Python is `fill_batch`.
+
 ## Self-hosted API
 
 Run it as a service so other apps, scripts or workflow tools (n8n, Zapier) can send a PDF and JSON

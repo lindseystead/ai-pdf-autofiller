@@ -189,6 +189,31 @@ class PreviewResult(BaseModel):
     mapping: MappingResult = Field(description="Full mapping result")
 
 
+class BatchItem(BaseModel):
+    """One record from a batch fill."""
+
+    index: int = Field(description="Zero-based position in the input list")
+    output: str | None = Field(default=None, description="PDF path when this record was written")
+    written_fields: list[str] = Field(default_factory=list, description="Fields written for this record")
+    missing_required_fields: list[str] = Field(
+        default_factory=list,
+        description="Required fields left empty when allow_partial wrote the PDF",
+    )
+    unfilled_fields: list[str] = Field(
+        default_factory=list,
+        description="Form fields this record did not address",
+    )
+    error: str | None = Field(default=None, description="Why this record was not written")
+
+
+class BatchReport(BaseModel):
+    """Outcome of filling one template PDF for many records."""
+
+    written: int = Field(description="Records that produced a PDF")
+    failed: int = Field(description="Records that were skipped because filling them failed")
+    items: list[BatchItem] = Field(default_factory=list, description="One result per input record, in order")
+
+
 class FillOutcome(BaseModel):
     """Full local fill result: write report + mapping + field count."""
 

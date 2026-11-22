@@ -15,6 +15,14 @@ All notable changes to this project will be documented in this file.
   floor `2026.10.18`). Those are the patched releases for the advisories
   `pip-audit` reports against `pypdf` 6.19.0 and `certifi` 2026.1.4
 
+### Added
+
+- `fill_batch` and `pdf-autofiller batch` fill one template for every object
+  in a JSON array or JSONL file. Each success is its own PDF. A failed row
+  is reported and the rest continue unless `--stop-on-error` is set. The
+  command prints a JSON report and exits non-zero when any row failed.
+  `examples/batch_fill.py` runs this against `examples/contractors.json`
+
 ### Changed
 
 - Asking for the AI key fallback while `strict=True` raises

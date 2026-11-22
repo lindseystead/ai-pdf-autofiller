@@ -53,6 +53,10 @@ pdf-autofiller fill form.pdf profile.json -o filled.pdf
 
 Local `fill()` / the CLI and the server `POST /fill` path share `pipeline.run_fill_pipeline` (same mapping and writer behavior). `PDFAutofillerClient` is an HTTP client that calls the remote `/fill` endpoint. A non-200 response from `inspect()`, `preview()`, or `fill()` raises `PDFAutofillerClientError` (`PDFAutofillError` is the same class). `health()` reports the HTTP status directly, so a failed health check raises `httpx.HTTPStatusError`. A connection failure on any method raises an httpx transport error.
 
+## Filling a list of people
+
+`fill_batch` and `pdf-autofiller batch` run the same fill once per object in a JSON array (or JSONL with `--jsonl`). Each success is its own PDF. A row that cannot be filled is listed in the report with `error` set, and the command exits non-zero. `--stop-on-error` raises at the first failure; PDFs already written stay on disk. `--filename-key lastname` names the file from that field, with characters outside letters, numbers, `.`, `_` and `-` replaced, and the name kept inside the output directory.
+
 ## Preview before fill
 
 `POST /preview` runs read → enrich → map and returns JSON decisions **without** writing a PDF. Use it in the playground (**Preview mapping**) or from curl to debug misses before `/fill`.
