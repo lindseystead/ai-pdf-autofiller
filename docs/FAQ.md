@@ -51,7 +51,7 @@ pdf-autofiller preview form.pdf profile.json
 pdf-autofiller fill form.pdf profile.json -o filled.pdf
 ```
 
-Local `fill()` / the CLI and the server `POST /fill` path share `pipeline.run_fill_pipeline` (same mapping and writer behavior). `PDFAutofillerClient` is an HTTP client that calls the remote `/fill` endpoint. A non-200 response from `inspect()`, `preview()`, or `fill()` raises `PDFAutofillerClientError` (`PDFAutofillError` is the same class). `health()` reports the HTTP status directly, so a failed health check raises `httpx.HTTPStatusError`. A connection failure on any method raises an httpx transport error.
+Local `fill()` / the CLI and the server `POST /fill` path share `pipeline.run_fill_pipeline` (same mapping and writer behavior). `PDFAutofillerClient` is an HTTP client for the remote API. A non-200 response from `inspect()`, `preview()`, `fill()`, or `batch()` raises `PDFAutofillerClientError` (`PDFAutofillError` is the same class). `health()` reports the HTTP status directly, so a failed health check raises `httpx.HTTPStatusError`. A connection failure on any method raises an httpx transport error.
 
 ## Filling a list of people
 
@@ -59,7 +59,7 @@ Local `fill()` / the CLI and the server `POST /fill` path share `pipeline.run_fi
 
 `fill_batch` and `pdf-autofiller batch` run that fill once per object. The file may be a JSON array, JSONL (`--jsonl`), or CSV (`--csv`, or a `.csv` path). CSV cells stay text: a formula such as `=cmd|...` is written as that text and is not evaluated. Blank rows are skipped, blank cells are omitted, and duplicate headers, extra columns, and NUL bytes are rejected. The default cap is 25 records (`BATCH_MAX_RECORDS`, hard ceiling 500) and the records text itself is limited to 1 MiB, because the whole batch shares one processing timeout.
 
-Each success is its own PDF, and `fill-report.json` is written beside them, including when `--stop-on-error` stops the run. A row that cannot be filled is listed with `error` set, and the command exits non-zero. `--dry-run` (`preview_batch`) reports the same outcome and creates no files. `--filename-key lastname` names the file from that field, with characters outside letters, numbers, `.`, `_` and `-` replaced, and the name kept inside the output directory.
+Each success is its own PDF, and `fill-report.json` is written beside them. A row that cannot be filled is listed there with `error` set. When the run finishes, the command prints that report and exits non-zero if any row failed. `--stop-on-error` stops at the first failure, prints that error as one line, and leaves `fill-report.json` with the rows finished so far. `--dry-run` (`preview_batch`) reports the same outcome and creates no files. `--filename-key lastname` names the file from that field, with characters outside letters, numbers, `.`, `_` and `-` replaced, and the name kept inside the output directory.
 
 The playground stays one record at a time. `POST /batch` is the same batch for other programs: it returns 200 with a `failed` count when a row cannot be filled, and `dry_run=true` omits the PDF bytes. `PDFAutofillerClient.batch` and `batch_to_directory` call it.
 

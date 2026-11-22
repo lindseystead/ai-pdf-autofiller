@@ -1,6 +1,6 @@
 # Integration Guides
 
-Connect PDF Autofiller to automation platforms. Prefer **inspect → preview → fill**.
+Connect PDF Autofiller to automation platforms. Prefer **inspect → preview → fill** for one person. A list of people is `POST /batch` (JSON, JSONL, or CSV). The playground and the importable n8n workflow stay one record at a time.
 
 Auth note: production defaults require `X-API-Key`. For local try paths set `API_AUTH_ENABLED=false` or send the token header on every request.
 

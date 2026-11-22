@@ -2,7 +2,7 @@
 
 ## Runtime Configuration
 
-Environment variables are read at process start with `os.getenv` (`PDF_JOB_BACKEND` is re-read for each job).
+Environment variables are read at process start with `os.getenv`. `PDF_JOB_BACKEND` is re-read for each job, and `BATCH_MAX_RECORDS` is re-read for each batch.
 
 - `MODEL_PROVIDER_API_KEY`: makes the optional OpenAI-compatible client available. Does **not** turn AI on by itself — callers must also pass `use_semantic_inference=true` and/or `strict=false` with `allow_fallback_mapping=true`
 - `API_HOST`: bind address for the `pdf-autofiller-api` console script only (**default `127.0.0.1`**). Set `0.0.0.0` when that process itself must accept remote connections. The Docker image does not use this variable; it listens on `0.0.0.0` inside the container, and `-p 127.0.0.1:8000:8000` is what keeps an auth-off container on this machine

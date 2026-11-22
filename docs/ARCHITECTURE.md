@@ -99,6 +99,7 @@ What the AI can and cannot do:
 | `POST` | `/inspect` | Field inventory |
 | `POST` | `/preview` | Mapping decisions without writing a PDF |
 | `POST` | `/fill` | Filled PDF, or a JSON report with `pdf_base64` when `Accept: application/json` |
+| `POST` | `/batch` | One PDF plus JSON, JSONL, or CSV. One result per row. `dry_run` returns no PDF bytes |
 
 Upload routes check auth, rate limits and body size before the body is read
 (`api/middleware.py`), and every pipeline call runs in a separate process that is killed at

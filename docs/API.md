@@ -251,7 +251,7 @@ When no options are declared, the mapped value is written as-is.
 
 ### `POST /batch`
 
-Accepts one PDF and a list of records. The response is always JSON. A row that cannot be filled is counted in `failed` and the HTTP status stays 200. `dry_run=true` maps every row and omits `pdf_base64`.
+Accepts one PDF and a list of records. The response is JSON. With the default `on_error=continue`, a row that cannot be filled is counted in `failed` and the HTTP status stays 200. `on_error=stop` ends the request with `500 pdf_batch_failed` and does not return PDFs from earlier rows. `dry_run=true` maps every row and omits `pdf_base64`.
 
 Required form fields:
 
