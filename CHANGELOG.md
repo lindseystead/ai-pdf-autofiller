@@ -37,7 +37,8 @@ All notable changes to this project will be documented in this file.
 - The Docker image uses `python:3.15-slim`. Runtime and CI pins that had
   no wheel for that interpreter move with it: `pydantic` 2.14.4,
   `pydantic-core` 2.50.5, `jiter` 0.19.0, `librt` 0.17.0, `PyYAML` 6.0.4,
-  and `ruff` 0.17.6. CI covers Python 3.15
+  and `ruff` 0.17.6. `pip-api` 0.0.35 so the security audit runs on
+  Python 3.15. CI covers Python 3.15
 - Asking for the AI key fallback while `strict=True` raises
   `ConflictingOptionsError`. It is a `PdfAutofillerError` and still a
   `ValueError`, so existing `except ValueError` handlers keep working
