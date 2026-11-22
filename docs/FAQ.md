@@ -35,7 +35,7 @@ This tool fills **AcroForm** (and similar interactive) fields — widgets with n
 - Set `API_AUTH_TOKEN` in production.
 - For local/trusted use only: `API_AUTH_ENABLED=false`.
 - Unauthenticated: `GET /`, `/playground`, `/health`, `/version`, `/samples/sample_form.pdf`.
-- Protected when auth is enabled: `POST /fill`, `/preview`, `/inspect`.
+- Protected when auth is enabled: `POST /fill`, `/batch`, `/preview`, `/inspect`.
 
 ## Local `fill()` / CLI vs HTTP `/fill`
 
@@ -55,7 +55,13 @@ Local `fill()` / the CLI and the server `POST /fill` path share `pipeline.run_fi
 
 ## Filling a list of people
 
-`fill_batch` and `pdf-autofiller batch` run the same fill once per object in a JSON array (or JSONL with `--jsonl`). Each success is its own PDF. A row that cannot be filled is listed in the report with `error` set, and the command exits non-zero. `--stop-on-error` raises at the first failure; PDFs already written stay on disk. `--filename-key lastname` names the file from that field, with characters outside letters, numbers, `.`, `_` and `-` replaced, and the name kept inside the output directory.
+`pdf-autofiller inspect form.pdf --template` prints a starter object whose keys are the ones `fill` already accepts (`first_name` for a field named `txtFirstName`). Signature fields are left out. When two widgets would share a key, the second keeps its own field name so a value is not applied twice.
+
+`fill_batch` and `pdf-autofiller batch` run that fill once per object. The file may be a JSON array, JSONL (`--jsonl`), or CSV (`--csv`, or a `.csv` path). CSV cells stay text: a formula such as `=cmd|...` is written as that text and is not evaluated. Blank rows are skipped, blank cells are omitted, and duplicate headers, extra columns, and NUL bytes are rejected. The default cap is 25 records (`BATCH_MAX_RECORDS`, hard ceiling 500) and the records text itself is limited to 1 MiB, because the whole batch shares one processing timeout.
+
+Each success is its own PDF, and `fill-report.json` is written beside them, including when `--stop-on-error` stops the run. A row that cannot be filled is listed with `error` set, and the command exits non-zero. `--dry-run` (`preview_batch`) reports the same outcome and creates no files. `--filename-key lastname` names the file from that field, with characters outside letters, numbers, `.`, `_` and `-` replaced, and the name kept inside the output directory.
+
+The playground stays one record at a time. `POST /batch` is the same batch for other programs: it returns 200 with a `failed` count when a row cannot be filled, and `dry_run=true` omits the PDF bytes. `PDFAutofillerClient.batch` and `batch_to_directory` call it.
 
 ## Preview before fill
 
