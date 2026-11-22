@@ -24,7 +24,7 @@ PART_HEADER = (
     b'Content-Disposition: form-data; name="pdf_file"; filename="a.pdf"\r\n'
     b"Content-Type: application/pdf\r\n\r\n"
 )
-PROTECTED = ["/fill", "/preview", "/inspect"]
+PROTECTED = ["/fill", "/preview", "/inspect", "/batch"]
 
 
 @pytest.fixture(autouse=True)

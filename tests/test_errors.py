@@ -16,6 +16,7 @@ from pdf_autofiller import PdfAutofillerError, fill, preview
         "ConflictingOptionsError",
         "InvalidPdfError",
         "PdfPageLimitError",
+        "RecordsError",
         "UnresolvedRequiredFieldsError",
         "UserDataTooDeepError",
         "PDFAutofillError",
