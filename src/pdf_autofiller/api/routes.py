@@ -10,27 +10,31 @@ import tempfile
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal, cast
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from starlette.background import BackgroundTask
 
 from pdf_autofiller import __version__
+from pdf_autofiller.errors import RecordsError
 from pdf_autofiller.field_utils import is_opaque_field_name
 from pdf_autofiller.mapping import alias_pack_status
 from pdf_autofiller.models import FillReport
 from pdf_autofiller.pdf_reader import InvalidPdfError, PdfPageLimitError
 from pdf_autofiller.pdf_writer import UnresolvedRequiredFieldsError
 from pdf_autofiller.pipeline import (
-    inspect as inspect_local,
-)
-from pdf_autofiller.pipeline import (
+    fill_batch,
+    preview_batch,
     run_fill_pipeline,
     run_preview_pipeline,
     semantic_provider_status,
 )
+from pdf_autofiller.pipeline import (
+    inspect as inspect_local,
+)
 from pdf_autofiller.playground import PLAYGROUND_HTML
+from pdf_autofiller.records import MAX_RECORDS_BYTES, parse_records
 from pdf_autofiller.user_data import UserDataTooDeepError, validate_user_data_depth
 
 from . import config
@@ -42,6 +46,8 @@ from .errors import (
 )
 from .jobs import execute_pdf_job
 from .schemas import (
+    BatchItemResponse,
+    BatchResponse,
     FillReportResponse,
     HealthResponse,
     InspectField,
@@ -528,4 +534,126 @@ async def fill(
     finally:
         if not response_started:
             temp_dir.cleanup()
+        await pdf_file.close()
+
+
+@router.post(
+    "/batch",
+    response_model=BatchResponse,
+    responses=openapi_error_responses(
+        *MUTATING_ERROR_CODES,
+        "invalid_records",
+        "too_many_records",
+        "user_data_too_deep",
+        "conflicting_options",
+        "pdf_batch_failed",
+    ),
+)
+async def batch_pdf(
+    request: Request,
+    pdf_file: UploadFile = File(...),
+    records: str = Form(..., description="JSON array, JSONL, or CSV text"),
+    records_format: str = Form("json", description="json, jsonl, or csv"),
+    dry_run: bool = Form(False, description="Map every row and return the report without PDF bytes"),
+    filename_key: str = Form("", description="Record field used as each PDF filename"),
+    on_error: str = Form("continue", description="continue or stop"),
+    strict: bool = Form(True),
+    allow_fallback_mapping: bool = Form(False),
+    use_semantic_inference: bool = Form(False),
+    flatten: bool = Form(False),
+    need_appearances: bool = Form(True),
+    allow_partial: bool = Form(False),
+) -> BatchResponse:
+    """Fill one template for every record. One failed row does not hide the others."""
+    del request
+    temp_dir = tempfile.TemporaryDirectory(prefix="pdf-autofiller-batch-")
+    try:
+        with _unexpected_errors("pdf_batch_failed"):
+            if records_format not in {"json", "jsonl", "csv"}:
+                raise api_error(
+                    status_code=422,
+                    code="invalid_records",
+                    message="records_format must be json, jsonl, or csv",
+                )
+            if on_error not in {"continue", "stop"}:
+                raise api_error(
+                    status_code=422,
+                    code="invalid_records",
+                    message="on_error must be continue or stop",
+                )
+            if len(records.encode("utf-8")) > MAX_RECORDS_BYTES:
+                raise api_error(
+                    status_code=413,
+                    code="payload_too_large",
+                    message="Records exceed the 1 MiB batch text limit",
+                )
+            _require_consistent_options(strict=strict, allow_fallback_mapping=allow_fallback_mapping)
+            fmt = cast(Literal["json", "jsonl", "csv"], records_format)
+            mode = cast(Literal["continue", "stop"], on_error)
+            try:
+                parsed = parse_records(records, fmt=fmt)
+            except RecordsError as exc:
+                status, message = ERROR_CATALOG[exc.code]
+                raise api_error(status_code=status, code=exc.code, message=str(exc) or message) from exc
+            input_path = await _save_pdf_upload(pdf_file, temp_dir)
+            output_dir = Path(temp_dir.name) / "out"
+            key = filename_key or None
+            with _pdf_job_errors():
+                if dry_run:
+                    report = await asyncio.to_thread(
+                        execute_pdf_job,
+                        preview_batch,
+                        input_path,
+                        parsed,
+                        timeout_seconds=config.PDF_READ_TIMEOUT_SECONDS,
+                        on_error=mode,
+                        strict=strict,
+                        allow_fallback_mapping=allow_fallback_mapping,
+                        use_semantic_inference=use_semantic_inference,
+                        max_pages=config.MAX_PDF_PAGES,
+                        allow_partial=allow_partial,
+                    )
+                else:
+                    report = await asyncio.to_thread(
+                        execute_pdf_job,
+                        fill_batch,
+                        input_path,
+                        parsed,
+                        output_dir,
+                        timeout_seconds=config.PDF_READ_TIMEOUT_SECONDS,
+                        filename_key=key,
+                        on_error=mode,
+                        strict=strict,
+                        allow_fallback_mapping=allow_fallback_mapping,
+                        use_semantic_inference=use_semantic_inference,
+                        max_pages=config.MAX_PDF_PAGES,
+                        flatten=flatten,
+                        need_appearances=need_appearances,
+                        allow_partial=allow_partial,
+                    )
+            items: list[BatchItemResponse] = []
+            for item in report.items:
+                pdf_b64 = None
+                filename = Path(item.output).name if item.output else None
+                if item.output and not dry_run:
+                    pdf_b64 = base64.b64encode(Path(item.output).read_bytes()).decode("ascii")
+                items.append(
+                    BatchItemResponse(
+                        index=item.index,
+                        filename=filename,
+                        written_fields=list(item.written_fields),
+                        missing_required_fields=list(item.missing_required_fields),
+                        unfilled_fields=list(item.unfilled_fields),
+                        error=item.error,
+                        pdf_base64=pdf_b64,
+                    )
+                )
+            return BatchResponse(
+                written=report.written,
+                failed=report.failed,
+                dry_run=dry_run,
+                items=items,
+            )
+    finally:
+        temp_dir.cleanup()
         await pdf_file.close()

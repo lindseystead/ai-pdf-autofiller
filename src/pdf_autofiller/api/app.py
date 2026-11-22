@@ -25,7 +25,7 @@ async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
     configure_logging()
     if config.API_AUTH_ENABLED and not config.API_AUTH_TOKEN:
         logging.getLogger(__name__).warning(
-            "API_AUTH_TOKEN is not set, so /fill, /preview and /inspect will return 500. "
+            "API_AUTH_TOKEN is not set, so /fill, /batch, /preview and /inspect will return 500. "
             "Set API_AUTH_TOKEN, or API_AUTH_ENABLED=false for local use."
         )
     yield
