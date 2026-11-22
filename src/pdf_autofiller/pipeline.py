@@ -24,8 +24,10 @@ from .models import (
     BatchReport,
     EnrichedFormField,
     FieldSemantics,
+    FieldTemplate,
     FillOutcome,
     FillReport,
+    FillTemplate,
     FormField,
     InspectResult,
     MappingResult,
@@ -339,6 +341,62 @@ def fill_detailed(
 
 
 _FILENAME_SAFE = re.compile(r"[^A-Za-z0-9._-]+")
+FILL_REPORT_NAME = "fill-report.json"
+
+
+def fill_template(
+    pdf: str | Path,
+    *,
+    max_pages: int | None = None,
+    registry: AliasRegistry | None = None,
+) -> FillTemplate:
+    """Build a starter JSON object whose keys fill this form.
+
+    Signature fields are listed and left out of ``example``: they are never
+    filled. Two widgets that would share a key keep the first and the second
+    uses its field name.
+    """
+    inventory = inspect(pdf, max_pages=max_pages)
+    active = registry if registry is not None else AliasRegistry.load()
+    used: set[str] = set()
+    chosen: list[tuple[FormField, str | None]] = []
+    for field in inventory.fields:
+        key = _template_key(field, active)
+        if key is not None and key in used:
+            key = field.name if field.name not in used else f"{field.name}_{len(used)}"
+        if key is not None:
+            used.add(key)
+        chosen.append((field, key))
+
+    example: dict[str, str | bool] = {}
+    required_keys: list[str] = []
+    described: list[FieldTemplate] = []
+    for field, key in chosen:
+        described.append(
+            FieldTemplate(
+                field_name=field.name,
+                key=key,
+                required=field.required,
+                field_type=field.field_type,
+            )
+        )
+        if key is None:
+            continue
+        example[key] = False if field.field_type == "button" else ""
+        if field.required:
+            required_keys.append(key)
+    return FillTemplate(example=example, required_keys=required_keys, fields=described)
+
+
+def _template_key(field: FormField, registry: AliasRegistry) -> str | None:
+    if field.field_type == "signature":
+        return None
+    if is_opaque_field_name(field.name):
+        return field.name
+    meaning = fallback_semantics(field, registry).semantics.semantic_meaning
+    if not meaning or meaning == "unknown_field":
+        return field.name
+    return meaning
 
 
 def _batch_filename(
@@ -419,6 +477,7 @@ def fill_batch(
                 output.unlink()
             items.append(BatchItem(index=index, error=str(exc)))
             if on_error == "stop":
+                _write_batch_report(destination, items)
                 raise
             continue
         items.append(
@@ -431,5 +490,79 @@ def fill_batch(
             )
         )
 
+    return _write_batch_report(destination, items)
+
+
+def preview_batch(
+    pdf: str | Path,
+    records: list[dict[str, Any]],
+    *,
+    on_error: Literal["continue", "stop"] = "continue",
+    strict: bool = True,
+    allow_fallback_mapping: bool = False,
+    use_semantic_inference: bool = False,
+    max_pages: int | None = None,
+    allow_partial: bool = False,
+    registry: AliasRegistry | None = None,
+) -> BatchReport:
+    """Map every record and report what a fill would do. Writes nothing."""
+    if on_error not in {"continue", "stop"}:
+        raise ValueError("on_error must be 'continue' or 'stop'")
+    if not records:
+        raise ValueError("records must contain at least one object")
+
+    items: list[BatchItem] = []
+    for index, record in enumerate(records):
+        if not isinstance(record, dict):
+            raise ValueError(f"record {index} must be a JSON object")
+        try:
+            result = preview(
+                pdf,
+                record,
+                strict=strict,
+                allow_fallback_mapping=allow_fallback_mapping,
+                use_semantic_inference=use_semantic_inference,
+                max_pages=max_pages,
+                registry=registry,
+            )
+        except PdfAutofillerError as exc:
+            items.append(BatchItem(index=index, error=str(exc)))
+            if on_error == "stop":
+                raise
+            continue
+        missing = list(result.mapping.missing_required)
+        if missing and strict and not allow_partial:
+            items.append(BatchItem(index=index, error=f"Missing required fields: {', '.join(missing)}"))
+            if on_error == "stop":
+                raise PdfAutofillerError(items[-1].error or "Missing required fields")
+            continue
+        decisions = result.mapping.decisions
+        items.append(
+            BatchItem(
+                index=index,
+                written_fields=[
+                    decision.field_name
+                    for decision in decisions
+                    if decision.selected_value and not decision.requires_review
+                ],
+                missing_required_fields=missing,
+                unfilled_fields=[
+                    decision.field_name for decision in decisions if not decision.selected_value
+                ],
+            )
+        )
     written = sum(1 for item in items if item.error is None)
     return BatchReport(written=written, failed=len(items) - written, items=items)
+
+
+def _write_batch_report(destination: Path, items: list[BatchItem]) -> BatchReport:
+    written = sum(1 for item in items if item.error is None)
+    path = destination / FILL_REPORT_NAME
+    report = BatchReport(
+        written=written,
+        failed=len(items) - written,
+        items=items,
+        report_path=str(path),
+    )
+    path.write_text(report.model_dump_json(indent=2), encoding="utf-8")
+    return report

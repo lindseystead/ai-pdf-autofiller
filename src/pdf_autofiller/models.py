@@ -189,6 +189,23 @@ class PreviewResult(BaseModel):
     mapping: MappingResult = Field(description="Full mapping result")
 
 
+class FieldTemplate(BaseModel):
+    """One form field and the JSON key a caller should use for it."""
+
+    field_name: str = Field(description="AcroForm field name")
+    key: str | None = Field(description="Suggested user_data key, or null for a signature field")
+    required: bool = Field(description="Whether the field is required")
+    field_type: str = Field(description="text, button, choice, signature, or unknown")
+
+
+class FillTemplate(BaseModel):
+    """A starter document for a form: copy ``example``, replace the blanks, and fill."""
+
+    example: dict[str, str | bool] = Field(description="Object to edit and pass to fill or batch")
+    required_keys: list[str] = Field(description="Keys that must be non-empty for a strict fill")
+    fields: list[FieldTemplate] = Field(description="How each widget maps to a key")
+
+
 class BatchItem(BaseModel):
     """One record from a batch fill."""
 
@@ -209,9 +226,13 @@ class BatchItem(BaseModel):
 class BatchReport(BaseModel):
     """Outcome of filling one template PDF for many records."""
 
-    written: int = Field(description="Records that produced a PDF")
+    written: int = Field(description="Records that produced a PDF, or would produce one in a dry run")
     failed: int = Field(description="Records that were skipped because filling them failed")
     items: list[BatchItem] = Field(default_factory=list, description="One result per input record, in order")
+    report_path: str | None = Field(
+        default=None,
+        description="Where the JSON report was written, when this was a real fill",
+    )
 
 
 class FillOutcome(BaseModel):
