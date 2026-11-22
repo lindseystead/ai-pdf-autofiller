@@ -14,7 +14,7 @@ import click
 from pdf_autofiller import __version__
 from pdf_autofiller.errors import PdfAutofillerError
 from pdf_autofiller.field_semantics import SemanticClient
-from pdf_autofiller.pipeline import fill, inspect, preview
+from pdf_autofiller.pipeline import fill, fill_batch, inspect, preview
 
 
 @contextmanager
@@ -26,6 +26,40 @@ def _user_errors() -> Iterator[None]:
         raise click.ClickException(str(exc)) from exc
     except OSError as exc:
         raise click.ClickException(f"File error: {exc}") from exc
+
+
+def _load_records(path: Path, *, jsonl: bool) -> list[dict[str, Any]]:
+    """Load a JSON array, or one JSON object per line when ``jsonl`` is set."""
+    try:
+        raw = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise click.ClickException(f"Could not read records file: {exc}") from exc
+
+    records: list[Any]
+    if jsonl:
+        records = []
+        for line_number, line in enumerate(raw.splitlines(), start=1):
+            if not line.strip():
+                continue
+            try:
+                records.append(json.loads(line))
+            except json.JSONDecodeError as exc:
+                raise click.ClickException(f"Invalid JSON on line {line_number}: {exc}") from exc
+    else:
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise click.ClickException(f"Invalid JSON: {exc}") from exc
+        if not isinstance(parsed, list):
+            raise click.ClickException("Records file must be a JSON array of objects.")
+        records = parsed
+
+    if not records:
+        raise click.UsageError("Records file has no objects.")
+    for index, record in enumerate(records):
+        if not isinstance(record, dict):
+            raise click.ClickException(f"Record {index} must be a JSON object.")
+    return records
 
 
 def _load_user_data(data_file: Path | None, data_json: str | None) -> dict[str, Any]:
@@ -228,6 +262,73 @@ def fill_cmd(
                 "Required fields still empty: " + ", ".join(report.missing_required_fields),
                 err=True,
             )
+
+
+@main.command("batch")
+@click.argument("pdf", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.argument("records", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option(
+    "-o",
+    "--output-dir",
+    type=click.Path(file_okay=False, path_type=Path),
+    required=True,
+    help="Directory for one PDF per record.",
+)
+@click.option(
+    "--filename-key",
+    default=None,
+    help="Record field used as the PDF filename. Unsafe characters are replaced.",
+)
+@click.option(
+    "--jsonl",
+    is_flag=True,
+    default=False,
+    help="Read one JSON object per line instead of a JSON array.",
+)
+@click.option(
+    "--stop-on-error/--continue-on-error",
+    default=False,
+    show_default=True,
+    help="Stop at the first record that cannot be filled. The default keeps going.",
+)
+@click.option("--strict/--no-strict", default=True, show_default=True)
+@click.option("--ai/--no-ai", "use_ai", default=False, show_default=True)
+@click.option("--flatten/--no-flatten", default=False, show_default=True)
+@click.option("--allow-partial/--no-allow-partial", default=False, show_default=True)
+@click.pass_context
+def batch_cmd(
+    ctx: click.Context,
+    pdf: Path,
+    records: Path,
+    output_dir: Path,
+    filename_key: str | None,
+    jsonl: bool,
+    stop_on_error: bool,
+    strict: bool,
+    use_ai: bool,
+    flatten: bool,
+    allow_partial: bool,
+) -> None:
+    """Fill one PDF template for every record in a JSON list."""
+    _require_provider_for(use_ai=use_ai, strict=strict)
+    loaded = _load_records(records, jsonl=jsonl)
+    with _user_errors():
+        report = fill_batch(
+            pdf,
+            loaded,
+            output_dir,
+            filename_key=filename_key,
+            on_error="stop" if stop_on_error else "continue",
+            strict=strict,
+            allow_fallback_mapping=not strict,
+            use_semantic_inference=use_ai,
+            flatten=flatten,
+            allow_partial=allow_partial,
+        )
+    payload = report.model_dump(mode="json")
+    _echo_json(payload)
+    if report.failed:
+        ctx.exit(1)
 
 
 if __name__ == "__main__":

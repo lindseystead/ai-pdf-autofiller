@@ -2,7 +2,7 @@
 PDF Autofiller — fill AcroForm PDFs from JSON with deterministic-first mapping.
 
 Public surface:
-- ``fill`` / ``fill_detailed`` / ``inspect`` / ``preview`` — local library (no server)
+- ``fill`` / ``fill_batch`` / ``fill_detailed`` / ``inspect`` / ``preview`` — local library (no server)
 - ``PDFAutofillerClient`` — HTTP client for a running API
 - ``PdfAutofillerError`` — base of every error raised on purpose (subclasses listed in ``__all__``)
 
@@ -16,7 +16,7 @@ from .client import PDFAutofillerClient, PDFAutofillerClientError, PDFAutofillEr
 from .errors import ConflictingOptionsError, PdfAutofillerError
 from .pdf_reader import InvalidPdfError, PdfPageLimitError
 from .pdf_writer import UnresolvedRequiredFieldsError
-from .pipeline import fill, fill_detailed, inspect, preview
+from .pipeline import fill, fill_batch, fill_detailed, inspect, preview
 from .user_data import UserDataTooDeepError
 
 __all__ = [
@@ -31,6 +31,7 @@ __all__ = [
     "UserDataTooDeepError",
     "__version__",
     "fill",
+    "fill_batch",
     "fill_detailed",
     "inspect",
     "preview",

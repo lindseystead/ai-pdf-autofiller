@@ -13,7 +13,7 @@ api/ ───┘    (api/jobs.py runs each pipeline call in a killable worker p
 
 | Module | Responsibility |
 |--------|----------------|
-| `pipeline.py` | Orchestrates read → enrich → map → write; exports `fill`, `fill_detailed`, `preview`, `inspect` |
+| `pipeline.py` | Orchestrates read → enrich → map → write; exports `fill`, `fill_batch`, `fill_detailed`, `preview`, `inspect` |
 | `pdf_reader.py` | Reads metadata, form fields and page text (`InvalidPdfError`, page limit, password detection) |
 | `acroform_fields.py` | Walks the AcroForm tree; shared by reader and writer |
 | `user_data.py` | Flattens nested JSON to dotted paths; type and depth checks |
@@ -23,7 +23,7 @@ api/ ───┘    (api/jobs.py runs each pipeline call in a killable worker p
 | `field_semantics.py` | The only module that calls the AI provider |
 | `pdf_writer.py` | Writes values and enforces widget rules (button states, choice options, `/MaxLen`, fonts) |
 | `models.py` | Pydantic contracts between stages: `MappingResult`, `FieldMappingDecision`, `FillReport` |
-| `cli.py`, `__main__.py` | `pdf-autofiller inspect`, `preview` and `fill` (also `python -m pdf_autofiller`). Expected failures surface as `PdfAutofillerError`, which the CLI prints as one line |
+| `cli.py`, `__main__.py` | `pdf-autofiller inspect`, `preview`, `fill`, and `batch` (also `python -m pdf_autofiller`). Expected failures surface as `PdfAutofillerError`, which the CLI prints as one line |
 | `client.py` | HTTP client for a remote server |
 | `api/` | FastAPI app: routes, upload guard middleware, auth and rate limits, error catalog, job runner |
 | `api_service.py` | ASGI entrypoint (`pdf_autofiller.api_service:app`). `pdf-autofiller-api` calls `run()`, which binds `127.0.0.1` unless `API_HOST` is set |

@@ -1,0 +1,14 @@
+[
+  {
+    "firstname": "Jane",
+    "lastname": "Doe",
+    "dob": "1990-01-01",
+    "email": "jane@example.com"
+  },
+  {
+    "firstname": "Sam",
+    "lastname": "Lee",
+    "dob": "1988-07-04",
+    "email": "sam@example.com"
+  }
+]

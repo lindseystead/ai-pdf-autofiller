@@ -5,11 +5,12 @@ End-to-end PDF fill pipeline shared by the API, SDK, and integration tests.
 from __future__ import annotations
 
 import logging
+import re
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from .aliases import AliasRegistry
-from .errors import ConflictingOptionsError
+from .errors import ConflictingOptionsError, PdfAutofillerError
 from .field_semantics import SemanticClient
 from .field_utils import field_leaf_name, is_opaque_field_name, opaque_mapping_hints
 from .mapping import (
@@ -19,6 +20,8 @@ from .mapping import (
     normalize_key,
 )
 from .models import (
+    BatchItem,
+    BatchReport,
     EnrichedFormField,
     FieldSemantics,
     FillOutcome,
@@ -333,3 +336,100 @@ def fill_detailed(
         field_count=field_count,
         pages=pages,
     )
+
+
+_FILENAME_SAFE = re.compile(r"[^A-Za-z0-9._-]+")
+
+
+def _batch_filename(
+    index: int,
+    record: dict[str, Any],
+    filename_key: str | None,
+    used: set[str],
+) -> str:
+    """Build a PDF filename that stays inside the output directory."""
+    stem = f"record-{index + 1:04d}"
+    raw = record.get(filename_key) if filename_key else None
+    if isinstance(raw, str):
+        cleaned = _FILENAME_SAFE.sub("-", Path(raw).name).strip(".-_")
+        if cleaned and cleaned not in {".", ".."}:
+            stem = cleaned[:80]
+    name = f"{stem}.pdf"
+    if name in used:
+        name = f"{stem}-{index + 1:04d}.pdf"
+    used.add(name)
+    return name
+
+
+def fill_batch(
+    pdf: str | Path,
+    records: list[dict[str, Any]],
+    output_dir: str | Path,
+    *,
+    filename_key: str | None = None,
+    on_error: Literal["continue", "stop"] = "continue",
+    strict: bool = True,
+    allow_fallback_mapping: bool = False,
+    use_semantic_inference: bool = False,
+    max_pages: int | None = None,
+    flatten: bool = False,
+    need_appearances: bool = True,
+    allow_partial: bool = False,
+    registry: AliasRegistry | None = None,
+) -> BatchReport:
+    """Fill one template for every record and write one PDF per success.
+
+    ``on_error="continue"`` (the default) records a failure and keeps going, so
+    one incomplete row does not throw away the rest of a list. ``"stop"``
+    raises that error after recording it. Nothing from a failed record is left
+    in ``output_dir``.
+    """
+    if on_error not in {"continue", "stop"}:
+        raise ValueError("on_error must be 'continue' or 'stop'")
+    if not records:
+        raise ValueError("records must contain at least one object")
+    for index, record in enumerate(records):
+        if not isinstance(record, dict):
+            raise ValueError(f"record {index} must be a JSON object")
+
+    destination = Path(output_dir)
+    destination.mkdir(parents=True, exist_ok=True)
+    used_names: set[str] = set()
+    items: list[BatchItem] = []
+
+    for index, record in enumerate(records):
+        filename = _batch_filename(index, record, filename_key, used_names)
+        output = destination / filename
+        try:
+            report = fill(
+                pdf,
+                record,
+                output,
+                strict=strict,
+                allow_fallback_mapping=allow_fallback_mapping,
+                use_semantic_inference=use_semantic_inference,
+                max_pages=max_pages,
+                flatten=flatten,
+                need_appearances=need_appearances,
+                allow_partial=allow_partial,
+                registry=registry,
+            )
+        except PdfAutofillerError as exc:
+            if output.exists():
+                output.unlink()
+            items.append(BatchItem(index=index, error=str(exc)))
+            if on_error == "stop":
+                raise
+            continue
+        items.append(
+            BatchItem(
+                index=index,
+                output=str(output),
+                written_fields=list(report.written_fields),
+                missing_required_fields=list(report.missing_required_fields),
+                unfilled_fields=list(report.unfilled_fields),
+            )
+        )
+
+    written = sum(1 for item in items if item.error is None)
+    return BatchReport(written=written, failed=len(items) - written, items=items)
