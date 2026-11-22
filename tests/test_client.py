@@ -1,5 +1,6 @@
 """Tests for the HTTP client SDK and local fill helper."""
 
+import base64
 import json
 from pathlib import Path
 from unittest.mock import Mock
@@ -177,6 +178,41 @@ def test_client_raises_on_non_json_error():
     with pytest.raises(PDFAutofillError) as exc:
         sdk.fill(b"%PDF-1.4", {"firstname": "Jane"})
     assert exc.value.code == "invalid_response"
+
+
+def test_client_batch_keeps_filenames_inside_the_output_directory(tmp_path: Path):
+    response = Mock(spec=httpx.Response)
+    response.status_code = 200
+    response.json.return_value = {
+        "written": 1,
+        "failed": 0,
+        "dry_run": False,
+        "items": [
+            {
+                "index": 0,
+                "filename": "../secret.pdf",
+                "pdf_base64": base64.b64encode(b"%PDF-1.4").decode("ascii"),
+                "error": None,
+            }
+        ],
+    }
+    http = Mock(spec=httpx.Client)
+    http.post.return_value = response
+    sdk = PDFAutofillerClient("http://testserver", http_client=http)
+
+    report = sdk.batch_to_directory(
+        b"%PDF-1.4",
+        "firstname,lastname\nJane,Doe\n",
+        tmp_path,
+        records_format="csv",
+    )
+
+    assert (tmp_path / "secret.pdf").read_bytes() == b"%PDF-1.4"
+    assert not (tmp_path.parent / "secret.pdf").exists()
+    assert "pdf_base64" not in report["items"][0]
+    posted = http.post.call_args.kwargs["data"]
+    assert posted["records_format"] == "csv"
+    assert http.post.call_args.args[0].endswith("/batch")
 
 
 @pytest.mark.skipif(not SAMPLE_PDF.exists(), reason="sample PDF not present")
