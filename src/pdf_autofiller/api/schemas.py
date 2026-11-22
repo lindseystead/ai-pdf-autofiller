@@ -57,6 +57,30 @@ class PreviewResponse(BaseModel):
     mapping_hints: list[str] = Field(default_factory=list)
 
 
+class BatchItemResponse(BaseModel):
+    """One record from ``POST /batch``."""
+
+    index: int
+    filename: str | None = None
+    written_fields: list[str] = Field(default_factory=list)
+    missing_required_fields: list[str] = Field(default_factory=list)
+    unfilled_fields: list[str] = Field(default_factory=list)
+    error: str | None = None
+    pdf_base64: str | None = Field(
+        default=None,
+        description="Filled PDF, present only when this record was written and dry_run is false",
+    )
+
+
+class BatchResponse(BaseModel):
+    """Batch fill or dry run. A failed row is reported here; the HTTP status stays 200."""
+
+    written: int
+    failed: int
+    dry_run: bool
+    items: list[BatchItemResponse]
+
+
 class FillReportResponse(BaseModel):
     """JSON fill outcome when the client asks for ``Accept: application/json``."""
 
