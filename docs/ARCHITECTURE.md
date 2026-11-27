@@ -26,9 +26,14 @@ api/ ───┘    (api/jobs.py runs each pipeline call in a killable worker p
 | `models.py` | Pydantic contracts between stages: `MappingResult`, `FieldMappingDecision`, `FillReport` |
 | `cli.py`, `__main__.py` | `pdf-autofiller inspect`, `preview`, `fill`, and `batch` (also `python -m pdf_autofiller`). Expected failures surface as `PdfAutofillerError`, which the CLI prints as one line |
 | `client.py` | HTTP client for a remote server |
-| `api/` | FastAPI app: routes, multipart parsers, upload guard middleware, auth and rate limits, error catalog, job runner |
+| `api/routes.py` | Inspect, template, preview, and single-fill routes; composes the routers below |
+| `api/system_routes.py` | Public playground assets, health, version, and sample PDF routes |
+| `api/batch_routes.py` | Batch parsing, preview, response-size enforcement, and response assembly |
+| `api/route_support.py` | Shared upload lifecycle, error translation, content negotiation, and audit headers |
+| `api/request_parsing.py` | Bounded multipart JSON parsing for user data and reviewed field mappings |
+| `api/middleware.py`, `api/security.py`, `api/jobs.py` | Upload guards, auth/rate limits, headers, and killable worker execution |
 | `api_service.py` | ASGI entrypoint (`pdf_autofiller.api_service:app`). `pdf-autofiller-api` calls `run()`, which binds `127.0.0.1` unless `API_HOST` is set |
-| `playground.py`, `static/` | The browser test page served at `/playground` |
+| `playground.py`, `static/` | Semantic HTML plus separately served CSS and JavaScript for `/playground` |
 
 ## Fill flow
 

@@ -14,6 +14,8 @@ The playground exposes checkboxes for `strict`, `allow_fallback_mapping` (AI key
 
 The playground can generate, edit, and save an exact field mapping. Saved mappings remain in
 the current browser and are keyed to a SHA-256 fingerprint of the PDF; form values are not stored.
+Its JavaScript and CSS are served as separate same-origin assets. The response CSP disallows
+inline script and style execution.
 
 ### `POST /template`
 

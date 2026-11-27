@@ -29,6 +29,8 @@ jobs:
       - name: Format check
         run: |
           ruff format --check src/ tests/ scripts/ examples/
+      - name: Browser JavaScript syntax
+        run: node --check src/pdf_autofiller/static/playground.js
       - name: Type check
         run: |
           mypy src/

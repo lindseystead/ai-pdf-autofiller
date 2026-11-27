@@ -51,6 +51,8 @@ Pytest coverage currently includes:
 - OpenAPI error catalog (`tests/test_error_catalog.py`)
 - PDF job timeout isolation (`tests/test_jobs.py`)
 - Playground routes and UI markers (`tests/test_playground.py`)
+- External playground assets, strict no-inline CSP, and JavaScript syntax in CI
+- Fail-fast environment parsing (`tests/test_config.py`)
 - Saved mapping validation, stale-profile failures, and template generation
 - Incremental aggregate batch-output enforcement (processing stops at the limit)
 - Golden corpus fixtures (`tests/test_corpus.py`)

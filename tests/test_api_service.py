@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from pypdf import PdfWriter
 
 from pdf_autofiller import api_service
-from pdf_autofiller.api import config
+from pdf_autofiller.api import config, route_support
 from pdf_autofiller.api import routes as api_routes
 from pdf_autofiller.api.security import reset_rate_limit_state
 from pdf_autofiller.models import FieldSemantics, FormField, TextRegion
@@ -256,7 +256,7 @@ def test_fill_endpoint_emits_pii_free_audit_log(caplog):
     import logging
 
     secret_value = "Top-Secret-Applicant-Name"
-    with caplog.at_level(logging.INFO, logger="pdf_autofiller.api.routes"):
+    with caplog.at_level(logging.INFO, logger="pdf_autofiller.api.route_support"):
         response = client.post(
             "/fill",
             files={"pdf_file": ("input.pdf", _minimal_pdf_bytes(), "application/pdf")},
@@ -641,7 +641,7 @@ def test_fill_allow_partial_returns_pdf_with_missing_required(tmp_path):
 
 
 def test_safe_header_value_strips_control_characters():
-    assert api_routes._safe_header_value(["a\r\nSet-Cookie: x", "b\x00"]) == "aSet-Cookie: x,b"
+    assert route_support._safe_header_value(["a\r\nSet-Cookie: x", "b\x00"]) == "aSet-Cookie: x,b"
 
 
 @pytest.mark.parametrize(
