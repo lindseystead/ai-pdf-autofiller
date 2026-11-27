@@ -73,6 +73,34 @@ This endpoint is **unauthenticated** (same as `/health`, `/version`, and `/playg
 The sample ships with the Docker image and source checkouts; a pip-installed server returns
 `404 sample_not_found`.
 
+## Durable template workspace (`/v1`)
+
+These routes store blank PDFs, reviewed mappings, immutable published versions, value-free job
+reports, and completed artifacts under `PRODUCT_DATA_DIR`. Every route below requires the API key;
+source PDFs and filled artifacts are never public URLs.
+
+| Method | Path | Purpose |
+|---|---|---|
+| `POST` | `/v1/templates` | Create version 1 as a mapping draft (`name` + `pdf_file`) |
+| `GET` | `/v1/templates` | List the latest version of each stored template |
+| `GET` | `/v1/templates/{id}` | Get the latest draft/published version and mapping |
+| `GET` | `/v1/templates/{id}/corrections` | Export value-free reviewed mapping changes |
+| `GET` | `/v1/templates/{id}/source?version=N` | Download an authenticated blank source PDF |
+| `PUT` | `/v1/templates/{id}/mapping` | Save a draft with `expected_revision` optimistic locking |
+| `POST` | `/v1/templates/{id}/publish` | Validate required mappings and freeze the draft |
+| `POST` | `/v1/templates/{id}/versions` | Upload a replacement PDF as the next draft |
+| `POST` | `/v1/templates/{id}/fills` | Fill the latest published version from a JSON body |
+| `GET` | `/v1/jobs/{id}` | Read the value-free fill report and artifact URL |
+| `GET` | `/v1/jobs/{id}/artifact` | Download the authenticated completed PDF |
+
+Published fills are deterministic: the reviewed exact mapping is used with AI disabled. Missing
+optional mapped keys are treated as empty; missing required values still return
+`422 required_fields_unresolved` unless `allow_partial` is selected. A replacement draft never
+changes production fills until it is published.
+
+See [TEMPLATE_WORKSPACE.md](TEMPLATE_WORKSPACE.md) for the lifecycle, privacy model, storage layout,
+and single-deployment scaling boundary.
+
 ### `POST /inspect`
 
 Accepts a PDF upload and returns AcroForm field metadata so clients can draft JSON.

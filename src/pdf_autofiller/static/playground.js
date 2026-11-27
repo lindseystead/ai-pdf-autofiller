@@ -25,6 +25,14 @@
     const clearMappingBtn = document.getElementById('clearMappingBtn');
     const refreshMappingBtn = document.getElementById('refreshMappingBtn');
     const mappingEditor = document.getElementById('mappingEditor');
+    const storedTemplateName = document.getElementById('storedTemplateName');
+    const storedTemplateSelect = document.getElementById('storedTemplateSelect');
+    const storeTemplateBtn = document.getElementById('storeTemplateBtn');
+    const refreshTemplatesBtn = document.getElementById('refreshTemplatesBtn');
+    const loadStoredTemplateBtn = document.getElementById('loadStoredTemplateBtn');
+    const publishTemplateBtn = document.getElementById('publishTemplateBtn');
+    const fillStoredTemplateBtn = document.getElementById('fillStoredTemplateBtn');
+    const workspaceStatus = document.getElementById('workspaceStatus');
 
     let selectedFile = null;
     let downloadUrl = null;
@@ -33,6 +41,7 @@
     let providerAvailable = false;
     let selectedPdfKey = null;
     let templateFields = [];
+    let storedTemplate = null;
 
     function setStatus(message, kind = '') {
       statusEl.className = 'status' + (kind ? ' ' + kind : '');
@@ -100,6 +109,39 @@
       const headers = {};
       if (apiKey.value.trim()) headers['X-API-Key'] = apiKey.value.trim();
       return headers;
+    }
+
+    function jsonHeaders() {
+      return { ...authHeaders(), 'Content-Type': 'application/json' };
+    }
+
+    function setWorkspaceStatus(message, kind = '') {
+      workspaceStatus.className = 'privacy' + (kind ? ' ' + kind : '');
+      workspaceStatus.textContent = message;
+    }
+
+    function selectStoredTemplate(template) {
+      storedTemplate = template;
+      if (!template) {
+        publishTemplateBtn.disabled = true;
+        fillStoredTemplateBtn.disabled = true;
+        return;
+      }
+      storedTemplateName.value = template.name;
+      userData.value = JSON.stringify(template.starter_data || {}, null, 2);
+      fieldMapping.value = JSON.stringify(template.mapping || {}, null, 2);
+      templateFields = template.fields || [];
+      renderMappingEditor();
+      resetFilledResult();
+      publishTemplateBtn.disabled = template.status !== 'draft';
+      // A replacement draft may coexist with an older published version.
+      // The server always fills the latest published version or rejects safely.
+      fillStoredTemplateBtn.disabled = false;
+      setWorkspaceStatus(
+        template.name + ' · version ' + template.version + ' · revision '
+        + template.revision + ' · ' + template.status,
+        'ok'
+      );
     }
 
     function formatApiError(payload, status) {
@@ -293,6 +335,216 @@
       renderMappingEditor();
     });
     refreshMappingBtn.addEventListener('click', renderMappingEditor);
+
+    async function refreshStoredTemplates(preferredId = '') {
+      refreshTemplatesBtn.disabled = true;
+      try {
+        const response = await fetch('/v1/templates', { headers: authHeaders() });
+        const payload = await response.json();
+        if (!response.ok) {
+          setWorkspaceStatus(formatApiError(payload, response.status), 'err');
+          return;
+        }
+        storedTemplateSelect.replaceChildren();
+        const empty = document.createElement('option');
+        empty.value = '';
+        empty.textContent = payload.length ? 'Choose a template' : 'No stored templates';
+        storedTemplateSelect.appendChild(empty);
+        for (const template of payload) {
+          const option = document.createElement('option');
+          option.value = template.id;
+          option.textContent = template.name + ' · v' + template.version + ' · ' + template.status;
+          storedTemplateSelect.appendChild(option);
+        }
+        if (preferredId && payload.some(template => template.id === preferredId)) {
+          storedTemplateSelect.value = preferredId;
+        }
+        setWorkspaceStatus(
+          payload.length + ' durable template' + (payload.length === 1 ? '' : 's') + ' available.'
+        );
+      } catch (err) {
+        setWorkspaceStatus('Could not list templates: ' + err.message, 'err');
+      } finally {
+        refreshTemplatesBtn.disabled = false;
+      }
+    }
+
+    refreshTemplatesBtn.addEventListener('click', () => refreshStoredTemplates(storedTemplate?.id || ''));
+
+    storeTemplateBtn.addEventListener('click', async () => {
+      if (!selectedFile) {
+        setWorkspaceStatus('Choose a PDF before creating a durable template.', 'err');
+        return;
+      }
+      const name = storedTemplateName.value.trim();
+      if (!name) {
+        setWorkspaceStatus('Enter a template name.', 'err');
+        return;
+      }
+      storeTemplateBtn.disabled = true;
+      setWorkspaceStatus('Inspecting and storing the template…');
+      const form = new FormData();
+      form.append('name', name);
+      form.append('pdf_file', selectedFile, selectedFile.name);
+      try {
+        form.append('field_mapping', JSON.stringify(parseObject(fieldMapping.value, 'Field mapping')));
+      } catch (err) {
+        setWorkspaceStatus('Invalid field mapping: ' + err.message, 'err');
+        storeTemplateBtn.disabled = false;
+        return;
+      }
+      try {
+        const response = await fetch('/v1/templates', {
+          method: 'POST', body: form, headers: authHeaders()
+        });
+        const payload = await response.json();
+        if (!response.ok) {
+          setWorkspaceStatus(formatApiError(payload, response.status), 'err');
+          return;
+        }
+        selectStoredTemplate(payload);
+        await refreshStoredTemplates(payload.id);
+        selectStoredTemplate(payload);
+      } catch (err) {
+        setWorkspaceStatus('Could not store template: ' + err.message, 'err');
+      } finally {
+        storeTemplateBtn.disabled = false;
+      }
+    });
+
+    loadStoredTemplateBtn.addEventListener('click', async () => {
+      const id = storedTemplateSelect.value;
+      if (!id) {
+        setWorkspaceStatus('Choose a stored template first.', 'err');
+        return;
+      }
+      loadStoredTemplateBtn.disabled = true;
+      try {
+        const response = await fetch('/v1/templates/' + encodeURIComponent(id), { headers: authHeaders() });
+        const payload = await response.json();
+        if (!response.ok) {
+          setWorkspaceStatus(formatApiError(payload, response.status), 'err');
+          return;
+        }
+        const sourceResponse = await fetch(payload.source_url, { headers: authHeaders() });
+        if (!sourceResponse.ok) {
+          let errorPayload = {};
+          try { errorPayload = await sourceResponse.json(); } catch (_) {}
+          setWorkspaceStatus(formatApiError(errorPayload, sourceResponse.status), 'err');
+          return;
+        }
+        const source = await sourceResponse.blob();
+        await pickFile(new File([source], payload.name + '.pdf', { type: 'application/pdf' }));
+        selectStoredTemplate(payload);
+      } catch (err) {
+        setWorkspaceStatus('Could not load template: ' + err.message, 'err');
+      } finally {
+        loadStoredTemplateBtn.disabled = false;
+      }
+    });
+
+    publishTemplateBtn.addEventListener('click', async () => {
+      if (!storedTemplate || storedTemplate.status !== 'draft') return;
+      let mapping;
+      try {
+        mapping = parseObject(fieldMapping.value, 'Field mapping');
+      } catch (err) {
+        setWorkspaceStatus('Invalid field mapping: ' + err.message, 'err');
+        return;
+      }
+      publishTemplateBtn.disabled = true;
+      try {
+        const savedResponse = await fetch(
+          '/v1/templates/' + encodeURIComponent(storedTemplate.id) + '/mapping',
+          {
+            method: 'PUT',
+            headers: jsonHeaders(),
+            body: JSON.stringify({ expected_revision: storedTemplate.revision, mapping })
+          }
+        );
+        const saved = await savedResponse.json();
+        if (!savedResponse.ok) {
+          setWorkspaceStatus(formatApiError(saved, savedResponse.status), 'err');
+          return;
+        }
+        const publishResponse = await fetch(
+          '/v1/templates/' + encodeURIComponent(storedTemplate.id) + '/publish',
+          {
+            method: 'POST',
+            headers: jsonHeaders(),
+            body: JSON.stringify({ expected_revision: saved.revision })
+          }
+        );
+        const published = await publishResponse.json();
+        if (!publishResponse.ok) {
+          setWorkspaceStatus(formatApiError(published, publishResponse.status), 'err');
+          return;
+        }
+        selectStoredTemplate(published);
+        await refreshStoredTemplates(published.id);
+        selectStoredTemplate(published);
+      } catch (err) {
+        setWorkspaceStatus('Could not publish template: ' + err.message, 'err');
+      } finally {
+        publishTemplateBtn.disabled = storedTemplate?.status !== 'draft';
+      }
+    });
+
+    fillStoredTemplateBtn.addEventListener('click', async () => {
+      if (!storedTemplate) return;
+      let data;
+      try {
+        data = parseObject(userData.value, 'User data');
+      } catch (err) {
+        setWorkspaceStatus('Invalid user data: ' + err.message, 'err');
+        return;
+      }
+      fillStoredTemplateBtn.disabled = true;
+      resetFilledResult();
+      setWorkspaceStatus('Filling the published template…');
+      try {
+        const response = await fetch(
+          '/v1/templates/' + encodeURIComponent(storedTemplate.id) + '/fills',
+          {
+            method: 'POST',
+            headers: jsonHeaders(),
+            body: JSON.stringify({
+              data,
+              flatten: document.getElementById('flatten').checked,
+              allow_partial: document.getElementById('allowPartial').checked,
+              need_appearances: document.getElementById('needAppearances').checked
+            })
+          }
+        );
+        const job = await response.json();
+        if (!response.ok) {
+          setWorkspaceStatus(formatApiError(job, response.status), 'err');
+          return;
+        }
+        const artifact = await fetch(job.artifact_url, { headers: authHeaders() });
+        if (!artifact.ok) {
+          let errorPayload = {};
+          try { errorPayload = await artifact.json(); } catch (_) {}
+          setWorkspaceStatus(formatApiError(errorPayload, artifact.status), 'err');
+          return;
+        }
+        const filledBlob = await artifact.blob();
+        downloadUrl = URL.createObjectURL(filledBlob);
+        download.href = downloadUrl;
+        download.hidden = false;
+        showPdf(filledBlob, 'filled');
+        inspectOut.hidden = false;
+        inspectOut.textContent = JSON.stringify(job.report, null, 2);
+        setWorkspaceStatus(
+          'Completed job ' + job.id + ' with template version ' + job.template_version + '.',
+          'ok'
+        );
+      } catch (err) {
+        setWorkspaceStatus('Could not fill stored template: ' + err.message, 'err');
+      } finally {
+        fillStoredTemplateBtn.disabled = !storedTemplate;
+      }
+    });
 
     loadSamplePdfBtn.addEventListener('click', async () => {
       setStatus('Loading sample PDF…');

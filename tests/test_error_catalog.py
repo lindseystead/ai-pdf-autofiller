@@ -30,6 +30,15 @@ def test_error_catalog_covers_documented_codes():
         "pdf_inspect_failed",
         "pdf_template_failed",
         "pdf_batch_failed",
+        "template_not_found",
+        "template_not_published",
+        "template_already_published",
+        "template_draft_exists",
+        "template_revision_conflict",
+        "invalid_template_mapping",
+        "template_store_failed",
+        "fill_job_not_found",
+        "fill_job_not_completed",
         "sample_not_found",
     }
     assert set(ERROR_CATALOG) == expected

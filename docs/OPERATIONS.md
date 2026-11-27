@@ -13,6 +13,8 @@ Environment variables are read at process start with `os.getenv`. `PDF_JOB_BACKE
 - `API_AUTH_TOKEN`: expected token value when auth is enabled
 - `API_KEY_HEADER`: header name used for the incoming token
 - `MAX_UPLOAD_BYTES`: maximum accepted PDF size in bytes (default 5 MiB)
+- `JSON_BODY_MAX_BYTES`: maximum request-body size for JSON-only `/v1` mutations, enforced before
+  body parsing (default 1 MiB)
 - `MAX_PDF_PAGES`: maximum accepted page count, rejected before extraction (default `200`)
 - `PDF_READ_TIMEOUT_SECONDS`: wall-clock budget for **full pipeline processing** on `/fill`, `/batch`, `/preview`, and `/inspect` — not only PDF parsing; covers enrich/map/write as well (default `20`)
 - `PDF_JOB_BACKEND`: `process` (default) runs PDF work in a child process and **terminates** it on timeout; `thread` uses a soft timeout (test suite default)
@@ -28,12 +30,17 @@ Environment variables are read at process start with `os.getenv`. `PDF_JOB_BACKE
 - `LOG_LEVEL`: process log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`)
 - `LOG_FORMAT`: `text` (default) or `json` for one JSON object per log line (useful for aggregators)
 - `PRODUCT_TELEMETRY_ENABLED`: emit aggregate, allowlisted product events to local logs (default `false`; see [TELEMETRY.md](TELEMETRY.md))
+- `PRODUCT_DATA_DIR`: durable template-workspace root (default `./pdf-autofiller-data`). Contains
+  SQLite metadata plus source and filled PDFs. Mount it on a private persistent volume and include
+  it in backup, encryption, access-control, and retention policies.
 
 ## Service Behavior
 
 - Authentication is **enabled by default** and fails closed: if `API_AUTH_ENABLED` is true but `API_AUTH_TOKEN` is unset, protected POSTs return `500 server_auth_config_error` rather than serving openly.
 - Unauthenticated: `GET /`, `/playground`, `/health`, `/version`, `/samples/sample_form.pdf`.
-- Protected: `POST /fill`, `/batch`, `/preview`, `/inspect`.
+- Protected: `POST /fill`, `/batch`, `/preview`, `/inspect`, `/template`, and every `/v1` template,
+  job, source, and artifact route. The current self-hosted API key protects the deployment as one
+  trust boundary; it is not per-user or multi-tenant authorization.
 - Protected POSTs are rate limited per client and reject PDFs over the page limit or that exceed the processing time budget. Timed-out jobs are killed when `PDF_JOB_BACKEND=process` (the default).
 - On `POST /fill`, `/batch`, `/preview` and `/inspect`, auth and rate limits are checked before the request body is read, and the body is cut off with `413` once it passes `MAX_UPLOAD_BYTES` plus 1 MiB for the form envelope and `user_data` (whether or not `Content-Length` is sent). The PDF part itself is then held to `MAX_UPLOAD_BYTES`. `POST /batch` also rejects records text over 1 MiB.
 - `GET /health` reports dependency checks (`auth`, `semantic_provider`, `rate_limit`, alias packs). It returns HTTP `503` with `status=degraded` when auth is enabled without a token, so container and platform health checks do not accept an unusable deployment.
@@ -83,6 +90,7 @@ Run:
 docker run --rm -p 8000:8000 \
   -e API_AUTH_ENABLED=true \
   -e API_AUTH_TOKEN=replace_with_strong_random_value \
+  -v pdf-autofiller-data:/data \
   pdf-autofiller
 ```
 
@@ -118,3 +126,6 @@ Until Pages is enabled, `.github/workflows/pages.yml` **skips the deploy with a 
 - TLS termination, ingress policy, and network isolation are handled by the deployment environment.
 - Secret storage and rotation are handled by the deployment environment.
 - Audit logging, retention policy, and data classification remain deployment-specific responsibilities.
+- The local durable workspace is single-deployment storage. Do not run multiple replicas that write
+  the same SQLite file over a network filesystem. Use a PostgreSQL/object-store adapter before
+  horizontal scaling or multi-tenant service operation.

@@ -49,12 +49,14 @@ from .schemas import (
 )
 from .system_routes import router as system_router
 from .telemetry import emit_product_event
+from .template_routes import router as template_workspace_router
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 router.include_router(system_router)
 router.include_router(batch_router)
+router.include_router(template_workspace_router)
 
 
 @router.post(

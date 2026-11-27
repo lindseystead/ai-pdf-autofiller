@@ -35,6 +35,11 @@ def test_playground_page_renders_html():
     assert 'id="saveMappingBtn"' in response.text
     assert 'id="mappingEditor"' in response.text
     assert 'id="refreshMappingBtn"' in response.text
+    assert 'id="storedTemplateName"' in response.text
+    assert 'id="storedTemplateSelect"' in response.text
+    assert 'id="storeTemplateBtn"' in response.text
+    assert 'id="publishTemplateBtn"' in response.text
+    assert 'id="fillStoredTemplateBtn"' in response.text
     assert '<link rel="stylesheet" href="/assets/playground.css"' in response.text
     assert '<script src="/assets/playground.js" defer>' in response.text
     assert "<style" not in response.text
@@ -58,6 +63,9 @@ def test_playground_assets_are_served_and_csp_disallows_inline_code():
     assert "form.append('field_mapping'" in javascript.text
     assert "function renderMappingEditor()" in javascript.text
     assert "document.createElement('select')" in javascript.text
+    assert "fetch('/v1/templates'" in javascript.text
+    assert "'/publish'" in javascript.text
+    assert "job.artifact_url" in javascript.text
     assert "X-PDF-Fields-Missing-Required" in javascript.text
     assert "URL.revokeObjectURL" in javascript.text
     csp = page.headers["content-security-policy"]

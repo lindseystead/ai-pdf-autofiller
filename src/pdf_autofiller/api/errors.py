@@ -62,6 +62,15 @@ ERROR_CATALOG: dict[str, tuple[int, str]] = {
     "pdf_inspect_failed": (500, "PDF inspect failed"),
     "pdf_template_failed": (500, "PDF template generation failed"),
     "pdf_batch_failed": (500, "PDF batch failed"),
+    "template_not_found": (404, "Template not found"),
+    "template_not_published": (409, "Template has no published version"),
+    "template_already_published": (409, "Template version is already published"),
+    "template_draft_exists": (409, "Finish or publish the current draft first"),
+    "template_revision_conflict": (409, "Template draft changed; reload and try again"),
+    "invalid_template_mapping": (422, "Template mapping is invalid"),
+    "template_store_failed": (500, "Template store operation failed"),
+    "fill_job_not_found": (404, "Fill job not found"),
+    "fill_job_not_completed": (409, "Fill job has no completed artifact"),
     "sample_not_found": (404, "Sample PDF is not bundled in this deployment"),
 }
 

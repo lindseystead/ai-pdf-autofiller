@@ -57,6 +57,8 @@ Pytest coverage currently includes:
 - Incremental aggregate batch-output enforcement (processing stops at the limit)
 - Public compatibility report at a 100% expected-field threshold in CI
 - Product telemetry allowlist and value-leak prevention (`tests/test_telemetry.py`)
+- Durable template lifecycle, optimistic revisions, immutable publishing, stored fills, artifact
+  retrieval, version rollover, and object-key traversal defenses (`tests/test_template_store.py`)
 - Golden corpus fixtures (`tests/test_corpus.py`)
 - End-to-end pipeline and API round-trips (`tests/test_integration.py`)
 

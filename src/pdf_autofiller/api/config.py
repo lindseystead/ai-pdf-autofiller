@@ -56,6 +56,9 @@ BATCH_MAX_RESPONSE_BYTES = _env_int("BATCH_MAX_RESPONSE_BYTES", 25 * 1024 * 1024
 # Room in a request body for the multipart envelope and the user_data part on
 # top of the PDF itself; requests larger than MAX_UPLOAD_BYTES + this are cut off.
 FORM_OVERHEAD_BYTES = 1024 * 1024
+# JSON-only product mutations never need to carry PDF bytes. Reject oversized
+# bodies before FastAPI parses them, just like multipart uploads.
+JSON_BODY_MAX_BYTES = _env_int("JSON_BODY_MAX_BYTES", 1024 * 1024)
 MAX_PDF_PAGES = _env_int("MAX_PDF_PAGES", 200)
 # Wall-clock budget for full pipeline processing on /fill, /preview, and /inspect.
 PDF_READ_TIMEOUT_SECONDS = _env_float("PDF_READ_TIMEOUT_SECONDS", 20)
@@ -70,6 +73,9 @@ RATE_LIMIT_STORE_PATH = os.getenv(
 )
 TRUST_PROXY_HEADERS = _env_bool("TRUST_PROXY_HEADERS", False)
 PRODUCT_TELEMETRY_ENABLED = _env_bool("PRODUCT_TELEMETRY_ENABLED", False)
+# Durable self-hosted template metadata and PDF objects. Mount this directory
+# on persistent storage in containers; permissions are restricted on creation.
+PRODUCT_DATA_DIR = Path(os.getenv("PRODUCT_DATA_DIR", "./pdf-autofiller-data"))
 # Number of reverse proxies in front of the app that append to X-Forwarded-For.
 # The client IP is the entry that many hops from the right; anything further
 # left is client-supplied and must not be trusted (it would let callers rotate

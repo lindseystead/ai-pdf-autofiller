@@ -132,6 +132,10 @@ The server includes a small test page at `/playground` for trying fills without 
 
 <img src="docs/assets/playground-preview.png" alt="Playground: upload a PDF, paste JSON, download the filled PDF" width="700" />
 
+The playground also includes a durable template workspace: upload a blank form once, review its
+exact mapping, publish an immutable version, and fill it repeatedly. Set `PRODUCT_DATA_DIR` to a
+private persistent volume; see [Template workspace](docs/TEMPLATE_WORKSPACE.md).
+
 ## How matching works
 
 1. Field names are normalized (case, spaces, underscores and prefixes like `txt`), so the key
@@ -161,7 +165,7 @@ their cloud.
 - [FAQ](docs/FAQ.md) · [Architecture](docs/ARCHITECTURE.md) · [Security](SECURITY.md) ·
   [Changelog](CHANGELOG.md)
 - [Compatibility program](docs/COMPATIBILITY.md) · [Design-partner pilot](docs/PILOT_VALIDATION.md) ·
-  [Privacy-safe telemetry](docs/TELEMETRY.md)
+  [Privacy-safe telemetry](docs/TELEMETRY.md) · [Template workspace](docs/TEMPLATE_WORKSPACE.md)
 
 ## Development
 

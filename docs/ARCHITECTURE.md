@@ -36,6 +36,8 @@ api/ ───┘    (api/jobs.py runs each pipeline call in a killable worker p
 | `playground.py`, `static/` | Semantic HTML plus separately served CSS and JavaScript for `/playground` |
 | `compatibility.py`, `scripts/compatibility_report.py` | Value-free compatibility scoring for public or private manifests |
 | `api/telemetry.py` | Opt-in aggregate product events with a strict dimension allowlist |
+| `template_store.py` | Durable template versions, optimistic mapping revisions, fill jobs, SQLite metadata and local PDF objects |
+| `api/template_routes.py` | Reusable template workspace API under `/v1`; published-only fills and artifact retrieval |
 
 ## Fill flow
 
@@ -122,6 +124,20 @@ fail with `422 invalid_field_mapping`, so a stale saved profile cannot silently 
 - Alias packs: `src/pdf_autofiller/form_aliases/*.json`, each proven by a case in
   `tests/fixtures/corpus/cases.json`.
 - New value types: extend `coerce_value` in `mapping.py` (validate, do not rewrite).
+
+## Durable template workspace
+
+The `/v1` workspace is a product layer over the storage-independent PDF engine. A template upload
+creates an immutable source object plus an editable mapping draft. Saving the draft uses an
+optimistic `revision`; publishing freezes that version. A replacement PDF creates the next draft,
+while fills continue using the latest published version until the replacement is reviewed.
+
+The bundled self-hosted adapter uses SQLite metadata and private local files below
+`PRODUCT_DATA_DIR`. It is appropriate for one deployment sharing one persistent volume. It is a
+deliberate boundary—not a claim of multi-region storage: managed deployments should replace the
+repository with PostgreSQL and the object adapter with S3-compatible storage before horizontally
+scaling writers. Fill payload values are not stored; job reports contain field names and outcomes,
+and completed PDF artifacts remain until the operator's storage-retention process removes them.
 
 ## Not in scope
 

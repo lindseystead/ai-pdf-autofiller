@@ -35,6 +35,7 @@ venv.bak/
 .coverage
 compatibility-output/
 compatibility-report.json
+pdf-autofiller-data/
 tests/fixtures/compatibility/private/
 .coverage.*
 htmlcov/

@@ -98,6 +98,36 @@
     <div id="status" class="status" role="status" aria-live="polite" aria-atomic="true">Ready. Upload a PDF (or click Use sample PDF) and click Fill PDF.</div>
     <pre id="inspectOut" class="status code-output" hidden></pre>
 
+    <section class="card workspace-card" aria-labelledby="workspaceHeading">
+      <h2 id="workspaceHeading">Reusable template workspace</h2>
+      <p class="privacy">
+        Store the blank PDF and reviewed mapping on this server. Published versions are immutable;
+        fills keep using the last published version while a replacement draft is reviewed.
+      </p>
+      <div class="workspace-grid mt-12">
+        <div>
+          <label for="storedTemplateName">Template name</label>
+          <input id="storedTemplateName" type="text" maxlength="120" placeholder="Client intake" />
+        </div>
+        <div>
+          <label for="storedTemplateSelect">Stored templates</label>
+          <select id="storedTemplateSelect" aria-describedby="workspaceStatus">
+            <option value="">No template selected</option>
+          </select>
+        </div>
+      </div>
+      <div class="row mt-12">
+        <button id="storeTemplateBtn" class="ghost" type="button">Store current PDF as draft</button>
+        <button id="refreshTemplatesBtn" class="ghost" type="button">Refresh templates</button>
+        <button id="loadStoredTemplateBtn" class="ghost" type="button">Load selected draft</button>
+        <button id="publishTemplateBtn" type="button" disabled>Save mapping and publish</button>
+        <button id="fillStoredTemplateBtn" type="button" disabled>Fill published template</button>
+      </div>
+      <p id="workspaceStatus" class="privacy" role="status" aria-live="polite">
+        No durable template selected. Local browser mappings above still work independently.
+      </p>
+    </section>
+
     <section class="card pdf-card" aria-labelledby="pdfPreviewHeading">
       <h2 id="pdfPreviewHeading">PDF preview</h2>
       <p id="pdfPreviewLabel" class="privacy">Choose a PDF to preview it here.</p>
