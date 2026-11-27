@@ -106,6 +106,16 @@ RUN_LIVE_AI_EVAL=1 PYTHONPATH=src python -m pytest tests/test_ai_workflow.py -k 
 This sends one synthetic form's field metadata and page label to OpenAI. It checks a small
 known-answer case and does not estimate overall model accuracy.
 
+CI also runs the AI review flow in Chromium against a local app server and a simulated provider.
+It checks timeout recovery, invalidation after editing the input, accepting a fresh suggestion,
+and the actual field value in the downloaded PDF. To run that check locally:
+
+```bash
+python -m pip install playwright==1.65.2
+python -m playwright install chromium
+RUN_BROWSER_E2E=1 PYTHONPATH=src python -m pytest tests/test_ai_workflow.py -k browser
+```
+
 ## Quality Commands
 
 From repository root:
