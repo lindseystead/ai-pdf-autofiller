@@ -17,6 +17,10 @@ the current browser and are keyed to a SHA-256 fingerprint of the PDF; form valu
 Its JavaScript and CSS are served as separate same-origin assets. The response CSP disallows
 inline script and style execution.
 
+In the playground, AI runs during preview. Accepting an eligible suggestion copies the exact
+`selected_key` from the preview response into the mapping editor. The browser fill uses the
+reviewed mapping with AI disabled. API clients can still explicitly opt into AI on `/fill`.
+
 ### `POST /template`
 
 Uploads one AcroForm PDF and returns starter JSON, required keys, and exact PDF-field to JSON-key

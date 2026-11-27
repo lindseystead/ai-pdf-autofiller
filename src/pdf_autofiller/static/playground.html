@@ -77,6 +77,7 @@
           <label><input type="checkbox" id="needAppearances" checked /> Improve compatibility across PDF viewers</label>
         </div>
         <p id="aiDisclosure" class="privacy">
+          AI runs during preview. Review and accept each suggestion you want to use before filling.
           AI field inference sends field names and up to 500 characters of visible page text per field
           to the configured OpenAI provider. AI key fallback sends key names and value types, never values.
         </p>
@@ -97,6 +98,7 @@
     </div>
     <div id="status" class="status" role="status" aria-live="polite" aria-atomic="true">Ready. Upload a PDF (or click Use sample PDF) and click Fill PDF.</div>
     <pre id="inspectOut" class="status code-output" hidden></pre>
+    <div id="aiSuggestions" class="row" aria-label="AI mapping suggestions" hidden></div>
 
     <section class="card workspace-card" aria-labelledby="workspaceHeading">
       <h2 id="workspaceHeading">Reusable template workspace</h2>

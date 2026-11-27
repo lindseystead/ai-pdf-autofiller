@@ -256,7 +256,7 @@ def _parse_fallback_entry(entry: Any, user_data: dict[str, Any]) -> tuple[str, f
 def semantic_fallback_mapping(
     unmapped_fields: list[EnrichedFormField],
     user_data: dict[str, Any],
-) -> dict[str, tuple[str, str | None, float, str]]:
+) -> dict[str, tuple[str, str | None, float, str, bool]]:
     """
     AI key fallback: ask the model which user key each unresolved field should get.
 
@@ -323,18 +323,18 @@ Example response:
         if not isinstance(fallback_result, dict):
             raise ValueError("fallback response is not a JSON object")
 
-        result: dict[str, tuple[str, str | None, float, str]] = {}
+        result: dict[str, tuple[str, str | None, float, str, bool]] = {}
         for field in unmapped_fields:
             parsed = _parse_fallback_entry(fallback_result.get(field.field.name), user_data)
             if parsed is None:
                 continue
             matched_key, confidence, reason = parsed
-            coerced_value, _ = coerce_for_field(
+            coerced_value, requires_review = coerce_for_field(
                 user_data[matched_key],
                 field.semantics.expected_data_type,
                 field.field.field_type,
             )
-            result[field.field.name] = (matched_key, coerced_value, confidence, reason)
+            result[field.field.name] = (matched_key, coerced_value, confidence, reason, requires_review)
         return result
     except (RuntimeError, json.JSONDecodeError, TypeError, ValueError, KeyError) as exc:
         logger.warning("AI key fallback failed: %s", exc)
@@ -455,6 +455,7 @@ def map_user_data_to_fields(
                 field_name=enriched_field.field.name,
                 semantic_meaning=enriched_field.semantics.semantic_meaning,
                 selected_value=matched_value,
+                selected_key=source,
                 confidence=confidence,
                 reason=reason,
                 requires_review=requires_review or confidence < 0.80,
@@ -474,7 +475,9 @@ def map_user_data_to_fields(
                 field_name = enriched_field.field.name
                 if field_name not in fallback_mappings:
                     continue
-                matched_key, matched_value, confidence, reason = fallback_mappings[field_name]
+                matched_key, matched_value, confidence, reason, requires_review = fallback_mappings[
+                    field_name
+                ]
                 if matched_key and matched_key not in used_user_keys:
                     used_user_keys.add(matched_key)
                     # matched_value is already coerced in semantic_fallback_mapping.
@@ -483,9 +486,10 @@ def map_user_data_to_fields(
                             field_name=field_name,
                             semantic_meaning=enriched_field.semantics.semantic_meaning,
                             selected_value=matched_value,
+                            selected_key=matched_key,
                             confidence=confidence,
                             reason=f"AI: {reason}",
-                            requires_review=confidence < 0.80,
+                            requires_review=requires_review or confidence < 0.80,
                             ai_assisted=True,
                         )
                     )

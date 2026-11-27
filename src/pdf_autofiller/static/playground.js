@@ -19,6 +19,7 @@
     const pdfPreviewLabel = document.getElementById('pdfPreviewLabel');
     const aiConsent = document.getElementById('aiConsent');
     const aiAvailability = document.getElementById('aiAvailability');
+    const aiSuggestions = document.getElementById('aiSuggestions');
     const fieldMapping = document.getElementById('fieldMapping');
     const saveMappingBtn = document.getElementById('saveMappingBtn');
     const loadMappingBtn = document.getElementById('loadMappingBtn');
@@ -60,6 +61,7 @@
     }
 
     function resetFilledResult() {
+      aiSuggestions.hidden = true;
       if (downloadUrl) URL.revokeObjectURL(downloadUrl);
       downloadUrl = null;
       download.removeAttribute('href');
@@ -272,7 +274,9 @@
         return;
       }
       selectedFile = file;
-      selectedPdfKey = await pdfStorageKey(file);
+      selectedPdfKey = null;
+      fieldMapping.value = '{}';
+      selectStoredTemplate(null);
       templateFields = [];
       renderMappingEditor();
       resetFilledResult();
@@ -281,7 +285,14 @@
       showPdf(file, 'original');
       setStatus('PDF ready. Click Fill PDF when your JSON looks good.');
       inspectOut.hidden = true;
-      if (loadSavedMapping()) setStatus('PDF ready. Its saved field mapping was loaded.');
+      try {
+        const storageKey = await pdfStorageKey(file);
+        if (selectedFile !== file) return;
+        selectedPdfKey = storageKey;
+        if (loadSavedMapping()) setStatus('PDF ready. Its saved field mapping was loaded.');
+      } catch (_) {
+        // A browser without local storage or Web Crypto can still preview and fill.
+      }
     }
 
     sampleBtn.addEventListener('click', () => {
@@ -651,6 +662,16 @@
         setStatus('Invalid JSON: ' + err.message, 'err');
         return;
       }
+      const previewFile = selectedFile;
+      const previewData = userData.value;
+      let previewMapping = fieldMapping.value;
+      const previewOptions = [strictBox.checked, fallbackBox.checked, semanticBox.checked, apiKey.value];
+      const isCurrentPreview = () => selectedFile === previewFile
+        && userData.value === previewData && fieldMapping.value === previewMapping
+        && [strictBox.checked, fallbackBox.checked, semanticBox.checked, apiKey.value]
+          .every((value, index) => value === previewOptions[index]);
+      aiSuggestions.hidden = true;
+      aiSuggestions.replaceChildren();
       previewBtn.disabled = true;
       setStatus('Previewing mapping…');
       const form = new FormData();
@@ -669,16 +690,48 @@
       try {
         const response = await fetch('/preview', { method: 'POST', body: form, headers: authHeaders() });
         const payload = await response.json();
+        if (!isCurrentPreview()) {
+          setStatus('Inputs changed during preview. Preview again to review the current mapping.');
+          return;
+        }
         if (!response.ok) {
           setStatus(formatApiError(payload, response.status), 'err');
           return;
         }
         const decisionLines = (payload.decisions || []).map(d => {
+          const ai = d.ai_assisted ? ' [AI suggestion]' : '';
           const review = d.requires_review ? ' [review]' : '';
           const val = d.selected_value == null ? '(empty)' : JSON.stringify(d.selected_value);
-          return d.field_name + ' ← ' + val + ' (' + d.confidence.toFixed(2) + ')' + review
+          return d.field_name + ' ← ' + val + ' (' + d.confidence.toFixed(2) + ')' + ai + review
             + '\n    ' + d.semantic_meaning + ' — ' + d.reason;
         });
+        for (const decision of payload.decisions || []) {
+          if (!decision.ai_assisted || decision.requires_review || !decision.selected_key
+              || decision.selected_value == null) continue;
+          const approve = document.createElement('button');
+          approve.type = 'button';
+          approve.className = 'ghost';
+          approve.textContent = 'Accept ' + decision.field_name + ' ← ' + decision.selected_key;
+          approve.addEventListener('click', () => {
+            if (!isCurrentPreview()) {
+              aiSuggestions.hidden = true;
+              setStatus('Inputs changed. Preview again before accepting a suggestion.', 'err');
+              return;
+            }
+            const current = parseObject(previewMapping, 'Field mapping');
+            fieldMapping.value = JSON.stringify(
+              { ...current, [decision.field_name]: decision.selected_key }, null, 2
+            );
+            previewMapping = fieldMapping.value;
+            renderMappingEditor();
+            resetFilledResult();
+            approve.remove();
+            aiSuggestions.hidden = !aiSuggestions.childElementCount;
+            setStatus('Mapping accepted. Fill the PDF or save the mapping for reuse.', 'ok');
+          });
+          aiSuggestions.appendChild(approve);
+        }
+        aiSuggestions.hidden = !aiSuggestions.childElementCount;
         const missing = (payload.missing_required || []).join(', ') || '(none)';
         const unmapped = (payload.unmapped_user_keys || []).join(', ') || '(none)';
         const hints = (payload.mapping_hints || []).map(h => '- ' + h).join('\n');
@@ -689,7 +742,11 @@
           + 'Missing required: ' + missing + '\n'
           + 'Unmapped user keys: ' + unmapped
           + (hints ? '\n\nHints:\n' + hints : '');
-        setStatus('Preview complete. Review decisions before filling.', 'ok');
+        const aiRequested = previewOptions[1] || previewOptions[2];
+        const message = aiRequested && !aiSuggestions.childElementCount
+          ? 'Preview complete. No AI suggestions are ready to accept. Check the report for unresolved fields.'
+          : 'Preview complete. Review decisions before filling.';
+        setStatus(message, 'ok');
       } catch (err) {
         setStatus('Network error: ' + err.message, 'err');
       } finally {
@@ -725,9 +782,6 @@
         fillBtn.disabled = false;
         return;
       }
-      form.append('strict', document.getElementById('strict').checked ? 'true' : 'false');
-      form.append('allow_fallback_mapping', document.getElementById('fallback').checked ? 'true' : 'false');
-      form.append('use_semantic_inference', document.getElementById('semantic').checked ? 'true' : 'false');
       form.append('flatten', document.getElementById('flatten').checked ? 'true' : 'false');
       form.append('allow_partial', document.getElementById('allowPartial').checked ? 'true' : 'false');
       form.append('need_appearances', document.getElementById('needAppearances').checked ? 'true' : 'false');

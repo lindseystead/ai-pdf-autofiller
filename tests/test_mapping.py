@@ -387,11 +387,36 @@ def test_semantic_fallback_mapping_parses_markdown_and_coerces_values():
         mapping_module.SemanticClient = original_client
 
     assert "txtConsent" in result
-    matched_key, matched_value, confidence, reason = result["txtConsent"]
+    matched_key, matched_value, confidence, reason, requires_review = result["txtConsent"]
+    assert not requires_review
     assert matched_key == "agree"
     assert matched_value == "true"
     assert confidence == 0.88
     assert reason == "Matched consent"
+
+
+def test_ai_fallback_requires_review_for_invalid_date(monkeypatch):
+    from pdf_autofiller import mapping
+
+    class Provider:
+        def is_available(self):
+            return True
+
+        def create_json_completion(self, **_):
+            return '{"txtDOB":{"matched_key":"source_column","confidence":0.99}}'
+
+    monkeypatch.setattr(mapping, "SemanticClient", Provider)
+    field = EnrichedFormField(
+        field=FormField(name="txtDOB", field_type="text", page_number=1, required=True),
+        semantics=FieldSemantics(
+            semantic_meaning="date_of_birth", expected_data_type="date", confidence_score=0.9
+        ),
+    )
+    outcome = map_user_data_to_fields(
+        [field], {"source_column": "invalid date"}, strict=False, allow_fallback_mapping=True
+    )
+    (decision,) = outcome.decisions
+    assert decision.ai_assisted and decision.requires_review
 
 
 def test_semantic_fallback_prompt_includes_keys_beyond_preview_limit():

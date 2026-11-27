@@ -75,6 +75,7 @@ class FieldMappingDecision(BaseModel):
     field_name: str = Field(description="PDF form field name")
     semantic_meaning: str = Field(description="Semantic meaning of the field")
     selected_value: str | None = Field(default=None, description="Value selected from user data")
+    selected_key: str | None = Field(default=None, description="Exact source path in user data")
     confidence: float = Field(ge=0.0, le=1.0, description="Confidence in the mapping decision")
     reason: str = Field(description="Explanation of how the mapping was determined")
     requires_review: bool = Field(default=False, description="Whether this mapping requires human review")

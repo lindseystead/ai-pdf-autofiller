@@ -93,6 +93,19 @@ curl -s http://localhost:8000/health
 Deterministic paths, including every command above, run without `MODEL_PROVIDER_API_KEY`.
 AI field inference (`--ai`) and the AI key fallback (`--no-strict`) require valid provider credentials.
 
+The offline AI workflow test substitutes the model response at the OpenAI SDK boundary. It uploads
+a generated form, checks that the deterministic baseline leaves the opaque field unresolved,
+asserts the exact AI-suggested source path, and reopens the PDF produced by the approved mapping.
+To run the same check against the real provider, supply `MODEL_PROVIDER_API_KEY` through your
+environment and run:
+
+```bash
+RUN_LIVE_AI_EVAL=1 PYTHONPATH=src python -m pytest tests/test_ai_workflow.py -k live
+```
+
+This sends one synthetic form's field metadata and page label to OpenAI. It checks a small
+known-answer case and does not estimate overall model accuracy.
+
 ## Quality Commands
 
 From repository root:
