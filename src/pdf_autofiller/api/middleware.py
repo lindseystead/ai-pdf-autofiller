@@ -17,7 +17,19 @@ from . import config
 from .errors import api_error
 from .security import guard_mutating_request
 
-UPLOAD_PATHS = frozenset({"/fill", "/preview", "/inspect", "/batch"})
+UPLOAD_PATHS = frozenset({"/fill", "/preview", "/inspect", "/template", "/batch", "/v1/templates"})
+
+
+def _is_upload_path(path: str) -> bool:
+    normalized = path.rstrip("/") or "/"
+    if normalized in UPLOAD_PATHS:
+        return True
+    parts = normalized.strip("/").split("/")
+    return len(parts) == 4 and parts[0] == "v1" and parts[1] == "templates" and parts[3] == "versions"
+
+
+def _is_product_mutation(method: str, path: str) -> bool:
+    return method in {"POST", "PUT", "PATCH", "DELETE"} and path.rstrip("/").startswith("/v1/")
 
 
 class JsonLogFormatter(logging.Formatter):
@@ -59,6 +71,17 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("X-Frame-Options", "DENY")
         response.headers.setdefault("Referrer-Policy", "no-referrer")
+        response.headers.setdefault(
+            "Content-Security-Policy",
+            "default-src 'none'; connect-src 'self'; img-src 'self' data:; "
+            "style-src 'self'; script-src 'self'; "
+            "object-src 'self' blob:; frame-src blob:; form-action 'self'; "
+            "frame-ancestors 'none'; base-uri 'none'",
+        )
+        response.headers.setdefault(
+            "Permissions-Policy",
+            "camera=(), microphone=(), geolocation=(), payment=()",
+        )
         return response
 
 
@@ -81,31 +104,43 @@ async def request_context_middleware(request: Request, call_next: RequestRespons
     return response
 
 
-class UploadGuardMiddleware:
-    """Authenticate, rate-limit and size-check upload requests before reading the body.
+class RequestGuardMiddleware:
+    """Authenticate, rate-limit and size-check protected requests before reading the body.
 
-    Route handlers only run after FastAPI has parsed (and spooled to disk) the
-    whole multipart body, so checks there let anyone stream an unbounded upload.
+    Route handlers only run after FastAPI has parsed JSON or spooled multipart
+    bodies to disk, so checks in handlers would allow unbounded request bodies.
     """
 
     def __init__(self, app: ASGIApp) -> None:
         self.app = app
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] != "http" or scope["method"] != "POST" or scope["path"] not in UPLOAD_PATHS:
+        if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
 
-        limit = config.MAX_UPLOAD_BYTES + config.FORM_OVERHEAD_BYTES
+        is_upload = scope["method"] == "POST" and _is_upload_path(scope["path"])
+        is_product_mutation = _is_product_mutation(scope["method"], scope["path"])
+        if not is_upload and not is_product_mutation:
+            await self.app(scope, receive, send)
+            return
+
+        limit = (
+            config.MAX_UPLOAD_BYTES + config.FORM_OVERHEAD_BYTES if is_upload else config.JSON_BODY_MAX_BYTES
+        )
         too_large = api_error(
             status_code=413,
             code="payload_too_large",
             message="Request body exceeds the upload limit",
-            details={"max_upload_bytes": config.MAX_UPLOAD_BYTES},
+            details={
+                "max_body_bytes": limit,
+                "max_upload_bytes": config.MAX_UPLOAD_BYTES if is_upload else None,
+            },
         )
         request = Request(scope)
         try:
             guard_mutating_request(request)
+            scope.setdefault("state", {})["security_guarded"] = True
             declared = request.headers.get("content-length", "")
             # isascii(): str.isdigit() also accepts "²" etc., which int() rejects.
             if declared.isascii() and declared.isdigit() and int(declared) > limit:
@@ -145,6 +180,6 @@ def _error_response(exc: HTTPException) -> JSONResponse:
 
 def install_middleware(app: FastAPI) -> None:
     """Register middleware on the FastAPI app (the first added runs innermost)."""
-    app.add_middleware(UploadGuardMiddleware)
+    app.add_middleware(RequestGuardMiddleware)
     app.add_middleware(SecurityHeadersMiddleware)
     app.middleware("http")(request_context_middleware)

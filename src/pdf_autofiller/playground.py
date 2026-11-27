@@ -2,4 +2,7 @@
 
 from pathlib import Path
 
-PLAYGROUND_HTML = (Path(__file__).parent / "static" / "playground.html").read_text(encoding="utf-8")
+STATIC_DIR = Path(__file__).parent / "static"
+PLAYGROUND_HTML = (STATIC_DIR / "playground.html").read_text(encoding="utf-8")
+PLAYGROUND_CSS_PATH = STATIC_DIR / "playground.css"
+PLAYGROUND_JS_PATH = STATIC_DIR / "playground.js"

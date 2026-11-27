@@ -205,3 +205,10 @@ def guard_mutating_request(request: Request) -> None:
     """Auth first, then rate-limit — unauthenticated scans must not burn quota."""
     require_api_key(request)
     enforce_rate_limit(request)
+
+
+def guard_api_request(request: Request) -> None:
+    """Guard a route unless the pre-body middleware already did so."""
+    if getattr(request.state, "security_guarded", False):
+        return
+    guard_mutating_request(request)

@@ -10,7 +10,11 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt \
-    && adduser --disabled-password --gecos "" appuser
+    && adduser --disabled-password --gecos "" appuser \
+    && mkdir -p /data \
+    && chown appuser:appuser /data
+
+ENV PRODUCT_DATA_DIR=/data
 
 COPY --chown=appuser:appuser src ./src
 COPY --chown=appuser:appuser samples ./samples

@@ -42,6 +42,7 @@ class PreviewDecision(BaseModel):
     field_name: str
     semantic_meaning: str
     selected_value: str | None = None
+    selected_key: str | None = None
     confidence: float
     reason: str
     requires_review: bool = False

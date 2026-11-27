@@ -12,6 +12,21 @@ Serves the browser playground UI for trying fills without curl.
 
 The playground exposes checkboxes for `strict`, `allow_fallback_mapping` (AI key fallback), `use_semantic_inference` (AI field inference), `flatten`, `allow_partial`, and `need_appearances`. Use curl (or the SDK) when you need full control over form flags and headers.
 
+The playground can generate, edit, and save an exact field mapping. Saved mappings remain in
+the current browser and are keyed to a SHA-256 fingerprint of the PDF; form values are not stored.
+Its JavaScript and CSS are served as separate same-origin assets. The response CSP disallows
+inline script and style execution.
+
+In the playground, AI runs during preview. Accepting an eligible suggestion copies the exact
+`selected_key` from the preview response into the mapping editor. The browser fill uses the
+reviewed mapping with AI disabled. API clients can still explicitly opt into AI on `/fill`.
+
+### `POST /template`
+
+Uploads one AcroForm PDF and returns starter JSON, required keys, and exact PDF-field to JSON-key
+pairs. Review or edit those pairs, then pass them as the `field_mapping` multipart field to
+`/preview`, `/fill`, or `/batch`.
+
 ### `GET /health`
 
 Returns service health metadata.
@@ -39,7 +54,7 @@ Example response:
 }
 ```
 
-`status` is `degraded` when auth is enabled but `API_AUTH_TOKEN` is unset (`checks.auth` = `misconfigured`). Alias packs are reported via `checks.alias_source` (`packaged`, or `custom` when `FORM_ALIASES_DIR` is in use) and `checks.alias_pack_count`; the directory path itself is not exposed. `semantic_provider` reports whether AI field inference can run: `available`, `unconfigured`, or `sdk_missing`. It does not claim a request's inference succeeded. The check keeps this name so existing health monitors do not break. `rate_limit` is `in_process`, `shared_file`, or `disabled` depending on `RATE_LIMIT_PER_MINUTE` / `RATE_LIMIT_BACKEND`.
+`status` is `degraded` and the endpoint returns HTTP `503` when auth is enabled but `API_AUTH_TOKEN` is unset (`checks.auth` = `misconfigured`). Alias packs are reported via `checks.alias_source` (`packaged`, or `custom` when `FORM_ALIASES_DIR` is in use) and `checks.alias_pack_count`; the directory path itself is not exposed. `semantic_provider` reports whether AI field inference can run: `available`, `unconfigured`, or `sdk_missing`. It does not claim a request's inference succeeded. The check keeps this name so existing health monitors do not break. `rate_limit` is `in_process`, `shared_file`, or `disabled` depending on `RATE_LIMIT_PER_MINUTE` / `RATE_LIMIT_BACKEND`.
 
 ### `GET /version`
 
@@ -61,6 +76,34 @@ Returns the bundled sample AcroForm used by the playground one-click demo.
 This endpoint is **unauthenticated** (same as `/health`, `/version`, and `/playground`).
 The sample ships with the Docker image and source checkouts; a pip-installed server returns
 `404 sample_not_found`.
+
+## Durable template workspace (`/v1`)
+
+These routes store blank PDFs, reviewed mappings, immutable published versions, value-free job
+reports, and completed artifacts under `PRODUCT_DATA_DIR`. Every route below requires the API key;
+source PDFs and filled artifacts are never public URLs.
+
+| Method | Path | Purpose |
+|---|---|---|
+| `POST` | `/v1/templates` | Create version 1 as a mapping draft (`name` + `pdf_file`) |
+| `GET` | `/v1/templates` | List the latest version of each stored template |
+| `GET` | `/v1/templates/{id}` | Get the latest draft/published version and mapping |
+| `GET` | `/v1/templates/{id}/corrections` | Export value-free reviewed mapping changes |
+| `GET` | `/v1/templates/{id}/source?version=N` | Download an authenticated blank source PDF |
+| `PUT` | `/v1/templates/{id}/mapping` | Save a draft with `expected_revision` optimistic locking |
+| `POST` | `/v1/templates/{id}/publish` | Validate required mappings and freeze the draft |
+| `POST` | `/v1/templates/{id}/versions` | Upload a replacement PDF as the next draft |
+| `POST` | `/v1/templates/{id}/fills` | Fill the latest published version from a JSON body |
+| `GET` | `/v1/jobs/{id}` | Read the value-free fill report and artifact URL |
+| `GET` | `/v1/jobs/{id}/artifact` | Download the authenticated completed PDF |
+
+Published fills are deterministic: the reviewed exact mapping is used with AI disabled. Missing
+optional mapped keys are treated as empty; missing required values still return
+`422 required_fields_unresolved` unless `allow_partial` is selected. A replacement draft never
+changes production fills until it is published.
+
+See [TEMPLATE_WORKSPACE.md](TEMPLATE_WORKSPACE.md) for the lifecycle, privacy model, storage layout,
+and single-deployment scaling boundary.
 
 ### `POST /inspect`
 
@@ -266,7 +309,7 @@ Optional form fields:
 - `on_error`: `continue` (default) or `stop`
 - `strict`, `allow_fallback_mapping`, `use_semantic_inference`, `flatten`, `need_appearances`, `allow_partial`: same meaning as `POST /fill`
 
-The records text is limited to 1 MiB. The record count defaults to 25 (`BATCH_MAX_RECORDS`, ceiling 500). CSV cells stay strings. The whole batch shares `PDF_READ_TIMEOUT_SECONDS`.
+The records text is limited to 1 MiB. The record count defaults to 25 (`BATCH_MAX_RECORDS`, ceiling 500). CSV cells stay strings. The whole batch shares `PDF_READ_TIMEOUT_SECONDS`. Generated PDFs are also limited as a group by `BATCH_MAX_RESPONSE_BYTES` (25 MiB by default, before base64 expansion); larger batches return `413 batch_output_too_large`. Use smaller batches or `dry_run=true` first.
 
 ```bash
 curl -s -X POST http://localhost:8000/batch \
@@ -298,7 +341,7 @@ API errors return a JSON payload with a machine-readable code:
 }
 ```
 
-Canonical catalog (also exposed in OpenAPI on `/fill`, `/batch`, `/preview`, `/inspect`):
+Canonical catalog (also exposed in OpenAPI on `/fill`, `/batch`, `/preview`, `/inspect`, `/template`):
 
 | Code | HTTP | When |
 |------|------|------|
@@ -307,6 +350,7 @@ Canonical catalog (also exposed in OpenAPI on `/fill`, `/batch`, `/preview`, `/i
 | `invalid_user_data_type` | 422 | `user_data` is not a JSON object |
 | `invalid_records` | 422 | Batch records are not a usable JSON array, JSONL file, or CSV |
 | `too_many_records` | 422 | Batch has more records than `BATCH_MAX_RECORDS` |
+| `batch_output_too_large` | 413 | Generated batch PDFs exceed `BATCH_MAX_RESPONSE_BYTES` |
 | `user_data_too_deep` | 422 | `user_data` nests deeper than `MAX_USER_DATA_DEPTH` (default 16) |
 | `conflicting_options` | 422 | `allow_fallback_mapping=true` sent with `strict=true` (strict mode disables the AI key fallback) |
 | `unsupported_media_type` | 415 | Upload is not a PDF content-type |
@@ -329,7 +373,7 @@ Source of truth in code: `pdf_autofiller.api.errors.ERROR_CATALOG`.
 
 ## Authentication
 
-Authentication applies to `POST /fill`, `POST /batch`, `POST /preview`, and `POST /inspect`. It is **enabled by default**
+Authentication applies to `POST /fill`, `POST /batch`, `POST /preview`, `POST /inspect`, and `POST /template`. It is **enabled by default**
 (`API_AUTH_ENABLED=true`) and can be disabled for trusted/local use by setting
 `API_AUTH_ENABLED=false`.
 

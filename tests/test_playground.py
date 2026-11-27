@@ -21,11 +21,57 @@ def test_playground_page_renders_html():
     assert 'id="fillBtn"' in response.text
     assert 'id="loadSamplePdfBtn"' in response.text
     assert 'id="inspectBtn"' in response.text
+    assert 'id="templateBtn"' in response.text
     assert 'id="previewBtn"' in response.text
     assert 'id="flatten"' in response.text
     assert 'id="needAppearances"' in response.text
     assert "disable AI key fallback" in response.text
     assert 'type="password"' in response.text
+    assert 'role="status" aria-live="polite"' in response.text
+    assert 'for="userData"' in response.text
+    assert 'id="pdfPreview"' in response.text
+    assert 'id="aiConsent"' in response.text
+    assert 'id="fieldMapping"' in response.text
+    assert 'id="saveMappingBtn"' in response.text
+    assert 'id="mappingEditor"' in response.text
+    assert 'id="refreshMappingBtn"' in response.text
+    assert 'id="storedTemplateName"' in response.text
+    assert 'id="storedTemplateSelect"' in response.text
+    assert 'id="storeTemplateBtn"' in response.text
+    assert 'id="publishTemplateBtn"' in response.text
+    assert 'id="fillStoredTemplateBtn"' in response.text
+    assert '<link rel="stylesheet" href="/assets/playground.css"' in response.text
+    assert '<script src="/assets/playground.js" defer>' in response.text
+    assert "<style" not in response.text
+    assert "style=" not in response.text
+    assert "<script>" not in response.text
+    assert '<button id="drop"' in response.text
+    assert 'role="button"' not in response.text
+    assert '<a id="download"' in response.text
+
+
+def test_playground_assets_are_served_and_csp_disallows_inline_code():
+    css = client.get("/assets/playground.css")
+    javascript = client.get("/assets/playground.js")
+    page = client.get("/playground")
+
+    assert css.status_code == javascript.status_code == 200
+    assert css.headers["content-type"].startswith("text/css")
+    assert javascript.headers["content-type"].startswith("text/javascript")
+    assert "crypto.subtle.digest('SHA-256'" in javascript.text
+    assert "localStorage.setItem(selectedPdfKey" in javascript.text
+    assert "form.append('field_mapping'" in javascript.text
+    assert "function renderMappingEditor()" in javascript.text
+    assert "document.createElement('select')" in javascript.text
+    assert "fetch('/v1/templates'" in javascript.text
+    assert "'/publish'" in javascript.text
+    assert "job.artifact_url" in javascript.text
+    assert "X-PDF-Fields-Missing-Required" in javascript.text
+    assert "URL.revokeObjectURL" in javascript.text
+    csp = page.headers["content-security-policy"]
+    assert "script-src 'self'" in csp
+    assert "style-src 'self'" in csp
+    assert "unsafe-inline" not in csp
 
 
 def test_playground_default_json_is_valid():
@@ -48,6 +94,15 @@ def test_playground_default_json_is_valid():
 def test_playground_has_no_html_injection_sinks():
     # Status and report text echo server errors that can contain field names
     # taken from the uploaded PDF, so the page must only ever set textContent.
-    html = client.get("/playground").text
+    javascript = client.get("/assets/playground.js").text
     for sink in ("innerHTML", "outerHTML", "insertAdjacentHTML", "document.write"):
-        assert sink not in html
+        assert sink not in javascript
+
+
+def test_playground_download_requires_acknowledgement_for_partial_fill():
+    html = client.get("/playground").text
+    javascript = client.get("/assets/playground.js").text
+    assert 'id="ackIncomplete"' in html
+    assert "download.hidden = true" in javascript
+    assert "Incomplete PDF — required fields are missing" in javascript
+    assert "ackIncomplete.checked && downloadUrl" in javascript

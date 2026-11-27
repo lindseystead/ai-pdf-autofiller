@@ -26,9 +26,18 @@ api/ ───┘    (api/jobs.py runs each pipeline call in a killable worker p
 | `models.py` | Pydantic contracts between stages: `MappingResult`, `FieldMappingDecision`, `FillReport` |
 | `cli.py`, `__main__.py` | `pdf-autofiller inspect`, `preview`, `fill`, and `batch` (also `python -m pdf_autofiller`). Expected failures surface as `PdfAutofillerError`, which the CLI prints as one line |
 | `client.py` | HTTP client for a remote server |
-| `api/` | FastAPI app: routes, upload guard middleware, auth and rate limits, error catalog, job runner |
+| `api/routes.py` | Inspect, template, preview, and single-fill routes; composes the routers below |
+| `api/system_routes.py` | Public playground assets, health, version, and sample PDF routes |
+| `api/batch_routes.py` | Batch parsing, preview, response-size enforcement, and response assembly |
+| `api/route_support.py` | Shared upload lifecycle, error translation, content negotiation, and audit headers |
+| `api/request_parsing.py` | Bounded multipart JSON parsing for user data and reviewed field mappings |
+| `api/middleware.py`, `api/security.py`, `api/jobs.py` | Upload guards, auth/rate limits, headers, and killable worker execution |
 | `api_service.py` | ASGI entrypoint (`pdf_autofiller.api_service:app`). `pdf-autofiller-api` calls `run()`, which binds `127.0.0.1` unless `API_HOST` is set |
-| `playground.py`, `static/` | The browser test page served at `/playground` |
+| `playground.py`, `static/` | Semantic HTML plus separately served CSS and JavaScript for `/playground` |
+| `compatibility.py`, `scripts/compatibility_report.py` | Value-free compatibility scoring for public or private manifests |
+| `api/telemetry.py` | Opt-in aggregate product events with a strict dimension allowlist |
+| `template_store.py` | Durable template versions, optimistic mapping revisions, fill jobs, SQLite metadata and local PDF objects |
+| `api/template_routes.py` | Reusable template workspace API under `/v1`; published-only fills and artifact retrieval |
 
 ## Fill flow
 
@@ -97,6 +106,7 @@ What the AI can and cannot do:
 | `GET` | `/version` | Service name and version |
 | `GET` | `/samples/sample_form.pdf` | Bundled sample form (unauthenticated) |
 | `POST` | `/inspect` | Field inventory |
+| `POST` | `/template` | Starter JSON plus an editable exact PDF-field → JSON-key mapping |
 | `POST` | `/preview` | Mapping decisions without writing a PDF |
 | `POST` | `/fill` | Filled PDF, or a JSON report with `pdf_base64` when `Accept: application/json` |
 | `POST` | `/batch` | One PDF plus JSON, JSONL, or CSV. One result per row. `dry_run` returns no PDF bytes |
@@ -105,11 +115,29 @@ Upload routes check auth, rate limits and body size before the body is read
 (`api/middleware.py`), and every pipeline call runs in a separate process that is killed at
 the timeout (`api/jobs.py`).
 
+`field_mapping` is an optional JSON object accepted by preview, fill, and batch. It lets a
+reviewed mapping override heuristics deterministically. Unknown PDF fields or missing data keys
+fail with `422 invalid_field_mapping`, so a stale saved profile cannot silently misroute values.
+
 ## Extension points
 
 - Alias packs: `src/pdf_autofiller/form_aliases/*.json`, each proven by a case in
   `tests/fixtures/corpus/cases.json`.
 - New value types: extend `coerce_value` in `mapping.py` (validate, do not rewrite).
+
+## Durable template workspace
+
+The `/v1` workspace is a product layer over the storage-independent PDF engine. A template upload
+creates an immutable source object plus an editable mapping draft. Saving the draft uses an
+optimistic `revision`; publishing freezes that version. A replacement PDF creates the next draft,
+while fills continue using the latest published version until the replacement is reviewed.
+
+The bundled self-hosted adapter uses SQLite metadata and private local files below
+`PRODUCT_DATA_DIR`. It is appropriate for one deployment sharing one persistent volume. It is a
+deliberate boundary—not a claim of multi-region storage: managed deployments should replace the
+repository with PostgreSQL and the object adapter with S3-compatible storage before horizontally
+scaling writers. Fill payload values are not stored; job reports contain field names and outcomes,
+and completed PDF artifacts remain until the operator's storage-retention process removes them.
 
 ## Not in scope
 

@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from pypdf import PdfWriter
 
 from pdf_autofiller import api_service
-from pdf_autofiller.api import config
+from pdf_autofiller.api import config, route_support
 from pdf_autofiller.api import routes as api_routes
 from pdf_autofiller.api.security import reset_rate_limit_state
 from pdf_autofiller.models import FieldSemantics, FormField, TextRegion
@@ -50,6 +50,15 @@ def test_health_endpoint():
         "sdk_missing",
     }
     assert "X-Request-ID" in response.headers
+
+
+def test_health_is_503_when_auth_is_misconfigured(monkeypatch):
+    monkeypatch.setattr(config, "API_AUTH_ENABLED", True)
+    monkeypatch.setattr(config, "API_AUTH_TOKEN", "")
+    response = client.get("/health")
+    assert response.status_code == 503
+    assert response.json()["status"] == "degraded"
+    assert response.json()["checks"]["auth"] == "misconfigured"
 
 
 def test_version_endpoint():
@@ -222,11 +231,32 @@ def test_fill_endpoint_json_accept_returns_report_with_pdf_base64():
     assert base64.b64decode(payload["pdf_base64"]).startswith(b"%PDF")
 
 
+@pytest.mark.parametrize(
+    ("accept", "expected_type"),
+    [
+        ("application/json;q=0, application/pdf;q=1", "application/pdf"),
+        ("application/json;q=0.4, application/pdf;q=0.9", "application/pdf"),
+        ("application/json;q=0.9, application/pdf;q=0.4", "application/json"),
+        ("*/*", "application/pdf"),
+    ],
+)
+def test_fill_respects_accept_quality_values(accept, expected_type):
+    sample = Path("samples/sample_form.pdf")
+    response = client.post(
+        "/fill",
+        headers={"Accept": accept},
+        files={"pdf_file": (sample.name, sample.read_bytes(), "application/pdf")},
+        data={"user_data": '{"firstname":"Jane","lastname":"Doe","dob":"1990-01-01"}'},
+    )
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith(expected_type)
+
+
 def test_fill_endpoint_emits_pii_free_audit_log(caplog):
     import logging
 
     secret_value = "Top-Secret-Applicant-Name"
-    with caplog.at_level(logging.INFO, logger="pdf_autofiller.api.routes"):
+    with caplog.at_level(logging.INFO, logger="pdf_autofiller.api.route_support"):
         response = client.post(
             "/fill",
             files={"pdf_file": ("input.pdf", _minimal_pdf_bytes(), "application/pdf")},
@@ -325,6 +355,20 @@ def test_preview_endpoint_returns_mapping_decisions():
     assert "extra" in payload["unmapped_user_keys"]
 
 
+def test_template_endpoint_returns_starter_data_and_exact_mapping():
+    sample = Path("samples/sample_form.pdf")
+    response = client.post(
+        "/template",
+        files={"pdf_file": (sample.name, sample.read_bytes(), "application/pdf")},
+    )
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["example"]["first_name"] == ""
+    assert "first_name" in payload["required_keys"]
+    first = next(field for field in payload["fields"] if field["field_name"] == "txtFirstName")
+    assert first["key"] == "first_name"
+
+
 def test_preview_endpoint_rejects_invalid_json():
     response = client.post(
         "/preview",
@@ -333,6 +377,33 @@ def test_preview_endpoint_rejects_invalid_json():
     )
     assert response.status_code == 422
     assert response.json()["detail"]["error"]["code"] == "invalid_user_data_json"
+
+
+def test_preview_endpoint_applies_explicit_field_mapping():
+    sample = Path("samples/sample_form.pdf")
+    response = client.post(
+        "/preview",
+        files={"pdf_file": (sample.name, sample.read_bytes(), "application/pdf")},
+        data={
+            "user_data": '{"legal_name":"Jane","lastname":"Doe","dob":"1990-01-01"}',
+            "field_mapping": '{"txtFirstName":"legal_name"}',
+        },
+    )
+    assert response.status_code == 200, response.text
+    first = next(d for d in response.json()["decisions"] if d["field_name"] == "txtFirstName")
+    assert first["selected_value"] == "Jane"
+    assert first["reason"] == "Explicit field mapping from 'legal_name'"
+
+
+@pytest.mark.parametrize("raw", ["[]", '{"txtFirstName": 1}', "{invalid"])
+def test_preview_endpoint_rejects_invalid_field_mapping(raw):
+    response = client.post(
+        "/preview",
+        files={"pdf_file": ("input.pdf", _minimal_pdf_bytes(), "application/pdf")},
+        data={"user_data": "{}", "field_mapping": raw},
+    )
+    assert response.status_code == 422
+    assert response.json()["detail"]["error"]["code"] == "invalid_field_mapping"
 
 
 def test_fill_endpoint_accepts_flatten_flag():
@@ -358,6 +429,8 @@ def test_security_headers_present_on_health():
     response = client.get("/health")
     assert response.headers.get("x-content-type-options") == "nosniff"
     assert response.headers.get("x-frame-options") == "DENY"
+    assert "default-src 'none'" in response.headers["content-security-policy"]
+    assert response.headers["permissions-policy"] == "camera=(), microphone=(), geolocation=(), payment=()"
     assert response.headers.get("referrer-policy") == "no-referrer"
 
 
@@ -568,7 +641,7 @@ def test_fill_allow_partial_returns_pdf_with_missing_required(tmp_path):
 
 
 def test_safe_header_value_strips_control_characters():
-    assert api_routes._safe_header_value(["a\r\nSet-Cookie: x", "b\x00"]) == "aSet-Cookie: x,b"
+    assert route_support._safe_header_value(["a\r\nSet-Cookie: x", "b\x00"]) == "aSet-Cookie: x,b"
 
 
 @pytest.mark.parametrize(

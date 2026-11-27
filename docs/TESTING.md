@@ -51,6 +51,14 @@ Pytest coverage currently includes:
 - OpenAPI error catalog (`tests/test_error_catalog.py`)
 - PDF job timeout isolation (`tests/test_jobs.py`)
 - Playground routes and UI markers (`tests/test_playground.py`)
+- External playground assets, strict no-inline CSP, and JavaScript syntax in CI
+- Fail-fast environment parsing (`tests/test_config.py`)
+- Saved mapping validation, stale-profile failures, and template generation
+- Incremental aggregate batch-output enforcement (processing stops at the limit)
+- Public compatibility report at a 100% expected-field threshold in CI
+- Product telemetry allowlist and value-leak prevention (`tests/test_telemetry.py`)
+- Durable template lifecycle, optimistic revisions, immutable publishing, stored fills, artifact
+  retrieval, version rollover, and object-key traversal defenses (`tests/test_template_store.py`)
 - Golden corpus fixtures (`tests/test_corpus.py`)
 - End-to-end pipeline and API round-trips (`tests/test_integration.py`)
 
@@ -84,6 +92,29 @@ curl -s http://localhost:8000/health
 
 Deterministic paths, including every command above, run without `MODEL_PROVIDER_API_KEY`.
 AI field inference (`--ai`) and the AI key fallback (`--no-strict`) require valid provider credentials.
+
+The offline AI workflow test substitutes the model response at the OpenAI SDK boundary. It uploads
+a generated form, checks that the deterministic baseline leaves the opaque field unresolved,
+asserts the exact AI-suggested source path, and reopens the PDF produced by the approved mapping.
+To run the same check against the real provider, supply `MODEL_PROVIDER_API_KEY` through your
+environment and run:
+
+```bash
+RUN_LIVE_AI_EVAL=1 PYTHONPATH=src python -m pytest tests/test_ai_workflow.py -k live
+```
+
+This sends one synthetic form's field metadata and page label to OpenAI. It checks a small
+known-answer case and does not estimate overall model accuracy.
+
+CI also runs the AI review flow in Chromium against a local app server and a simulated provider.
+It checks timeout recovery, invalidation after editing the input, accepting a fresh suggestion,
+and the actual field value in the downloaded PDF. To run that check locally:
+
+```bash
+python -m pip install playwright==1.65.2
+python -m playwright install chromium
+RUN_BROWSER_E2E=1 PYTHONPATH=src python -m pytest tests/test_ai_workflow.py -k browser
+```
 
 ## Quality Commands
 

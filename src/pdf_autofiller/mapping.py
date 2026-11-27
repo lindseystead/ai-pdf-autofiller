@@ -23,6 +23,7 @@ from .aliases import (
     get_default_registry,
     normalize_key,
 )
+from .errors import FieldMappingError
 from .field_semantics import SemanticClient, strip_json_code_fence
 from .field_utils import opaque_mapping_hints
 from .models import (
@@ -255,7 +256,7 @@ def _parse_fallback_entry(entry: Any, user_data: dict[str, Any]) -> tuple[str, f
 def semantic_fallback_mapping(
     unmapped_fields: list[EnrichedFormField],
     user_data: dict[str, Any],
-) -> dict[str, tuple[str, str | None, float, str]]:
+) -> dict[str, tuple[str, str | None, float, str, bool]]:
     """
     AI key fallback: ask the model which user key each unresolved field should get.
 
@@ -322,18 +323,18 @@ Example response:
         if not isinstance(fallback_result, dict):
             raise ValueError("fallback response is not a JSON object")
 
-        result: dict[str, tuple[str, str | None, float, str]] = {}
+        result: dict[str, tuple[str, str | None, float, str, bool]] = {}
         for field in unmapped_fields:
             parsed = _parse_fallback_entry(fallback_result.get(field.field.name), user_data)
             if parsed is None:
                 continue
             matched_key, confidence, reason = parsed
-            coerced_value, _ = coerce_for_field(
+            coerced_value, requires_review = coerce_for_field(
                 user_data[matched_key],
                 field.semantics.expected_data_type,
                 field.field.field_type,
             )
-            result[field.field.name] = (matched_key, coerced_value, confidence, reason)
+            result[field.field.name] = (matched_key, coerced_value, confidence, reason, requires_review)
         return result
     except (RuntimeError, json.JSONDecodeError, TypeError, ValueError, KeyError) as exc:
         logger.warning("AI key fallback failed: %s", exc)
@@ -348,6 +349,7 @@ def map_user_data_to_fields(
     allow_fallback_mapping: bool = False,
     registry: AliasRegistry | None = None,
     use_semantic_inference: bool = False,
+    field_mapping: dict[str, str] | None = None,
 ) -> MappingResult:
     """
     Map user-provided structured data to PDF form fields.
@@ -360,6 +362,18 @@ def map_user_data_to_fields(
     used_user_keys: set[str] = set()
     active = registry or get_default_registry()
     flat = flatten_user_data(user_data)
+    candidates_with_leaves = flat.candidates()
+
+    explicit = field_mapping or {}
+    known_fields = {field.field.name for field in enriched_fields}
+    unknown_fields = sorted(set(explicit) - known_fields)
+    if unknown_fields:
+        raise FieldMappingError("field_mapping references unknown PDF field(s): " + ", ".join(unknown_fields))
+    missing_keys = sorted({key for key in explicit.values() if key not in candidates_with_leaves})
+    if missing_keys:
+        raise FieldMappingError(
+            "field_mapping references missing user data key(s): " + ", ".join(missing_keys)
+        )
 
     # Pass 1: user keys that address a field by its full path claim it, so the
     # same value cannot also fill a sibling field through a leaf or alias
@@ -367,6 +381,24 @@ def map_user_data_to_fields(
     # index -> (matched user key, full match tuple)
     matches: dict[int, tuple[str, tuple[str | None, str | None, float, str, bool]]] = {}
     for index, enriched_field in enumerate(enriched_fields):
+        explicit_key = explicit.get(enriched_field.field.name)
+        if explicit_key is not None:
+            value, requires_review = coerce_for_field(
+                candidates_with_leaves[explicit_key],
+                enriched_field.semantics.expected_data_type,
+                enriched_field.field.field_type,
+            )
+            matches[index] = (
+                explicit_key,
+                (
+                    explicit_key,
+                    value,
+                    1.0,
+                    f"Explicit field mapping from '{explicit_key}'",
+                    requires_review,
+                ),
+            )
+            continue
         match = match_field_name(
             enriched_field.field.name,
             flat.values,
@@ -375,10 +407,10 @@ def map_user_data_to_fields(
         )
         if match[0]:
             matches[index] = (match[0], match)
-    claimed = {key for key, _ in matches.values()}
+    claimed = {flat.source_key(key) for key, _ in matches.values()}
     ai_assisted: set[int] = set()
     candidates = {
-        key: value for key, value in flat.candidates().items() if flat.source_key(key) not in claimed
+        key: value for key, value in candidates_with_leaves.items() if flat.source_key(key) not in claimed
     }
 
     # Pass 2: everything else matches by name, semantic or alias.
@@ -423,6 +455,7 @@ def map_user_data_to_fields(
                 field_name=enriched_field.field.name,
                 semantic_meaning=enriched_field.semantics.semantic_meaning,
                 selected_value=matched_value,
+                selected_key=source,
                 confidence=confidence,
                 reason=reason,
                 requires_review=requires_review or confidence < 0.80,
@@ -442,7 +475,9 @@ def map_user_data_to_fields(
                 field_name = enriched_field.field.name
                 if field_name not in fallback_mappings:
                     continue
-                matched_key, matched_value, confidence, reason = fallback_mappings[field_name]
+                matched_key, matched_value, confidence, reason, requires_review = fallback_mappings[
+                    field_name
+                ]
                 if matched_key and matched_key not in used_user_keys:
                     used_user_keys.add(matched_key)
                     # matched_value is already coerced in semantic_fallback_mapping.
@@ -451,9 +486,10 @@ def map_user_data_to_fields(
                             field_name=field_name,
                             semantic_meaning=enriched_field.semantics.semantic_meaning,
                             selected_value=matched_value,
+                            selected_key=matched_key,
                             confidence=confidence,
                             reason=f"AI: {reason}",
-                            requires_review=confidence < 0.80,
+                            requires_review=requires_review or confidence < 0.80,
                             ai_assisted=True,
                         )
                     )

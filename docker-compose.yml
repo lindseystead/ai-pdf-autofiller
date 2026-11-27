@@ -7,6 +7,9 @@ services:
       API_AUTH_ENABLED: "false"
       LOG_LEVEL: INFO
       RATE_LIMIT_PER_MINUTE: "120"
+      PRODUCT_DATA_DIR: /data
+    volumes:
+      - pdf-autofiller-data:/data
     healthcheck:
       test:
         [
@@ -19,3 +22,6 @@ services:
       timeout: 3s
       retries: 3
       start_period: 10s
+
+volumes:
+  pdf-autofiller-data:

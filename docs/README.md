@@ -12,6 +12,7 @@ Supporting documentation for the PDF Autofiller service. These docs describe shi
 | [RELEASE.md](RELEASE.md) | Tag → GHCR / Release assets (PyPI optional/manual) |
 | [TESTING.md](TESTING.md) | Local validation and CI |
 | [FAQ.md](FAQ.md) | Comparisons, AcroForm vs scan, auth, local vs HTTP |
+| [TEMPLATE_WORKSPACE.md](TEMPLATE_WORKSPACE.md) | Durable template review, publishing, versioning, fills and retention |
 
 ## Related
 
