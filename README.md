@@ -1,21 +1,39 @@
 <div align="center">
 
-<img src="docs/assets/social-preview.png" alt="PDF Autofiller — Fill AcroForm PDFs from JSON" width="800" />
-
 # PDF Autofiller
 
-**Fill PDF forms from JSON — as a Python library or a self-hosted API.**
-
-Package and command name: `pdf-autofiller`.
-
-Give it a fillable PDF form and your data as JSON; it fills the form and tells you exactly what
-it filled and what it left blank. Runs locally with no AI and no network calls by default.
+**Turn existing fillable PDFs and structured data into completed forms with a field-by-field report.**
 
 [![CI](https://github.com/lindseystead/ai-pdf-autofiller/actions/workflows/test.yml/badge.svg)](https://github.com/lindseystead/ai-pdf-autofiller/actions/workflows/test.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%E2%80%933.15-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 </div>
+
+## Try the sample
+
+```bash
+docker compose up --build
+```
+
+Open [the local playground](http://127.0.0.1:8000/playground), choose **Use sample PDF**, then
+**Preview mapping** and **Fill PDF**. The sample uses synthetic data. Remove the date of birth
+and fill again to see how the app explains a missing required field. You can also
+[see the sample output](docs/assets/sample-filled.png) or
+[follow the API demo without running the app](docs/assets/demo-terminal.txt).
+
+## Engineering decisions
+
+| Decision | Behavior you can verify |
+|---|---|
+| One PDF engine for Python, CLI, and HTTP | The [pipeline](src/pdf_autofiller/pipeline.py) handles reading, mapping, validation, and writing for all three entry points. |
+| Deterministic by default with optional AI for ambiguous fields | Preview explains each mapping. The model can suggest where an existing value belongs. Published templates reuse the reviewed mapping with AI disabled. |
+| Explicit errors and bounded processing | Missing required values stop a normal fill. The HTTP service bounds request sizes and defaults to running PDF work in child processes that can be terminated on timeout. |
+| Versioned templates for repeat work | A replacement draft leaves the previous published version in use. The self-hosted workspace uses SQLite and local files on a persistent volume. |
+
+[Architecture and tradeoffs](docs/ARCHITECTURE.md) ·
+[Template workflow](docs/TEMPLATE_WORKSPACE.md) ·
+[Tests and compatibility checks](docs/TESTING.md)
 
 ## The problem it solves
 
@@ -44,8 +62,8 @@ your data (JSON) ─┐
 fillable PDF ─────┘                                 └► report: written / skipped / why
 ```
 
-There is no app to log into. The server includes a small test page (`/playground`) for trying a
-form in the browser; everything else is the library, the CLI and the HTTP API.
+Use the browser playground for one-off fills or to review and publish reusable templates. The same
+engine is available through the Python library, CLI, and HTTP API.
 
 ## What it handles
 
