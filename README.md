@@ -160,6 +160,8 @@ their cloud.
 - [examples/quickstart.py](examples/quickstart.py): runnable example against `samples/`
 - [FAQ](docs/FAQ.md) · [Architecture](docs/ARCHITECTURE.md) · [Security](SECURITY.md) ·
   [Changelog](CHANGELOG.md)
+- [Compatibility program](docs/COMPATIBILITY.md) · [Design-partner pilot](docs/PILOT_VALIDATION.md) ·
+  [Privacy-safe telemetry](docs/TELEMETRY.md)
 
 ## Development
 

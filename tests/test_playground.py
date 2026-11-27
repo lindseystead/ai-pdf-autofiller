@@ -33,6 +33,8 @@ def test_playground_page_renders_html():
     assert 'id="aiConsent"' in response.text
     assert 'id="fieldMapping"' in response.text
     assert 'id="saveMappingBtn"' in response.text
+    assert 'id="mappingEditor"' in response.text
+    assert 'id="refreshMappingBtn"' in response.text
     assert '<link rel="stylesheet" href="/assets/playground.css"' in response.text
     assert '<script src="/assets/playground.js" defer>' in response.text
     assert "<style" not in response.text
@@ -54,6 +56,8 @@ def test_playground_assets_are_served_and_csp_disallows_inline_code():
     assert "crypto.subtle.digest('SHA-256'" in javascript.text
     assert "localStorage.setItem(selectedPdfKey" in javascript.text
     assert "form.append('field_mapping'" in javascript.text
+    assert "function renderMappingEditor()" in javascript.text
+    assert "document.createElement('select')" in javascript.text
     assert "X-PDF-Fields-Missing-Required" in javascript.text
     assert "URL.revokeObjectURL" in javascript.text
     csp = page.headers["content-security-policy"]

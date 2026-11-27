@@ -34,6 +34,8 @@ api/ ───┘    (api/jobs.py runs each pipeline call in a killable worker p
 | `api/middleware.py`, `api/security.py`, `api/jobs.py` | Upload guards, auth/rate limits, headers, and killable worker execution |
 | `api_service.py` | ASGI entrypoint (`pdf_autofiller.api_service:app`). `pdf-autofiller-api` calls `run()`, which binds `127.0.0.1` unless `API_HOST` is set |
 | `playground.py`, `static/` | Semantic HTML plus separately served CSS and JavaScript for `/playground` |
+| `compatibility.py`, `scripts/compatibility_report.py` | Value-free compatibility scoring for public or private manifests |
+| `api/telemetry.py` | Opt-in aggregate product events with a strict dimension allowlist |
 
 ## Fill flow
 

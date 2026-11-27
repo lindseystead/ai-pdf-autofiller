@@ -55,6 +55,8 @@ Pytest coverage currently includes:
 - Fail-fast environment parsing (`tests/test_config.py`)
 - Saved mapping validation, stale-profile failures, and template generation
 - Incremental aggregate batch-output enforcement (processing stops at the limit)
+- Public compatibility report at a 100% expected-field threshold in CI
+- Product telemetry allowlist and value-leak prevention (`tests/test_telemetry.py`)
 - Golden corpus fixtures (`tests/test_corpus.py`)
 - End-to-end pipeline and API round-trips (`tests/test_integration.py`)
 

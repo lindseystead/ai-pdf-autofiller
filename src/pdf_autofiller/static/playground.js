@@ -23,6 +23,8 @@
     const saveMappingBtn = document.getElementById('saveMappingBtn');
     const loadMappingBtn = document.getElementById('loadMappingBtn');
     const clearMappingBtn = document.getElementById('clearMappingBtn');
+    const refreshMappingBtn = document.getElementById('refreshMappingBtn');
+    const mappingEditor = document.getElementById('mappingEditor');
 
     let selectedFile = null;
     let downloadUrl = null;
@@ -30,6 +32,7 @@
     let previewKind = null;
     let providerAvailable = false;
     let selectedPdfKey = null;
+    let templateFields = [];
 
     function setStatus(message, kind = '') {
       statusEl.className = 'status' + (kind ? ' ' + kind : '');
@@ -136,6 +139,82 @@
       return parsed;
     }
 
+    function flattenedKeys(value, prefix = '') {
+      const keys = [];
+      for (const [key, child] of Object.entries(value)) {
+        const path = prefix ? prefix + '.' + key : key;
+        if (child && typeof child === 'object' && !Array.isArray(child)) {
+          keys.push(...flattenedKeys(child, path));
+        } else {
+          keys.push(path);
+        }
+      }
+      return keys.sort();
+    }
+
+    function renderMappingEditor() {
+      mappingEditor.replaceChildren();
+      if (!templateFields.length) {
+        mappingEditor.textContent = 'Create a starter mapping to edit fields visually.';
+        return;
+      }
+      let keys;
+      let mapping;
+      try {
+        keys = flattenedKeys(parseObject(userData.value, 'User data'));
+        mapping = parseObject(fieldMapping.value, 'Field mapping');
+      } catch (err) {
+        mappingEditor.textContent = 'Fix the JSON above to refresh the visual editor.';
+        return;
+      }
+      const table = document.createElement('table');
+      table.className = 'mapping-table';
+      const header = document.createElement('tr');
+      for (const text of ['PDF field', 'JSON key']) {
+        const cell = document.createElement('th');
+        cell.scope = 'col';
+        cell.textContent = text;
+        header.appendChild(cell);
+      }
+      const head = document.createElement('thead');
+      head.appendChild(header);
+      table.appendChild(head);
+      const body = document.createElement('tbody');
+      for (const field of templateFields) {
+        if (field.field_type === 'signature') continue;
+        const row = document.createElement('tr');
+        const nameCell = document.createElement('td');
+        nameCell.textContent = field.field_name + (field.required ? ' *' : '');
+        const selectCell = document.createElement('td');
+        const select = document.createElement('select');
+        select.setAttribute('aria-label', 'JSON key for ' + field.field_name);
+        const none = document.createElement('option');
+        none.value = '';
+        none.textContent = 'Do not map';
+        select.appendChild(none);
+        for (const key of keys) {
+          const option = document.createElement('option');
+          option.value = key;
+          option.textContent = key;
+          select.appendChild(option);
+        }
+        select.value = mapping[field.field_name] || '';
+        select.addEventListener('change', () => {
+          const next = parseObject(fieldMapping.value, 'Field mapping');
+          if (select.value) next[field.field_name] = select.value;
+          else delete next[field.field_name];
+          fieldMapping.value = JSON.stringify(next, null, 2);
+          resetFilledResult();
+        });
+        selectCell.appendChild(select);
+        row.appendChild(nameCell);
+        row.appendChild(selectCell);
+        body.appendChild(row);
+      }
+      table.appendChild(body);
+      mappingEditor.appendChild(table);
+    }
+
     function loadSavedMapping() {
       if (!selectedPdfKey) return false;
       const saved = localStorage.getItem(selectedPdfKey);
@@ -152,6 +231,8 @@
       }
       selectedFile = file;
       selectedPdfKey = await pdfStorageKey(file);
+      templateFields = [];
+      renderMappingEditor();
       resetFilledResult();
       download.download = file.name.replace(/\.pdf$/i, '') + '_filled.pdf';
       fileName.textContent = file.name + ' (' + Math.round(file.size / 1024) + ' KB)';
@@ -209,7 +290,9 @@
       fieldMapping.value = '{}';
       resetFilledResult();
       setStatus('Field mapping cleared.');
+      renderMappingEditor();
     });
+    refreshMappingBtn.addEventListener('click', renderMappingEditor);
 
     loadSamplePdfBtn.addEventListener('click', async () => {
       setStatus('Loading sample PDF…');
@@ -253,6 +336,12 @@
           'Fields (' + payload.field_count + ', opaque: ' + (payload.opaque_field_count || 0) + '):\n'
           + lines.join('\n')
           + (hints ? '\n\nHints:\n' + hints : '');
+        templateFields = payload.fields.map(field => ({
+          field_name: field.name,
+          key: null,
+          required: field.required,
+          field_type: field.field_type
+        }));
         setStatus(
           payload.opaque_field_count
             ? 'Inspect complete. Opaque names detected — see hints below.'
@@ -287,6 +376,8 @@
           if (field.key) mapping[field.field_name] = field.key;
         }
         fieldMapping.value = JSON.stringify(mapping, null, 2);
+        templateFields = payload.fields || [];
+        renderMappingEditor();
         resetFilledResult();
         setStatus('Starter mapping created. Add values, review the mapping, then save it for reuse.', 'ok');
       } catch (err) {

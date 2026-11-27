@@ -48,6 +48,7 @@ from .schemas import (
     PreviewResponse,
 )
 from .system_routes import router as system_router
+from .telemetry import emit_product_event
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +93,7 @@ async def inspect_pdf(
                 )
                 for field in inventory.fields
             ]
-            return InspectResponse(
+            response = InspectResponse(
                 pages=inventory.pages,
                 field_count=inventory.field_count,
                 fields=fields,
@@ -100,6 +101,12 @@ async def inspect_pdf(
                 opaque_fields=list(inventory.opaque_fields),
                 mapping_hints=list(inventory.mapping_hints),
             )
+            emit_product_event(
+                "inspect_completed",
+                fields_total=response.field_count,
+                opaque_fields=response.opaque_field_count,
+            )
+            return response
     finally:
         temp_dir.cleanup()
         await pdf_file.close()
@@ -117,13 +124,19 @@ async def template_pdf(pdf_file: UploadFile = File(...)) -> FillTemplate:
         with _unexpected_errors("pdf_template_failed"):
             input_path = await _save_pdf_upload(pdf_file, temp_dir)
             with _pdf_job_errors():
-                return await asyncio.to_thread(
+                template = await asyncio.to_thread(
                     execute_pdf_job,
                     fill_template,
                     input_path,
                     timeout_seconds=config.PDF_READ_TIMEOUT_SECONDS,
                     max_pages=config.MAX_PDF_PAGES,
                 )
+            emit_product_event(
+                "template_completed",
+                fields_total=len(template.fields),
+                required_fields=len(template.required_keys),
+            )
+            return template
     finally:
         temp_dir.cleanup()
         await pdf_file.close()
@@ -180,7 +193,7 @@ async def preview_pdf(
                     max_pages=config.MAX_PDF_PAGES,
                     field_mapping=parsed_field_mapping,
                 )
-            return PreviewResponse(
+            response = PreviewResponse(
                 pages=page_count,
                 field_count=field_count,
                 decisions=[PreviewDecision(**d.model_dump()) for d in mapping_result.decisions],
@@ -188,6 +201,16 @@ async def preview_pdf(
                 unmapped_user_keys=list(mapping_result.unmapped_user_keys),
                 mapping_hints=list(mapping_result.mapping_hints),
             )
+            emit_product_event(
+                "preview_completed",
+                fields_total=response.field_count,
+                decisions=len(response.decisions),
+                missing_required=len(response.missing_required),
+                unmapped_keys=len(response.unmapped_user_keys),
+                ai_inference_enabled=use_semantic_inference,
+                ai_fallback_enabled=allow_fallback_mapping,
+            )
+            return response
     finally:
         temp_dir.cleanup()
         await pdf_file.close()
@@ -290,6 +313,14 @@ async def fill(
                 use_semantic_inference=use_semantic_inference,
                 allow_fallback_mapping=allow_fallback_mapping,
                 response_mode="json" if wants_json else "pdf",
+            )
+            emit_product_event(
+                "fill_completed",
+                fields_total=fields_total,
+                written=len(fill_report.written_fields),
+                missing_required=len(mapping_result.missing_required),
+                ai_inference_enabled=use_semantic_inference,
+                ai_fallback_enabled=allow_fallback_mapping,
             )
 
             if wants_json:

@@ -69,6 +69,7 @@ RATE_LIMIT_STORE_PATH = os.getenv(
     "/tmp/pdf-autofiller-rate-limit.json",
 )
 TRUST_PROXY_HEADERS = _env_bool("TRUST_PROXY_HEADERS", False)
+PRODUCT_TELEMETRY_ENABLED = _env_bool("PRODUCT_TELEMETRY_ENABLED", False)
 # Number of reverse proxies in front of the app that append to X-Forwarded-For.
 # The client IP is the entry that many hops from the right; anything further
 # left is client-supplied and must not be trusted (it would let callers rotate

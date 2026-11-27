@@ -42,6 +42,13 @@ jobs:
       - name: Run tests
         run: |
           PYTHONPATH=src pytest tests/ -v --cov=src --cov-report=term --cov-fail-under=85
+      - name: Generate compatibility report
+        if: matrix.python-version == '3.11'
+        run: |
+          PYTHONPATH=src python scripts/compatibility_report.py \
+            --output-dir /tmp/pdf-compatibility-output \
+            --report /tmp/pdf-compatibility-report.json \
+            --fail-under 1.0
 
   docker-smoke:
     runs-on: ubuntu-latest

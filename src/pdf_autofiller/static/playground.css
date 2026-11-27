@@ -122,6 +122,14 @@
     .mt-12 { margin-top: 12px; }
     .mt-16 { margin-top: 16px; }
     .mt-18 { margin-top: 18px; }
+    .mapping-editor { margin-top: 12px; overflow-x: auto; color: var(--muted); font-size: 0.85rem; }
+    .mapping-table { width: 100%; border-collapse: collapse; }
+    .mapping-table th, .mapping-table td { padding: 8px; border-bottom: 1px solid var(--border); text-align: left; }
+    .mapping-table th { color: var(--accent-2); }
+    .mapping-table select {
+      width: 100%; min-width: 160px; padding: 8px; border-radius: 8px;
+      border: 1px solid var(--border); background: #0d1428; color: var(--text);
+    }
     .pdf-card { margin-top: 18px; }
     .pdf-preview { width: 100%; min-height: 560px; border: 1px solid var(--border); border-radius: 10px; background: white; }
     .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }

@@ -27,6 +27,7 @@ Environment variables are read at process start with `os.getenv`. `PDF_JOB_BACKE
 - `FORM_ALIASES_DIR`: optional directory of JSON alias packs for deterministic field mapping. When set to a real directory it **replaces** (does not merge with) the packaged packs; the built-in synonym clusters still apply. If the path is missing or not a directory, the process logs a warning and falls back to package defaults. Packs load lazily via `get_default_registry()`; changing files requires a **process restart** (or `set_default_registry(AliasRegistry.load())`) — there is no file watcher / hot reload.
 - `LOG_LEVEL`: process log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`)
 - `LOG_FORMAT`: `text` (default) or `json` for one JSON object per log line (useful for aggregators)
+- `PRODUCT_TELEMETRY_ENABLED`: emit aggregate, allowlisted product events to local logs (default `false`; see [TELEMETRY.md](TELEMETRY.md))
 
 ## Service Behavior
 

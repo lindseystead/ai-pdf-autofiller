@@ -25,6 +25,7 @@ from .route_support import (
     _unexpected_errors,
 )
 from .schemas import BatchItemResponse, BatchResponse
+from .telemetry import emit_product_event
 
 router = APIRouter()
 
@@ -163,12 +164,22 @@ async def batch_pdf(
                         pdf_base64=pdf_b64,
                     )
                 )
-            return BatchResponse(
+            response = BatchResponse(
                 written=report.written,
                 failed=report.failed,
                 dry_run=dry_run,
                 items=items,
             )
+            emit_product_event(
+                "batch_completed",
+                records=len(parsed),
+                written=response.written,
+                failed=response.failed,
+                dry_run=dry_run,
+                ai_inference_enabled=use_semantic_inference,
+                ai_fallback_enabled=allow_fallback_mapping,
+            )
+            return response
     finally:
         temp_dir.cleanup()
         await pdf_file.close()

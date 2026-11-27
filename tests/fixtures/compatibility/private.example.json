@@ -1,0 +1,9 @@
+[
+  {
+    "name": "operator-owned-form",
+    "pdf": "tests/fixtures/compatibility/private/operator-owned-form.pdf",
+    "notes": "Keep the PDF and any real values outside git.",
+    "user_data": {"example_key": "synthetic test value"},
+    "expected": {"example_key": "ExactPdfFieldName"}
+  }
+]
