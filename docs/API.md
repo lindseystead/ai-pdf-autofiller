@@ -39,7 +39,7 @@ Example response:
 }
 ```
 
-`status` is `degraded` when auth is enabled but `API_AUTH_TOKEN` is unset (`checks.auth` = `misconfigured`). Alias packs are reported via `checks.alias_source` (`packaged`, or `custom` when `FORM_ALIASES_DIR` is in use) and `checks.alias_pack_count`; the directory path itself is not exposed. `semantic_provider` reports whether AI field inference can run: `available`, `unconfigured`, or `sdk_missing`. It does not claim a request's inference succeeded. The check keeps this name so existing health monitors do not break. `rate_limit` is `in_process`, `shared_file`, or `disabled` depending on `RATE_LIMIT_PER_MINUTE` / `RATE_LIMIT_BACKEND`.
+`status` is `degraded` and the endpoint returns HTTP `503` when auth is enabled but `API_AUTH_TOKEN` is unset (`checks.auth` = `misconfigured`). Alias packs are reported via `checks.alias_source` (`packaged`, or `custom` when `FORM_ALIASES_DIR` is in use) and `checks.alias_pack_count`; the directory path itself is not exposed. `semantic_provider` reports whether AI field inference can run: `available`, `unconfigured`, or `sdk_missing`. It does not claim a request's inference succeeded. The check keeps this name so existing health monitors do not break. `rate_limit` is `in_process`, `shared_file`, or `disabled` depending on `RATE_LIMIT_PER_MINUTE` / `RATE_LIMIT_BACKEND`.
 
 ### `GET /version`
 
@@ -266,7 +266,7 @@ Optional form fields:
 - `on_error`: `continue` (default) or `stop`
 - `strict`, `allow_fallback_mapping`, `use_semantic_inference`, `flatten`, `need_appearances`, `allow_partial`: same meaning as `POST /fill`
 
-The records text is limited to 1 MiB. The record count defaults to 25 (`BATCH_MAX_RECORDS`, ceiling 500). CSV cells stay strings. The whole batch shares `PDF_READ_TIMEOUT_SECONDS`.
+The records text is limited to 1 MiB. The record count defaults to 25 (`BATCH_MAX_RECORDS`, ceiling 500). CSV cells stay strings. The whole batch shares `PDF_READ_TIMEOUT_SECONDS`. Generated PDFs are also limited as a group by `BATCH_MAX_RESPONSE_BYTES` (25 MiB by default, before base64 expansion); larger batches return `413 batch_output_too_large`. Use smaller batches or `dry_run=true` first.
 
 ```bash
 curl -s -X POST http://localhost:8000/batch \
@@ -307,6 +307,7 @@ Canonical catalog (also exposed in OpenAPI on `/fill`, `/batch`, `/preview`, `/i
 | `invalid_user_data_type` | 422 | `user_data` is not a JSON object |
 | `invalid_records` | 422 | Batch records are not a usable JSON array, JSONL file, or CSV |
 | `too_many_records` | 422 | Batch has more records than `BATCH_MAX_RECORDS` |
+| `batch_output_too_large` | 413 | Generated batch PDFs exceed `BATCH_MAX_RESPONSE_BYTES` |
 | `user_data_too_deep` | 422 | `user_data` nests deeper than `MAX_USER_DATA_DEPTH` (default 16) |
 | `conflicting_options` | 422 | `allow_fallback_mapping=true` sent with `strict=true` (strict mode disables the AI key fallback) |
 | `unsupported_media_type` | 415 | Upload is not a PDF content-type |

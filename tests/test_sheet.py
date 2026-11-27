@@ -204,3 +204,18 @@ def test_api_batch_returns_pdfs_and_rejects_too_many(monkeypatch, tmp_path: Path
     )
     assert locked.status_code == 401
     reset_rate_limit_state()
+
+
+def test_api_batch_rejects_aggregate_pdf_response_over_limit(monkeypatch):
+    monkeypatch.setattr(config, "API_AUTH_ENABLED", False)
+    monkeypatch.setattr(config, "BATCH_MAX_RESPONSE_BYTES", 1)
+    reset_rate_limit_state()
+    response = TestClient(app).post(
+        "/batch",
+        files={"pdf_file": ("form.pdf", SAMPLE.read_bytes(), "application/pdf")},
+        data={"records": json.dumps([{"firstname": "Jane", "lastname": "Doe", "dob": "1990-01-01"}])},
+    )
+    assert response.status_code == 413
+    error = response.json()["detail"]["error"]
+    assert error["code"] == "batch_output_too_large"
+    assert error["details"]["generated_bytes"] > error["details"]["max_response_bytes"]

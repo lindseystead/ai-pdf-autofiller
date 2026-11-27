@@ -52,6 +52,15 @@ def test_health_endpoint():
     assert "X-Request-ID" in response.headers
 
 
+def test_health_is_503_when_auth_is_misconfigured(monkeypatch):
+    monkeypatch.setattr(config, "API_AUTH_ENABLED", True)
+    monkeypatch.setattr(config, "API_AUTH_TOKEN", "")
+    response = client.get("/health")
+    assert response.status_code == 503
+    assert response.json()["status"] == "degraded"
+    assert response.json()["checks"]["auth"] == "misconfigured"
+
+
 def test_version_endpoint():
     response = client.get("/version")
     assert response.status_code == 200
@@ -222,6 +231,27 @@ def test_fill_endpoint_json_accept_returns_report_with_pdf_base64():
     assert base64.b64decode(payload["pdf_base64"]).startswith(b"%PDF")
 
 
+@pytest.mark.parametrize(
+    ("accept", "expected_type"),
+    [
+        ("application/json;q=0, application/pdf;q=1", "application/pdf"),
+        ("application/json;q=0.4, application/pdf;q=0.9", "application/pdf"),
+        ("application/json;q=0.9, application/pdf;q=0.4", "application/json"),
+        ("*/*", "application/pdf"),
+    ],
+)
+def test_fill_respects_accept_quality_values(accept, expected_type):
+    sample = Path("samples/sample_form.pdf")
+    response = client.post(
+        "/fill",
+        headers={"Accept": accept},
+        files={"pdf_file": (sample.name, sample.read_bytes(), "application/pdf")},
+        data={"user_data": '{"firstname":"Jane","lastname":"Doe","dob":"1990-01-01"}'},
+    )
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith(expected_type)
+
+
 def test_fill_endpoint_emits_pii_free_audit_log(caplog):
     import logging
 
@@ -358,6 +388,8 @@ def test_security_headers_present_on_health():
     response = client.get("/health")
     assert response.headers.get("x-content-type-options") == "nosniff"
     assert response.headers.get("x-frame-options") == "DENY"
+    assert "default-src 'none'" in response.headers["content-security-policy"]
+    assert response.headers["permissions-policy"] == "camera=(), microphone=(), geolocation=(), payment=()"
     assert response.headers.get("referrer-policy") == "no-referrer"
 
 

@@ -26,6 +26,15 @@ def test_playground_page_renders_html():
     assert 'id="needAppearances"' in response.text
     assert "disable AI key fallback" in response.text
     assert 'type="password"' in response.text
+    assert 'role="status" aria-live="polite"' in response.text
+    assert 'for="userData"' in response.text
+    assert 'id="pdfPreview"' in response.text
+    assert 'id="aiConsent"' in response.text
+    assert "X-PDF-Fields-Missing-Required" in response.text
+    assert "URL.revokeObjectURL" in response.text
+    assert '<button id="drop"' in response.text
+    assert 'role="button"' not in response.text
+    assert '<a id="download"' in response.text
 
 
 def test_playground_default_json_is_valid():
@@ -51,3 +60,11 @@ def test_playground_has_no_html_injection_sinks():
     html = client.get("/playground").text
     for sink in ("innerHTML", "outerHTML", "insertAdjacentHTML", "document.write"):
         assert sink not in html
+
+
+def test_playground_download_requires_acknowledgement_for_partial_fill():
+    html = client.get("/playground").text
+    assert 'id="ackIncomplete"' in html
+    assert "download.style.display = 'none'" in html
+    assert "Incomplete PDF — required fields are missing" in html
+    assert "ackIncomplete.checked && downloadUrl" in html

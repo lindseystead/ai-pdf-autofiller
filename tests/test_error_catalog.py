@@ -11,6 +11,7 @@ def test_error_catalog_covers_documented_codes():
         "invalid_user_data_type",
         "invalid_records",
         "too_many_records",
+        "batch_output_too_large",
         "user_data_too_deep",
         "conflicting_options",
         "invalid_pdf",

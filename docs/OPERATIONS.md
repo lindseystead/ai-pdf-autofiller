@@ -9,6 +9,7 @@ Environment variables are read at process start with `os.getenv`. `PDF_JOB_BACKE
 - `API_PORT`: port for the `pdf-autofiller-api` console script (default `8000`)
 - `API_AUTH_ENABLED`: enables API key enforcement on `POST /fill`, `/batch`, `/preview`, and `/inspect` (**default `true`**; set `false` only for trusted/local use)
 - `BATCH_MAX_RECORDS`: records allowed in one batch, read on each batch (default `25`, hard ceiling `500`). The batch also rejects records text over 1 MiB and shares `PDF_READ_TIMEOUT_SECONDS`
+- `BATCH_MAX_RESPONSE_BYTES`: maximum aggregate size of generated PDFs returned by one `/batch` response (default `26214400`, 25 MiB, measured before base64 expansion)
 - `API_AUTH_TOKEN`: expected token value when auth is enabled
 - `API_KEY_HEADER`: header name used for the incoming token
 - `MAX_UPLOAD_BYTES`: maximum accepted PDF size in bytes (default 5 MiB)
@@ -34,10 +35,10 @@ Environment variables are read at process start with `os.getenv`. `PDF_JOB_BACKE
 - Protected: `POST /fill`, `/batch`, `/preview`, `/inspect`.
 - Protected POSTs are rate limited per client and reject PDFs over the page limit or that exceed the processing time budget. Timed-out jobs are killed when `PDF_JOB_BACKEND=process` (the default).
 - On `POST /fill`, `/batch`, `/preview` and `/inspect`, auth and rate limits are checked before the request body is read, and the body is cut off with `413` once it passes `MAX_UPLOAD_BYTES` plus 1 MiB for the form envelope and `user_data` (whether or not `Content-Length` is sent). The PDF part itself is then held to `MAX_UPLOAD_BYTES`. `POST /batch` also rejects records text over 1 MiB.
-- `GET /health` reports dependency checks (`auth`, `semantic_provider`, `rate_limit`, alias packs) and returns `degraded` when auth is misconfigured.
+- `GET /health` reports dependency checks (`auth`, `semantic_provider`, `rate_limit`, alias packs). It returns HTTP `503` with `status=degraded` when auth is enabled without a token, so container and platform health checks do not accept an unusable deployment.
 - `POST /fill` writes uploads to a temporary working directory and returns the generated PDF directly.
 - Temporary files are cleaned up after request completion or failure, including error and timeout paths.
-- Responses include baseline security headers: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer` (playground HTML continues to work normally).
+- Responses include baseline security headers: `Content-Security-Policy`, `Permissions-Policy`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, and `Referrer-Policy: no-referrer`.
 - Privacy: the AI features send field metadata and nearby page text to an external service, but **never the raw user-data values or a field's current value** — only key names and value type names are shared. Disable these features by leaving `MODEL_PROVIDER_API_KEY` unset and the semantic/fallback flags off.
 
 ## Rate limiting (single worker vs multi-worker)

@@ -6,6 +6,9 @@ All notable changes to this project will be documented in this file.
 
 ### Security
 
+- The playground discloses AI data transmission before enabling provider-backed
+  options, clears stale download URLs whenever inputs change, and adds CSP and
+  Permissions-Policy response headers
 - `pdf-autofiller-api` listens on `127.0.0.1` by default. The README's
   auth-off command was the one local path that still bound every interface.
   Set `API_HOST=0.0.0.0` to expose that process. Docker is unchanged: the
@@ -17,6 +20,11 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- The playground previews original and filled PDFs, announces asynchronous
+  status changes, supports keyboard upload, and blocks incomplete downloads
+  until the user acknowledges the missing required fields
+- `BATCH_MAX_RESPONSE_BYTES` bounds the aggregate generated PDF bytes returned
+  by `/batch` (25 MiB by default)
 - `fill_batch` and `pdf-autofiller batch` fill one template for every object
   in a JSON array, JSONL file, or CSV. Each success is its own PDF. A failed
   row is reported and the rest continue unless `--stop-on-error` is set. The
@@ -34,6 +42,9 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- `/health` returns HTTP 503 when authentication is enabled without a token,
+  so deployment health checks reject that unusable configuration
+- `/fill` honors `q` quality values when negotiating JSON versus PDF responses
 - The Docker image uses `python:3.15-slim`. Runtime and CI pins that had
   no wheel for that interpreter move with it: `pydantic` 2.14.4,
   `pydantic-core` 2.50.5, `jiter` 0.19.0, `librt` 0.17.0, `PyYAML` 6.0.4,

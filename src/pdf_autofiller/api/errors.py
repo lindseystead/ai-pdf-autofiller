@@ -39,6 +39,7 @@ ERROR_CATALOG: dict[str, tuple[int, str]] = {
     "invalid_user_data_type": (422, "user_data must be a JSON object"),
     "invalid_records": (422, "Records could not be parsed"),
     "too_many_records": (422, "Too many records in one batch"),
+    "batch_output_too_large": (413, "Generated batch PDFs exceed the response size limit"),
     "unsupported_media_type": (415, "Expected a PDF upload"),
     "invalid_pdf_signature": (415, "Uploaded file is not a valid PDF"),
     "payload_too_large": (413, "PDF exceeds MAX_UPLOAD_BYTES limit"),

@@ -102,11 +102,44 @@ def _wants_json_fill_report(request: Request) -> bool:
     accept = request.headers.get("accept", "")
     if not accept:
         return False
-    # Explicit JSON without PDF wins; otherwise keep binary PDF as default.
-    parts = [part.strip().split(";")[0].lower() for part in accept.split(",")]
-    if "application/json" in parts and "application/pdf" not in parts:
-        return True
-    return bool(parts and parts[0] == "application/json")
+
+    def quality(media_type: str) -> tuple[float, int]:
+        best = (0.0, len(accept))
+        best_specificity = -1
+        target_type, _target_subtype = media_type.split("/", 1)
+        for index, raw_part in enumerate(accept.split(",")):
+            sections = [section.strip() for section in raw_part.split(";")]
+            candidate = sections[0].lower()
+            matches = candidate in {media_type, f"{target_type}/*", "*/*"}
+            if not matches:
+                continue
+            q = 1.0
+            for parameter in sections[1:]:
+                name, separator, value = parameter.partition("=")
+                if separator and name.strip().lower() == "q":
+                    try:
+                        q = max(0.0, min(1.0, float(value.strip())))
+                    except ValueError:
+                        q = 0.0
+            specificity = 2 if candidate == media_type else 1 if candidate.endswith("/*") else 0
+            # Exact entries must override wildcards even when they explicitly
+            # reject a representation with q=0.
+            if specificity > best_specificity or (
+                specificity == best_specificity and (q > best[0] or (q == best[0] and index < best[1]))
+            ):
+                best = (q, index)
+                best_specificity = specificity
+        return best
+
+    json_quality, json_index = quality("application/json")
+    pdf_quality, pdf_index = quality("application/pdf")
+    if json_quality <= 0:
+        return False
+    if json_quality != pdf_quality:
+        return json_quality > pdf_quality
+    if json_index == pdf_index:
+        return False  # wildcard-only ties keep the binary PDF default
+    return json_index < pdf_index
 
 
 def _audit_log_fill(
@@ -254,7 +287,7 @@ def playground_page() -> HTMLResponse:
 
 
 @router.get("/health", response_model=HealthResponse)
-def health() -> HealthResponse:
+def health(response: Response) -> HealthResponse:
     checks = {
         "auth": (
             "enabled"
@@ -268,6 +301,8 @@ def health() -> HealthResponse:
         **alias_pack_status(),
     }
     status = "ok" if checks["auth"] != "misconfigured" else "degraded"
+    if status == "degraded":
+        response.status_code = 503
     return HealthResponse(
         status=status,
         service="pdf-autofiller",
@@ -544,6 +579,7 @@ async def fill(
         *MUTATING_ERROR_CODES,
         "invalid_records",
         "too_many_records",
+        "batch_output_too_large",
         "user_data_too_deep",
         "conflicting_options",
         "pdf_batch_failed",
@@ -632,6 +668,19 @@ async def batch_pdf(
                         allow_partial=allow_partial,
                     )
             items: list[BatchItemResponse] = []
+            generated_bytes = sum(
+                Path(item.output).stat().st_size for item in report.items if item.output and not dry_run
+            )
+            if generated_bytes > config.BATCH_MAX_RESPONSE_BYTES:
+                raise api_error(
+                    status_code=413,
+                    code="batch_output_too_large",
+                    message=ERROR_CATALOG["batch_output_too_large"][1],
+                    details={
+                        "generated_bytes": generated_bytes,
+                        "max_response_bytes": config.BATCH_MAX_RESPONSE_BYTES,
+                    },
+                )
             for item in report.items:
                 pdf_b64 = None
                 filename = Path(item.output).name if item.output else None

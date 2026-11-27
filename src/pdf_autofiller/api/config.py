@@ -14,6 +14,13 @@ API_AUTH_ENABLED = os.getenv("API_AUTH_ENABLED", "true").lower() == "true"
 API_AUTH_TOKEN = os.getenv("API_AUTH_TOKEN", "")
 API_KEY_HEADER = os.getenv("API_KEY_HEADER", "X-API-Key")
 MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(5 * 1024 * 1024)))
+# Bound the aggregate binary payload returned by /batch. Base64 adds roughly
+# one third on the wire, so this limit is checked against the source PDF bytes
+# before the response object is assembled in memory.
+BATCH_MAX_RESPONSE_BYTES = max(
+    1,
+    int(os.getenv("BATCH_MAX_RESPONSE_BYTES", str(25 * 1024 * 1024))),
+)
 # Room in a request body for the multipart envelope and the user_data part on
 # top of the PDF itself; requests larger than MAX_UPLOAD_BYTES + this are cut off.
 FORM_OVERHEAD_BYTES = 1024 * 1024
