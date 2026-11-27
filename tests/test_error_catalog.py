@@ -9,6 +9,7 @@ def test_error_catalog_covers_documented_codes():
         "request_validation_error",
         "invalid_user_data_json",
         "invalid_user_data_type",
+        "invalid_field_mapping",
         "invalid_records",
         "too_many_records",
         "batch_output_too_large",
@@ -27,6 +28,7 @@ def test_error_catalog_covers_documented_codes():
         "pdf_fill_failed",
         "pdf_preview_failed",
         "pdf_inspect_failed",
+        "pdf_template_failed",
         "pdf_batch_failed",
         "sample_not_found",
     }

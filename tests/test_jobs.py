@@ -103,6 +103,12 @@ def _raise_unresolved() -> None:
     raise UnresolvedRequiredFieldsError(missing_fields=["txtSSN"], skipped_fields=["txtDOB"])
 
 
+def _raise_field_mapping() -> None:
+    from pdf_autofiller.errors import FieldMappingError
+
+    raise FieldMappingError("stale mapping")
+
+
 def _raise_missing_file() -> None:
     raise FileNotFoundError("Input PDF not found: /nope.pdf")
 
@@ -122,6 +128,7 @@ def test_process_backend_rebuilds_each_library_error_with_its_details(monkeypatc
         UnresolvedRequiredFieldsError,
         UserDataTooDeepError,
     )
+    from pdf_autofiller.errors import FieldMappingError
 
     monkeypatch.setenv("PDF_JOB_BACKEND", "process")
 
@@ -131,6 +138,8 @@ def test_process_backend_rebuilds_each_library_error_with_its_details(monkeypatc
         jobs.execute_pdf_job(_raise_too_deep, timeout_seconds=30.0)
     with pytest.raises(UnresolvedRequiredFieldsError) as unresolved:
         jobs.execute_pdf_job(_raise_unresolved, timeout_seconds=30.0)
+    with pytest.raises(FieldMappingError, match="stale mapping"):
+        jobs.execute_pdf_job(_raise_field_mapping, timeout_seconds=30.0)
 
     assert deep.value.max_depth == 16
     assert (unresolved.value.missing_fields, unresolved.value.skipped_fields) == (["txtSSN"], ["txtDOB"])

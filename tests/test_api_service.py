@@ -355,6 +355,20 @@ def test_preview_endpoint_returns_mapping_decisions():
     assert "extra" in payload["unmapped_user_keys"]
 
 
+def test_template_endpoint_returns_starter_data_and_exact_mapping():
+    sample = Path("samples/sample_form.pdf")
+    response = client.post(
+        "/template",
+        files={"pdf_file": (sample.name, sample.read_bytes(), "application/pdf")},
+    )
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["example"]["first_name"] == ""
+    assert "first_name" in payload["required_keys"]
+    first = next(field for field in payload["fields"] if field["field_name"] == "txtFirstName")
+    assert first["key"] == "first_name"
+
+
 def test_preview_endpoint_rejects_invalid_json():
     response = client.post(
         "/preview",
@@ -363,6 +377,33 @@ def test_preview_endpoint_rejects_invalid_json():
     )
     assert response.status_code == 422
     assert response.json()["detail"]["error"]["code"] == "invalid_user_data_json"
+
+
+def test_preview_endpoint_applies_explicit_field_mapping():
+    sample = Path("samples/sample_form.pdf")
+    response = client.post(
+        "/preview",
+        files={"pdf_file": (sample.name, sample.read_bytes(), "application/pdf")},
+        data={
+            "user_data": '{"legal_name":"Jane","lastname":"Doe","dob":"1990-01-01"}',
+            "field_mapping": '{"txtFirstName":"legal_name"}',
+        },
+    )
+    assert response.status_code == 200, response.text
+    first = next(d for d in response.json()["decisions"] if d["field_name"] == "txtFirstName")
+    assert first["selected_value"] == "Jane"
+    assert first["reason"] == "Explicit field mapping from 'legal_name'"
+
+
+@pytest.mark.parametrize("raw", ["[]", '{"txtFirstName": 1}', "{invalid"])
+def test_preview_endpoint_rejects_invalid_field_mapping(raw):
+    response = client.post(
+        "/preview",
+        files={"pdf_file": ("input.pdf", _minimal_pdf_bytes(), "application/pdf")},
+        data={"user_data": "{}", "field_mapping": raw},
+    )
+    assert response.status_code == 422
+    assert response.json()["detail"]["error"]["code"] == "invalid_field_mapping"
 
 
 def test_fill_endpoint_accepts_flatten_flag():

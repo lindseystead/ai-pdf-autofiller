@@ -4,27 +4,27 @@ from __future__ import annotations
 
 import asyncio
 import base64
-import json
 import logging
 import tempfile
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import Literal, cast
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from starlette.background import BackgroundTask
 
 from pdf_autofiller import __version__
-from pdf_autofiller.errors import RecordsError
+from pdf_autofiller.errors import BatchOutputLimitError, FieldMappingError, RecordsError
 from pdf_autofiller.field_utils import is_opaque_field_name
 from pdf_autofiller.mapping import alias_pack_status
-from pdf_autofiller.models import FillReport
+from pdf_autofiller.models import FillReport, FillTemplate
 from pdf_autofiller.pdf_reader import InvalidPdfError, PdfPageLimitError
 from pdf_autofiller.pdf_writer import UnresolvedRequiredFieldsError
 from pdf_autofiller.pipeline import (
     fill_batch,
+    fill_template,
     preview_batch,
     run_fill_pipeline,
     run_preview_pipeline,
@@ -35,7 +35,6 @@ from pdf_autofiller.pipeline import (
 )
 from pdf_autofiller.playground import PLAYGROUND_HTML
 from pdf_autofiller.records import MAX_RECORDS_BYTES, parse_records
-from pdf_autofiller.user_data import UserDataTooDeepError, validate_user_data_depth
 
 from . import config
 from .errors import (
@@ -45,6 +44,7 @@ from .errors import (
     openapi_error_responses,
 )
 from .jobs import execute_pdf_job
+from .request_parsing import parse_field_mapping, parse_user_data
 from .schemas import (
     BatchItemResponse,
     BatchResponse,
@@ -227,6 +227,22 @@ def _pdf_job_errors() -> Iterator[None]:
             message="PDF could not be parsed",
             details={"reason": str(exc)},
         ) from exc
+    except FieldMappingError as exc:
+        raise api_error(
+            status_code=422,
+            code="invalid_field_mapping",
+            message=str(exc),
+        ) from exc
+    except BatchOutputLimitError as exc:
+        raise api_error(
+            status_code=413,
+            code="batch_output_too_large",
+            message=ERROR_CATALOG["batch_output_too_large"][1],
+            details={
+                "generated_bytes": exc.generated_bytes,
+                "max_response_bytes": exc.max_bytes,
+            },
+        ) from exc
 
 
 def _require_consistent_options(*, strict: bool, allow_fallback_mapping: bool) -> None:
@@ -236,42 +252,6 @@ def _require_consistent_options(*, strict: bool, allow_fallback_mapping: bool) -
             code="conflicting_options",
             message=ERROR_CATALOG["conflicting_options"][1],
         )
-
-
-def _parse_user_data(user_data: str) -> dict[str, Any]:
-    try:
-        parsed = json.loads(user_data)
-    except RecursionError as exc:
-        # The stdlib parser recurses per nesting level; pathological input
-        # exhausts the stack before any depth check can run.
-        raise api_error(
-            status_code=422,
-            code="user_data_too_deep",
-            message="user_data is nested too deeply",
-        ) from exc
-    except json.JSONDecodeError as exc:
-        raise api_error(
-            status_code=422,
-            code="invalid_user_data_json",
-            message="Invalid user_data JSON",
-            details={"reason": str(exc)},
-        ) from exc
-    if not isinstance(parsed, dict):
-        raise api_error(
-            status_code=422,
-            code="invalid_user_data_type",
-            message="user_data must be a JSON object",
-        )
-    try:
-        validate_user_data_depth(parsed)
-    except UserDataTooDeepError as exc:
-        raise api_error(
-            status_code=422,
-            code="user_data_too_deep",
-            message="user_data is nested too deeply",
-            details={"max_depth": exc.max_depth},
-        ) from exc
-    return parsed
 
 
 @router.get("/")
@@ -383,6 +363,30 @@ async def inspect_pdf(
 
 
 @router.post(
+    "/template",
+    response_model=FillTemplate,
+    responses=openapi_error_responses(*MUTATING_ERROR_CODES, "pdf_template_failed"),
+)
+async def template_pdf(pdf_file: UploadFile = File(...)) -> FillTemplate:
+    """Generate starter JSON and an editable exact mapping for an uploaded PDF."""
+    temp_dir = tempfile.TemporaryDirectory(prefix="pdf-autofiller-template-")
+    try:
+        with _unexpected_errors("pdf_template_failed"):
+            input_path = await _save_pdf_upload(pdf_file, temp_dir)
+            with _pdf_job_errors():
+                return await asyncio.to_thread(
+                    execute_pdf_job,
+                    fill_template,
+                    input_path,
+                    timeout_seconds=config.PDF_READ_TIMEOUT_SECONDS,
+                    max_pages=config.MAX_PDF_PAGES,
+                )
+    finally:
+        temp_dir.cleanup()
+        await pdf_file.close()
+
+
+@router.post(
     "/preview",
     response_model=PreviewResponse,
     responses=openapi_error_responses(
@@ -390,6 +394,7 @@ async def inspect_pdf(
         "invalid_user_data_json",
         "invalid_user_data_type",
         "user_data_too_deep",
+        "invalid_field_mapping",
         "conflicting_options",
         "pdf_preview_failed",
     ),
@@ -406,13 +411,18 @@ async def preview_pdf(
     ),
     allow_fallback_mapping: bool = Form(False),
     use_semantic_inference: bool = Form(False),
+    field_mapping: str = Form(
+        "{}",
+        description="JSON object mapping exact PDF field names to user_data keys",
+    ),
 ) -> PreviewResponse:
     """Return mapping decisions without writing a PDF (inspect → map debug loop)."""
     temp_dir = tempfile.TemporaryDirectory(prefix="pdf-autofiller-preview-")
     try:
         with _unexpected_errors("pdf_preview_failed"):
             _require_consistent_options(strict=strict, allow_fallback_mapping=allow_fallback_mapping)
-            parsed_user_data = _parse_user_data(user_data)
+            parsed_user_data = parse_user_data(user_data)
+            parsed_field_mapping = parse_field_mapping(field_mapping)
             input_path = await _save_pdf_upload(pdf_file, temp_dir)
             with _pdf_job_errors():
                 mapping_result, field_count, page_count = await asyncio.to_thread(
@@ -425,6 +435,7 @@ async def preview_pdf(
                     allow_fallback_mapping=allow_fallback_mapping,
                     use_semantic_inference=use_semantic_inference,
                     max_pages=config.MAX_PDF_PAGES,
+                    field_mapping=parsed_field_mapping,
                 )
             return PreviewResponse(
                 pages=page_count,
@@ -458,6 +469,7 @@ async def preview_pdf(
             "invalid_user_data_json",
             "invalid_user_data_type",
             "user_data_too_deep",
+            "invalid_field_mapping",
             "conflicting_options",
             "required_fields_unresolved",
             "pdf_fill_failed",
@@ -492,6 +504,10 @@ async def fill(
             "they are listed in missing_required_fields / X-PDF-Fields-Missing-Required."
         ),
     ),
+    field_mapping: str = Form(
+        "{}",
+        description="JSON object mapping exact PDF field names to user_data keys",
+    ),
 ) -> Response:
     """Fill a PDF form from uploaded file and user data."""
     temp_dir = tempfile.TemporaryDirectory(prefix="pdf-autofiller-")
@@ -499,7 +515,8 @@ async def fill(
     try:
         with _unexpected_errors("pdf_fill_failed"):
             _require_consistent_options(strict=strict, allow_fallback_mapping=allow_fallback_mapping)
-            parsed_user_data = _parse_user_data(user_data)
+            parsed_user_data = parse_user_data(user_data)
+            parsed_field_mapping = parse_field_mapping(field_mapping)
             input_path = await _save_pdf_upload(pdf_file, temp_dir)
             output_path = input_path.with_name("output_filled.pdf")
 
@@ -518,6 +535,7 @@ async def fill(
                     flatten=flatten,
                     need_appearances=need_appearances,
                     allow_partial=allow_partial,
+                    field_mapping=parsed_field_mapping,
                 )
 
             wants_json = _wants_json_fill_report(request)
@@ -581,6 +599,7 @@ async def fill(
         "too_many_records",
         "batch_output_too_large",
         "user_data_too_deep",
+        "invalid_field_mapping",
         "conflicting_options",
         "pdf_batch_failed",
     ),
@@ -599,6 +618,10 @@ async def batch_pdf(
     flatten: bool = Form(False),
     need_appearances: bool = Form(True),
     allow_partial: bool = Form(False),
+    field_mapping: str = Form(
+        "{}",
+        description="JSON object mapping exact PDF field names to record keys",
+    ),
 ) -> BatchResponse:
     """Fill one template for every record. One failed row does not hide the others."""
     del request
@@ -624,6 +647,7 @@ async def batch_pdf(
                     message="Records exceed the 1 MiB batch text limit",
                 )
             _require_consistent_options(strict=strict, allow_fallback_mapping=allow_fallback_mapping)
+            parsed_field_mapping = parse_field_mapping(field_mapping)
             fmt = cast(Literal["json", "jsonl", "csv"], records_format)
             mode = cast(Literal["continue", "stop"], on_error)
             try:
@@ -648,6 +672,7 @@ async def batch_pdf(
                         use_semantic_inference=use_semantic_inference,
                         max_pages=config.MAX_PDF_PAGES,
                         allow_partial=allow_partial,
+                        field_mapping=parsed_field_mapping,
                     )
                 else:
                     report = await asyncio.to_thread(
@@ -666,6 +691,8 @@ async def batch_pdf(
                         flatten=flatten,
                         need_appearances=need_appearances,
                         allow_partial=allow_partial,
+                        field_mapping=parsed_field_mapping,
+                        max_output_bytes=config.BATCH_MAX_RESPONSE_BYTES,
                     )
             items: list[BatchItemResponse] = []
             generated_bytes = sum(

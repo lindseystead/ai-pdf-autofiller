@@ -11,7 +11,7 @@ from pypdf import PdfReader
 
 from pdf_autofiller import fill_batch
 from pdf_autofiller.cli import main
-from pdf_autofiller.errors import PdfAutofillerError
+from pdf_autofiller.errors import BatchOutputLimitError, PdfAutofillerError
 
 SAMPLE = Path("samples/sample_form.pdf")
 
@@ -34,6 +34,19 @@ def test_fill_batch_writes_one_pdf_per_record(tmp_path: Path):
     assert report.failed == 0
     assert _values(tmp_path / "Doe.pdf")["txtFirstName"] == "Jane"
     assert _values(tmp_path / "Lee.pdf")["txtLastName"] == "Lee"
+
+
+def test_fill_batch_stops_as_soon_as_aggregate_output_limit_is_crossed(tmp_path: Path):
+    with pytest.raises(BatchOutputLimitError) as raised:
+        fill_batch(
+            SAMPLE,
+            [{"firstname": "Jane", "lastname": "Doe", "dob": "1990-01-01"}],
+            tmp_path,
+            max_output_bytes=1,
+        )
+
+    assert raised.value.generated_bytes > raised.value.max_bytes
+    assert list(tmp_path.glob("*.pdf")) == []
 
 
 def test_fill_batch_keeps_going_when_one_record_is_incomplete(tmp_path: Path):

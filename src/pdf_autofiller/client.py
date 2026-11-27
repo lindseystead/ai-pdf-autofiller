@@ -111,6 +111,24 @@ class PDFAutofillerClient:
             )
         return payload
 
+    def template(self, pdf: str | Path | bytes, *, filename: str | None = None) -> dict[str, Any]:
+        """Generate starter JSON and an exact field mapping via ``POST /template``."""
+        files, _name = self._pdf_upload(pdf, filename=filename)
+        with self._client() as http:
+            response = http.post(
+                f"{self.base_url}/template",
+                headers=self._headers(),
+                files=files,
+            )
+        if response.status_code != 200:
+            self._raise_api_error(response)
+        payload = response.json()
+        if not isinstance(payload, dict):
+            raise PDFAutofillerClientError(
+                500, "invalid_response", "Template endpoint returned non-object JSON"
+            )
+        return payload
+
     def preview(
         self,
         pdf: str | Path | bytes,
@@ -119,6 +137,7 @@ class PDFAutofillerClient:
         strict: bool = True,
         allow_fallback_mapping: bool = False,
         use_semantic_inference: bool = False,
+        field_mapping: dict[str, str] | None = None,
         filename: str | None = None,
     ) -> dict[str, Any]:
         """Return mapping decisions via ``POST /preview`` (no PDF write)."""
@@ -128,6 +147,7 @@ class PDFAutofillerClient:
             "strict": str(strict).lower(),
             "allow_fallback_mapping": str(allow_fallback_mapping).lower(),
             "use_semantic_inference": str(use_semantic_inference).lower(),
+            "field_mapping": json.dumps(field_mapping or {}),
         }
         with self._client() as http:
             response = http.post(
@@ -156,6 +176,7 @@ class PDFAutofillerClient:
         flatten: bool = False,
         need_appearances: bool = True,
         allow_partial: bool = False,
+        field_mapping: dict[str, str] | None = None,
         filename: str | None = None,
         accept: str = "application/pdf",
     ) -> tuple[bytes | dict[str, Any], dict[str, str]]:
@@ -175,6 +196,7 @@ class PDFAutofillerClient:
             "flatten": str(flatten).lower(),
             "need_appearances": str(need_appearances).lower(),
             "allow_partial": str(allow_partial).lower(),
+            "field_mapping": json.dumps(field_mapping or {}),
         }
         headers = self._headers()
         headers["Accept"] = accept
@@ -240,6 +262,7 @@ class PDFAutofillerClient:
         flatten: bool = False,
         need_appearances: bool = True,
         allow_partial: bool = False,
+        field_mapping: dict[str, str] | None = None,
         filename: str | None = None,
     ) -> dict[str, Any]:
         """Fill every record via ``POST /batch``. A list is sent as a JSON array."""
@@ -261,6 +284,7 @@ class PDFAutofillerClient:
             "flatten": str(flatten).lower(),
             "need_appearances": str(need_appearances).lower(),
             "allow_partial": str(allow_partial).lower(),
+            "field_mapping": json.dumps(field_mapping or {}),
         }
         with self._client() as http:
             response = http.post(

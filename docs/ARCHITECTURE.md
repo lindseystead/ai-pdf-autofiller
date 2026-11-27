@@ -26,7 +26,7 @@ api/ ───┘    (api/jobs.py runs each pipeline call in a killable worker p
 | `models.py` | Pydantic contracts between stages: `MappingResult`, `FieldMappingDecision`, `FillReport` |
 | `cli.py`, `__main__.py` | `pdf-autofiller inspect`, `preview`, `fill`, and `batch` (also `python -m pdf_autofiller`). Expected failures surface as `PdfAutofillerError`, which the CLI prints as one line |
 | `client.py` | HTTP client for a remote server |
-| `api/` | FastAPI app: routes, upload guard middleware, auth and rate limits, error catalog, job runner |
+| `api/` | FastAPI app: routes, multipart parsers, upload guard middleware, auth and rate limits, error catalog, job runner |
 | `api_service.py` | ASGI entrypoint (`pdf_autofiller.api_service:app`). `pdf-autofiller-api` calls `run()`, which binds `127.0.0.1` unless `API_HOST` is set |
 | `playground.py`, `static/` | The browser test page served at `/playground` |
 
@@ -97,6 +97,7 @@ What the AI can and cannot do:
 | `GET` | `/version` | Service name and version |
 | `GET` | `/samples/sample_form.pdf` | Bundled sample form (unauthenticated) |
 | `POST` | `/inspect` | Field inventory |
+| `POST` | `/template` | Starter JSON plus an editable exact PDF-field → JSON-key mapping |
 | `POST` | `/preview` | Mapping decisions without writing a PDF |
 | `POST` | `/fill` | Filled PDF, or a JSON report with `pdf_base64` when `Accept: application/json` |
 | `POST` | `/batch` | One PDF plus JSON, JSONL, or CSV. One result per row. `dry_run` returns no PDF bytes |
@@ -104,6 +105,10 @@ What the AI can and cannot do:
 Upload routes check auth, rate limits and body size before the body is read
 (`api/middleware.py`), and every pipeline call runs in a separate process that is killed at
 the timeout (`api/jobs.py`).
+
+`field_mapping` is an optional JSON object accepted by preview, fill, and batch. It lets a
+reviewed mapping override heuristics deterministically. Unknown PDF fields or missing data keys
+fail with `422 invalid_field_mapping`, so a stale saved profile cannot silently misroute values.
 
 ## Extension points
 

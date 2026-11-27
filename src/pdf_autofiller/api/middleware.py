@@ -17,7 +17,7 @@ from . import config
 from .errors import api_error
 from .security import guard_mutating_request
 
-UPLOAD_PATHS = frozenset({"/fill", "/preview", "/inspect", "/batch"})
+UPLOAD_PATHS = frozenset({"/fill", "/preview", "/inspect", "/template", "/batch"})
 
 
 class JsonLogFormatter(logging.Formatter):

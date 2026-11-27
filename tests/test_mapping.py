@@ -5,6 +5,7 @@ import json
 import pytest
 
 from pdf_autofiller import mapping as mapping_module
+from pdf_autofiller.errors import FieldMappingError
 from pdf_autofiller.mapping import (
     coerce_value,
     expected_type_for_semantic,
@@ -201,6 +202,38 @@ def test_map_user_data_to_fields_success(sample_enriched_fields):
     dob_decision = next(d for d in result.decisions if d.field_name == "txtDOB")
     assert dob_decision.selected_value == "1990-05-15"
     assert dob_decision.requires_review is False
+
+
+def test_explicit_field_mapping_overrides_automatic_matching(sample_enriched_fields):
+    result = map_user_data_to_fields(
+        sample_enriched_fields,
+        {"legal_name": "Jane", "firstname": "Wrong", "lastname": "Doe", "dob": "1990-05-15"},
+        strict=True,
+        field_mapping={"txtFirstName": "legal_name"},
+    )
+
+    first = next(d for d in result.decisions if d.field_name == "txtFirstName")
+    assert first.selected_value == "Jane"
+    assert first.confidence == 1.0
+    assert first.reason == "Explicit field mapping from 'legal_name'"
+    assert "legal_name" not in result.unmapped_user_keys
+
+
+@pytest.mark.parametrize(
+    ("mapping", "message"),
+    [
+        ({"not-a-pdf-field": "firstname"}, "unknown PDF field"),
+        ({"txtFirstName": "missing-key"}, "missing user data key"),
+    ],
+)
+def test_explicit_field_mapping_rejects_stale_profiles(sample_enriched_fields, mapping, message):
+    with pytest.raises(FieldMappingError, match=message):
+        map_user_data_to_fields(
+            sample_enriched_fields,
+            {"firstname": "Jane"},
+            strict=True,
+            field_mapping=mapping,
+        )
 
 
 def test_map_user_data_to_fields_missing_required(sample_enriched_fields):

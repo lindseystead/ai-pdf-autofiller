@@ -23,6 +23,7 @@ from .aliases import (
     get_default_registry,
     normalize_key,
 )
+from .errors import FieldMappingError
 from .field_semantics import SemanticClient, strip_json_code_fence
 from .field_utils import opaque_mapping_hints
 from .models import (
@@ -348,6 +349,7 @@ def map_user_data_to_fields(
     allow_fallback_mapping: bool = False,
     registry: AliasRegistry | None = None,
     use_semantic_inference: bool = False,
+    field_mapping: dict[str, str] | None = None,
 ) -> MappingResult:
     """
     Map user-provided structured data to PDF form fields.
@@ -360,6 +362,18 @@ def map_user_data_to_fields(
     used_user_keys: set[str] = set()
     active = registry or get_default_registry()
     flat = flatten_user_data(user_data)
+    candidates_with_leaves = flat.candidates()
+
+    explicit = field_mapping or {}
+    known_fields = {field.field.name for field in enriched_fields}
+    unknown_fields = sorted(set(explicit) - known_fields)
+    if unknown_fields:
+        raise FieldMappingError("field_mapping references unknown PDF field(s): " + ", ".join(unknown_fields))
+    missing_keys = sorted({key for key in explicit.values() if key not in candidates_with_leaves})
+    if missing_keys:
+        raise FieldMappingError(
+            "field_mapping references missing user data key(s): " + ", ".join(missing_keys)
+        )
 
     # Pass 1: user keys that address a field by its full path claim it, so the
     # same value cannot also fill a sibling field through a leaf or alias
@@ -367,6 +381,24 @@ def map_user_data_to_fields(
     # index -> (matched user key, full match tuple)
     matches: dict[int, tuple[str, tuple[str | None, str | None, float, str, bool]]] = {}
     for index, enriched_field in enumerate(enriched_fields):
+        explicit_key = explicit.get(enriched_field.field.name)
+        if explicit_key is not None:
+            value, requires_review = coerce_for_field(
+                candidates_with_leaves[explicit_key],
+                enriched_field.semantics.expected_data_type,
+                enriched_field.field.field_type,
+            )
+            matches[index] = (
+                explicit_key,
+                (
+                    explicit_key,
+                    value,
+                    1.0,
+                    f"Explicit field mapping from '{explicit_key}'",
+                    requires_review,
+                ),
+            )
+            continue
         match = match_field_name(
             enriched_field.field.name,
             flat.values,
@@ -375,10 +407,10 @@ def map_user_data_to_fields(
         )
         if match[0]:
             matches[index] = (match[0], match)
-    claimed = {key for key, _ in matches.values()}
+    claimed = {flat.source_key(key) for key, _ in matches.values()}
     ai_assisted: set[int] = set()
     candidates = {
-        key: value for key, value in flat.candidates().items() if flat.source_key(key) not in claimed
+        key: value for key, value in candidates_with_leaves.items() if flat.source_key(key) not in claimed
     }
 
     # Pass 2: everything else matches by name, semantic or alias.

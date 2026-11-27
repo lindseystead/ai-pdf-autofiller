@@ -12,6 +12,15 @@ Serves the browser playground UI for trying fills without curl.
 
 The playground exposes checkboxes for `strict`, `allow_fallback_mapping` (AI key fallback), `use_semantic_inference` (AI field inference), `flatten`, `allow_partial`, and `need_appearances`. Use curl (or the SDK) when you need full control over form flags and headers.
 
+The playground can generate, edit, and save an exact field mapping. Saved mappings remain in
+the current browser and are keyed to a SHA-256 fingerprint of the PDF; form values are not stored.
+
+### `POST /template`
+
+Uploads one AcroForm PDF and returns starter JSON, required keys, and exact PDF-field to JSON-key
+pairs. Review or edit those pairs, then pass them as the `field_mapping` multipart field to
+`/preview`, `/fill`, or `/batch`.
+
 ### `GET /health`
 
 Returns service health metadata.
@@ -298,7 +307,7 @@ API errors return a JSON payload with a machine-readable code:
 }
 ```
 
-Canonical catalog (also exposed in OpenAPI on `/fill`, `/batch`, `/preview`, `/inspect`):
+Canonical catalog (also exposed in OpenAPI on `/fill`, `/batch`, `/preview`, `/inspect`, `/template`):
 
 | Code | HTTP | When |
 |------|------|------|
@@ -330,7 +339,7 @@ Source of truth in code: `pdf_autofiller.api.errors.ERROR_CATALOG`.
 
 ## Authentication
 
-Authentication applies to `POST /fill`, `POST /batch`, `POST /preview`, and `POST /inspect`. It is **enabled by default**
+Authentication applies to `POST /fill`, `POST /batch`, `POST /preview`, `POST /inspect`, and `POST /template`. It is **enabled by default**
 (`API_AUTH_ENABLED=true`) and can be disabled for trusted/local use by setting
 `API_AUTH_ENABLED=false`.
 

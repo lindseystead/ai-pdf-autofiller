@@ -12,6 +12,19 @@ class ConflictingOptionsError(PdfAutofillerError, ValueError):
     """
 
 
+class FieldMappingError(PdfAutofillerError, ValueError):
+    """A caller-provided PDF-field to user-data-key mapping is invalid."""
+
+
+class BatchOutputLimitError(PdfAutofillerError):
+    """A batch stopped before its generated files exceeded an aggregate limit."""
+
+    def __init__(self, generated_bytes: int, max_bytes: int):
+        self.generated_bytes = generated_bytes
+        self.max_bytes = max_bytes
+        super().__init__(f"batch output would exceed {max_bytes} bytes")
+
+
 class RecordsError(PdfAutofillerError, ValueError):
     """A batch input (JSON array, JSONL, or CSV) cannot be used.
 

@@ -37,6 +37,7 @@ ERROR_CATALOG: dict[str, tuple[int, str]] = {
     "request_validation_error": (422, "Request validation failed"),
     "invalid_user_data_json": (422, "Invalid user_data JSON"),
     "invalid_user_data_type": (422, "user_data must be a JSON object"),
+    "invalid_field_mapping": (422, "field_mapping must map PDF field names to user data keys"),
     "invalid_records": (422, "Records could not be parsed"),
     "too_many_records": (422, "Too many records in one batch"),
     "batch_output_too_large": (413, "Generated batch PDFs exceed the response size limit"),
@@ -59,6 +60,7 @@ ERROR_CATALOG: dict[str, tuple[int, str]] = {
     "pdf_fill_failed": (500, "PDF fill failed"),
     "pdf_preview_failed": (500, "PDF preview failed"),
     "pdf_inspect_failed": (500, "PDF inspect failed"),
+    "pdf_template_failed": (500, "PDF template generation failed"),
     "pdf_batch_failed": (500, "PDF batch failed"),
     "sample_not_found": (404, "Sample PDF is not bundled in this deployment"),
 }

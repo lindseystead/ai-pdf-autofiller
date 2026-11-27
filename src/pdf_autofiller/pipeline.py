@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from .aliases import AliasRegistry
-from .errors import ConflictingOptionsError, PdfAutofillerError
+from .errors import BatchOutputLimitError, ConflictingOptionsError, PdfAutofillerError
 from .field_semantics import SemanticClient
 from .field_utils import field_leaf_name, is_opaque_field_name, opaque_mapping_hints
 from .mapping import (
@@ -169,6 +169,7 @@ def run_preview_pipeline(
     use_semantic_inference: bool = False,
     max_pages: int | None = None,
     registry: AliasRegistry | None = None,
+    field_mapping: dict[str, str] | None = None,
 ) -> tuple[MappingResult, int, int]:
     """Run extract → enrich → map without writing a PDF.
 
@@ -189,6 +190,7 @@ def run_preview_pipeline(
         allow_fallback_mapping=allow_fallback_mapping,
         use_semantic_inference=use_semantic_inference,
         registry=registry,
+        field_mapping=field_mapping,
     )
     return mapping_result, len(enriched_fields), structure.metadata.num_pages
 
@@ -202,6 +204,7 @@ def preview(
     use_semantic_inference: bool = False,
     max_pages: int | None = None,
     registry: AliasRegistry | None = None,
+    field_mapping: dict[str, str] | None = None,
 ) -> PreviewResult:
     """Preview mapping decisions locally without writing a PDF."""
     mapping_result, field_count, page_count = run_preview_pipeline(
@@ -212,6 +215,7 @@ def preview(
         use_semantic_inference=use_semantic_inference,
         max_pages=max_pages,
         registry=registry,
+        field_mapping=field_mapping,
     )
     return PreviewResult(pages=page_count, field_count=field_count, mapping=mapping_result)
 
@@ -229,6 +233,7 @@ def run_fill_pipeline(
     need_appearances: bool = True,
     allow_partial: bool = False,
     registry: AliasRegistry | None = None,
+    field_mapping: dict[str, str] | None = None,
 ) -> tuple[FillReport, MappingResult, int, int]:
     """Run extract → enrich → map → write.
 
@@ -249,6 +254,7 @@ def run_fill_pipeline(
         allow_fallback_mapping=allow_fallback_mapping,
         use_semantic_inference=use_semantic_inference,
         registry=registry,
+        field_mapping=field_mapping,
     )
     fill_report = fill_pdf(
         input_pdf_path,
@@ -279,6 +285,7 @@ def fill(
     need_appearances: bool = True,
     allow_partial: bool = False,
     registry: AliasRegistry | None = None,
+    field_mapping: dict[str, str] | None = None,
 ) -> FillReport:
     """
     Fill a PDF locally (no HTTP server required).
@@ -300,6 +307,7 @@ def fill(
         need_appearances=need_appearances,
         allow_partial=allow_partial,
         registry=registry,
+        field_mapping=field_mapping,
     )
     return report
 
@@ -317,6 +325,7 @@ def fill_detailed(
     need_appearances: bool = True,
     allow_partial: bool = False,
     registry: AliasRegistry | None = None,
+    field_mapping: dict[str, str] | None = None,
 ) -> FillOutcome:
     """Fill a PDF and return write report + mapping decisions together."""
     report, mapping, field_count, pages = run_fill_pipeline(
@@ -331,6 +340,7 @@ def fill_detailed(
         need_appearances=need_appearances,
         allow_partial=allow_partial,
         registry=registry,
+        field_mapping=field_mapping,
     )
     return FillOutcome(
         report=report,
@@ -434,6 +444,8 @@ def fill_batch(
     need_appearances: bool = True,
     allow_partial: bool = False,
     registry: AliasRegistry | None = None,
+    field_mapping: dict[str, str] | None = None,
+    max_output_bytes: int | None = None,
 ) -> BatchReport:
     """Fill one template for every record and write one PDF per success.
 
@@ -454,6 +466,7 @@ def fill_batch(
     destination.mkdir(parents=True, exist_ok=True)
     used_names: set[str] = set()
     items: list[BatchItem] = []
+    generated_bytes = 0
 
     for index, record in enumerate(records):
         filename = _batch_filename(index, record, filename_key, used_names)
@@ -471,6 +484,7 @@ def fill_batch(
                 need_appearances=need_appearances,
                 allow_partial=allow_partial,
                 registry=registry,
+                field_mapping=field_mapping,
             )
         except PdfAutofillerError as exc:
             if output.exists():
@@ -480,6 +494,10 @@ def fill_batch(
                 _write_batch_report(destination, items)
                 raise
             continue
+        generated_bytes += output.stat().st_size
+        if max_output_bytes is not None and generated_bytes > max_output_bytes:
+            output.unlink(missing_ok=True)
+            raise BatchOutputLimitError(generated_bytes, max_output_bytes)
         items.append(
             BatchItem(
                 index=index,
@@ -504,6 +522,7 @@ def preview_batch(
     max_pages: int | None = None,
     allow_partial: bool = False,
     registry: AliasRegistry | None = None,
+    field_mapping: dict[str, str] | None = None,
 ) -> BatchReport:
     """Map every record and report what a fill would do. Writes nothing."""
     if on_error not in {"continue", "stop"}:
@@ -524,6 +543,7 @@ def preview_batch(
                 use_semantic_inference=use_semantic_inference,
                 max_pages=max_pages,
                 registry=registry,
+                field_mapping=field_mapping,
             )
         except PdfAutofillerError as exc:
             items.append(BatchItem(index=index, error=str(exc)))

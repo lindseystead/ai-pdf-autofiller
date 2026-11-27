@@ -21,6 +21,7 @@ def test_playground_page_renders_html():
     assert 'id="fillBtn"' in response.text
     assert 'id="loadSamplePdfBtn"' in response.text
     assert 'id="inspectBtn"' in response.text
+    assert 'id="templateBtn"' in response.text
     assert 'id="previewBtn"' in response.text
     assert 'id="flatten"' in response.text
     assert 'id="needAppearances"' in response.text
@@ -30,6 +31,11 @@ def test_playground_page_renders_html():
     assert 'for="userData"' in response.text
     assert 'id="pdfPreview"' in response.text
     assert 'id="aiConsent"' in response.text
+    assert 'id="fieldMapping"' in response.text
+    assert 'id="saveMappingBtn"' in response.text
+    assert "crypto.subtle.digest('SHA-256'" in response.text
+    assert "localStorage.setItem(selectedPdfKey" in response.text
+    assert "form.append('field_mapping'" in response.text
     assert "X-PDF-Fields-Missing-Required" in response.text
     assert "URL.revokeObjectURL" in response.text
     assert '<button id="drop"' in response.text

@@ -64,6 +64,8 @@ def _process_target(
                             "num_pages",
                             "max_pages",
                             "max_depth",
+                            "generated_bytes",
+                            "max_bytes",
                         )
                         if hasattr(exc, key)
                     },
@@ -80,6 +82,18 @@ def _raise_serialized_error(payload: dict[str, Any]) -> None:
     err_type = payload.get("type", "RuntimeError")
     message = payload.get("message", "PDF job failed")
     attrs = payload.get("attrs") or {}
+
+    if err_type == "BatchOutputLimitError":
+        from pdf_autofiller.errors import BatchOutputLimitError
+
+        raise BatchOutputLimitError(
+            generated_bytes=int(attrs.get("generated_bytes") or 0),
+            max_bytes=int(attrs.get("max_bytes") or 0),
+        )
+    if err_type == "FieldMappingError":
+        from pdf_autofiller.errors import FieldMappingError
+
+        raise FieldMappingError(message)
 
     if err_type == "UnresolvedRequiredFieldsError":
         raise UnresolvedRequiredFieldsError(

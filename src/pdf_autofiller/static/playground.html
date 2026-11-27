@@ -69,6 +69,7 @@
       font: inherit;
     }
     textarea { min-height: 220px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9rem; }
+    textarea.compact { min-height: 110px; }
     .drop {
       border: 2px dashed var(--border);
       border-radius: 12px;
@@ -152,6 +153,7 @@
         <div class="row" style="margin-top:12px;">
           <button id="loadSamplePdfBtn" class="ghost" type="button">Use sample PDF</button>
           <button id="inspectBtn" class="ghost" type="button">Inspect fields</button>
+          <button id="templateBtn" class="ghost" type="button">Create starter mapping</button>
           <button id="previewBtn" class="ghost" type="button">Preview mapping</button>
         </div>
       </section>
@@ -171,6 +173,18 @@
   "zipcode": "62701"
 }</textarea>
         <p id="jsonHelp" class="privacy">Use a JSON object. Preview the mapping before filling sensitive forms.</p>
+        <label for="fieldMapping" style="margin-top:16px;">Saved field mapping (optional)</label>
+        <textarea id="fieldMapping" class="compact" spellcheck="false" aria-describedby="mappingHelp">{}</textarea>
+        <p id="mappingHelp" class="privacy">
+          Map exact PDF field names to JSON keys, for example
+          <code>{"txtFirstName":"firstname"}</code>. Profiles stay in this browser,
+          keyed to the PDF's content; values are never stored.
+        </p>
+        <div class="row" style="margin-top:8px;">
+          <button id="saveMappingBtn" class="ghost" type="button">Save mapping for this PDF</button>
+          <button id="loadMappingBtn" class="ghost" type="button">Reload saved mapping</button>
+          <button id="clearMappingBtn" class="ghost" type="button">Clear mapping</button>
+        </div>
         <div class="checks">
           <label><input type="checkbox" id="strict" checked /> Strict (disable AI key fallback)</label>
           <label><input type="checkbox" id="fallback" disabled aria-describedby="aiDisclosure" /> AI key fallback</label>
@@ -225,6 +239,7 @@
     const sampleBtn = document.getElementById('sampleBtn');
     const loadSamplePdfBtn = document.getElementById('loadSamplePdfBtn');
     const inspectBtn = document.getElementById('inspectBtn');
+    const templateBtn = document.getElementById('templateBtn');
     const previewBtn = document.getElementById('previewBtn');
     const statusEl = document.getElementById('status');
     const inspectOut = document.getElementById('inspectOut');
@@ -237,12 +252,17 @@
     const pdfPreviewLabel = document.getElementById('pdfPreviewLabel');
     const aiConsent = document.getElementById('aiConsent');
     const aiAvailability = document.getElementById('aiAvailability');
+    const fieldMapping = document.getElementById('fieldMapping');
+    const saveMappingBtn = document.getElementById('saveMappingBtn');
+    const loadMappingBtn = document.getElementById('loadMappingBtn');
+    const clearMappingBtn = document.getElementById('clearMappingBtn');
 
     let selectedFile = null;
     let downloadUrl = null;
     let previewUrl = null;
     let previewKind = null;
     let providerAvailable = false;
+    let selectedPdfKey = null;
 
     function setStatus(message, kind = '') {
       statusEl.className = 'status' + (kind ? ' ' + kind : '');
@@ -335,18 +355,43 @@
       if (fileInput.files.length) pickFile(fileInput.files[0]);
     });
 
-    function pickFile(file) {
+    async function pdfStorageKey(file) {
+      const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
+      const hex = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
+      return 'pdf-autofiller:mapping:' + hex;
+    }
+
+    function parseObject(text, label) {
+      const parsed = JSON.parse(text);
+      if (typeof parsed !== 'object' || Array.isArray(parsed) || parsed === null) {
+        throw new Error(label + ' must be a JSON object');
+      }
+      return parsed;
+    }
+
+    function loadSavedMapping() {
+      if (!selectedPdfKey) return false;
+      const saved = localStorage.getItem(selectedPdfKey);
+      if (!saved) return false;
+      fieldMapping.value = saved;
+      resetFilledResult();
+      return true;
+    }
+
+    async function pickFile(file) {
       if (!file.name.toLowerCase().endsWith('.pdf')) {
         setStatus('Please upload a PDF file.', 'err');
         return;
       }
       selectedFile = file;
+      selectedPdfKey = await pdfStorageKey(file);
       resetFilledResult();
       download.download = file.name.replace(/\.pdf$/i, '') + '_filled.pdf';
       fileName.textContent = file.name + ' (' + Math.round(file.size / 1024) + ' KB)';
       showPdf(file, 'original');
       setStatus('PDF ready. Click Fill PDF when your JSON looks good.');
       inspectOut.style.display = 'none';
+      if (loadSavedMapping()) setStatus('PDF ready. Its saved field mapping was loaded.');
     }
 
     sampleBtn.addEventListener('click', () => {
@@ -362,6 +407,7 @@
     });
 
     userData.addEventListener('input', resetFilledResult);
+    fieldMapping.addEventListener('input', resetFilledResult);
     apiKey.addEventListener('input', resetFilledResult);
     for (const option of document.querySelectorAll('.checks input')) {
       option.addEventListener('change', resetFilledResult);
@@ -372,6 +418,30 @@
     window.addEventListener('beforeunload', () => {
       if (downloadUrl) URL.revokeObjectURL(downloadUrl);
       if (previewUrl) URL.revokeObjectURL(previewUrl);
+    });
+
+    saveMappingBtn.addEventListener('click', () => {
+      if (!selectedPdfKey) {
+        setStatus('Choose a PDF before saving a field mapping.', 'err');
+        return;
+      }
+      try {
+        const normalized = JSON.stringify(parseObject(fieldMapping.value, 'Field mapping'), null, 2);
+        fieldMapping.value = normalized;
+        localStorage.setItem(selectedPdfKey, normalized);
+        setStatus('Field mapping saved in this browser for this exact PDF.', 'ok');
+      } catch (err) {
+        setStatus('Invalid field mapping: ' + err.message, 'err');
+      }
+    });
+    loadMappingBtn.addEventListener('click', () => {
+      setStatus(loadSavedMapping() ? 'Saved field mapping loaded.' : 'No mapping is saved for this PDF.');
+    });
+    clearMappingBtn.addEventListener('click', () => {
+      if (selectedPdfKey) localStorage.removeItem(selectedPdfKey);
+      fieldMapping.value = '{}';
+      resetFilledResult();
+      setStatus('Field mapping cleared.');
     });
 
     loadSamplePdfBtn.addEventListener('click', async () => {
@@ -428,6 +498,37 @@
       }
     });
 
+    templateBtn.addEventListener('click', async () => {
+      if (!selectedFile) {
+        setStatus('Upload a PDF first (or click Use sample PDF).', 'err');
+        return;
+      }
+      templateBtn.disabled = true;
+      setStatus('Creating starter data and field mapping…');
+      const form = new FormData();
+      form.append('pdf_file', selectedFile, selectedFile.name);
+      try {
+        const response = await fetch('/template', { method: 'POST', body: form, headers: authHeaders() });
+        const payload = await response.json();
+        if (!response.ok) {
+          setStatus(formatApiError(payload, response.status), 'err');
+          return;
+        }
+        userData.value = JSON.stringify(payload.example || {}, null, 2);
+        const mapping = {};
+        for (const field of payload.fields || []) {
+          if (field.key) mapping[field.field_name] = field.key;
+        }
+        fieldMapping.value = JSON.stringify(mapping, null, 2);
+        resetFilledResult();
+        setStatus('Starter mapping created. Add values, review the mapping, then save it for reuse.', 'ok');
+      } catch (err) {
+        setStatus('Network error: ' + err.message, 'err');
+      } finally {
+        templateBtn.disabled = false;
+      }
+    });
+
     previewBtn.addEventListener('click', async () => {
       if (!selectedFile) {
         setStatus('Upload a PDF first (or click Use sample PDF).', 'err');
@@ -435,10 +536,7 @@
       }
       let parsed;
       try {
-        parsed = JSON.parse(userData.value);
-        if (typeof parsed !== 'object' || Array.isArray(parsed) || parsed === null) {
-          throw new Error('JSON must be an object');
-        }
+        parsed = parseObject(userData.value, 'User data');
       } catch (err) {
         setStatus('Invalid JSON: ' + err.message, 'err');
         return;
@@ -448,6 +546,13 @@
       const form = new FormData();
       form.append('pdf_file', selectedFile, selectedFile.name);
       form.append('user_data', JSON.stringify(parsed));
+      try {
+        form.append('field_mapping', JSON.stringify(parseObject(fieldMapping.value, 'Field mapping')));
+      } catch (err) {
+        setStatus('Invalid field mapping: ' + err.message, 'err');
+        previewBtn.disabled = false;
+        return;
+      }
       form.append('strict', document.getElementById('strict').checked ? 'true' : 'false');
       form.append('allow_fallback_mapping', document.getElementById('fallback').checked ? 'true' : 'false');
       form.append('use_semantic_inference', document.getElementById('semantic').checked ? 'true' : 'false');
@@ -490,10 +595,7 @@
 
       let parsed;
       try {
-        parsed = JSON.parse(userData.value);
-        if (typeof parsed !== 'object' || Array.isArray(parsed) || parsed === null) {
-          throw new Error('JSON must be an object');
-        }
+        parsed = parseObject(userData.value, 'User data');
       } catch (err) {
         setStatus('Invalid JSON: ' + err.message, 'err');
         return;
@@ -506,6 +608,13 @@
       const form = new FormData();
       form.append('pdf_file', selectedFile, selectedFile.name);
       form.append('user_data', JSON.stringify(parsed));
+      try {
+        form.append('field_mapping', JSON.stringify(parseObject(fieldMapping.value, 'Field mapping')));
+      } catch (err) {
+        setStatus('Invalid field mapping: ' + err.message, 'err');
+        fillBtn.disabled = false;
+        return;
+      }
       form.append('strict', document.getElementById('strict').checked ? 'true' : 'false');
       form.append('allow_fallback_mapping', document.getElementById('fallback').checked ? 'true' : 'false');
       form.append('use_semantic_inference', document.getElementById('semantic').checked ? 'true' : 'false');
